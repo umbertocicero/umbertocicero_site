@@ -1,3 +1,6 @@
 p.bold {
     font-weight: bold;
 }
+span.through {
+	text-decoration: line-through;
+}
