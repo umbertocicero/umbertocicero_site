@@ -4,3 +4,16 @@ p.bold {
 span.through {
 	text-decoration: line-through;
 }
+i.fa-heart{
+    color: #ed1515;
+}
+.bg-primary {
+    background-color: #333b50!important;
+}
+.text-primary {
+    color: #00d646!important;
+}
+
+.list-social-icons a:hover {
+    color: #999da7;
+}
