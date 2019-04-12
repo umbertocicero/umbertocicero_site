@@ -2,7 +2,7 @@ window.onload = function(){
   // https://safi.me.uk/typewriterjs/
 
 	var i = 0;
-	var txt = ['Coding', 'Java', 'Gym', 'Arduino', 'Tennis', 'Soccer', 'Beer'];
+	var txt = ['Coding', 'Java', 'Gym', 'Wine & Beer', 'Arduino', 'Tennis', 'Soccer'];
 	var speed = 70;
 
 	var app = document.getElementById('typewriter');
