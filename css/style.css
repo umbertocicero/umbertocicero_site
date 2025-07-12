@@ -1,12 +1,178 @@
+/* Light mode styles */
+/* Light mode */
+:root {
+    --bg-color: #fff;
+    --link-color-def: #343a40;
+    --text-color: #343a40;
+    --primary-color: #00d646;
+    --toolbar-color: #4a5568;
+    --secondary-bg: #f8f9fa;
+}
+
+/* Dark mode */
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #ffffff;
+    --link-color-def: #343a40;
+    --toolbar-color: #4a5568;
+    --primary-color: #4a5568;
+    --secondary-bg: #2d2d2d;
+    --border-color: #4a4a4a;
+    --link-color: #63b3ed;
+    --hover-color: #90cdf4;
+}
+
+[data-theme="dark"] .bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+[data-theme="dark"] .text-primary {
+    color: var(--link-color) !important;
+}
+
+[data-theme="dark"] a {
+    color: var(--link-color);
+}
+
+[data-theme="dark"] a:hover {
+    color: var(--hover-color);
+}
+
+[data-theme="dark"] .resume-section {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .subheading {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .list-social-icons a:hover {
+    color: var(--hover-color);
+}
+
+[data-theme="dark"] .list-social-icons a {
+    color: var(--link-color-def);
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #f8f9fa;
+    --primary-color: #4a5568;
+    --secondary-bg: #2d2d2d;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+
 p.bold {
     font-weight: bold;
 }
+
 span.through {
-	text-decoration: line-through;
+    text-decoration: line-through;
 }
-i.fa-heart{
+
+i.fa-heart {
     color: #ed1515;
 }
-.bg-primary {
-    background-color: #333b50 !important;
+
+.navbar {
+    background-color: var(--toolbar-color) !important;
+}
+
+.theme-switch {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    padding: 0.5rem 1rem;
+}
+
+.mobile-theme-switch {
+    margin-left: auto;
+}
+
+.desktop-theme-switch {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+@media (min-width: 992px) {
+    .desktop-theme-switch {
+        margin-top: 2rem;
+    }
+}
+
+.theme-switch:hover {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.theme-switch:focus {
+    outline: none;
+}
+
+.theme-switch:hover {
+    transform: scale(1.1);
+}
+
+.resume-section {
+    background-color: var(--bg-color);
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+.resume-date {
+    min-width: 200px;
+    text-align: right;
+}
+
+.list-social-icons {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.list-social-icons .list-inline-item {
+    margin-right: 0;
+}
+
+.list-social-icons a {
+    color: var(--link-color-def);
+    transition: transform 0.3s ease;
+    display: block;
+}
+
+.list-social-icons a:hover {
+    transform: scale(1.1);
+}
+
+.resume-item {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (min-width: 768px) {
+    .resume-item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+    }
+
+    .resume-content {
+        flex: 1;
+    }
 }

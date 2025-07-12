@@ -21,7 +21,7 @@
   });
 
   // Activate scrollspy to add active class to navbar items on scroll
-  $('body').scrollspy({
+  var scrollSpy = new bootstrap.ScrollSpy(document.body, {
     target: '#sideNav'
   });
 
