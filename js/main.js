@@ -1,4 +1,4 @@
-window.onload = function(){
+document.addEventListener('DOMContentLoaded', function() {
     // Theme switcher initialization
     const themeSwitch = document.querySelectorAll('.theme-switch');
     const themeIcons = document.querySelectorAll('.theme-switch i');
@@ -41,4 +41,4 @@ window.onload = function(){
     $("#about-text").text(function (_, ctx) {
         return ctx.replace("{{age}}", thisYear-birthday);
     });
-};
+});

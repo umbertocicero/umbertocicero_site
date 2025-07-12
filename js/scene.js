@@ -16,7 +16,7 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('webgl-container').appendChild(renderer.domElement);
 
-    const geometry = new THREE.BoxGeometry(2, 2, 2);
+    const geometry = new THREE.BoxGeometry(2.3, 2.3, 2.3); // Cubo più grande per effetto bloom
     const material = new THREE.MeshStandardMaterial({
         color: 0xffffff, // bianco per il massimo effetto bloom!
         metalness: 0.4,
@@ -35,7 +35,7 @@ function init() {
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.1,   // intensity (più alto = più bloom)
+        1.2,   // intensity (più alto = più bloom)
         0.7,   // radius (softness)
         0.15   // threshold (più basso = più pixel bloom)
     ));
@@ -48,6 +48,16 @@ function animate() {
     requestAnimationFrame(animate);
     cube.rotation.x += 0.01;
     cube.rotation.y += 0.01;
+
+    // Parallax effetto su camera
+    const scrollY = window.scrollY || window.pageYOffset;
+    const docHeight = document.body.scrollHeight - window.innerHeight;
+    let scrollNorm = docHeight > 0 ? scrollY / docHeight : 0;
+
+    camera.position.z = 5 + scrollNorm * 8;
+    camera.position.y = (scrollNorm - 0.5) * 3;
+    camera.lookAt(cube.position);
+
     composer.render();
 }
 
