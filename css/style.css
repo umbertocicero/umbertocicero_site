@@ -1,204 +1,290 @@
-html, body {
-    height: 100%;
-    width: 100%;
-    overflow-x: hidden;
-}
-#webgl-container {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 0;
-    pointer-events: none;
-}
-.container-fluid, .resume-section {
-    position: relative;
-    z-index: 1;
-}
-.resume-section {
-    background: rgba(34,34,51,0.6);
-    border-radius: 24px;
-    margin: 2rem;
-
-    backdrop-filter: blur(3px);
-}
-
-/* Light mode styles */
-/* Light mode */
+/* ==============================
+   Root CSS Variables & Themes
+   ============================== */
 :root {
-    --bg-color: #fff;
-    --link-color-def: #343a40;
-    --text-color: #343a40;
-    --primary-color: #00d646;
-    --toolbar-color: #4a5568;
-    --secondary-bg: #f8f9fa;
-}
-
-/* Dark mode */
-[data-theme="dark"] {
-    --bg-color: #1a1a1a;
-    --text-color: #ffffff;
-    --link-color-def: #343a40;
-    --toolbar-color: #4a5568;
-    --primary-color: #4a5568;
-    --secondary-bg: #2d2d2d;
-    --border-color: #4a4a4a;
-    --link-color: #63b3ed;
-    --hover-color: #90cdf4;
-}
-
-[data-theme="dark"] .bg-primary {
-    background-color: var(--primary-color) !important;
-}
-
-[data-theme="dark"] .text-primary {
-    color: var(--link-color) !important;
-}
-
-[data-theme="dark"] a {
-    color: var(--link-color);
-}
-
-[data-theme="dark"] a:hover {
-    color: var(--hover-color);
-}
-
-[data-theme="dark"] .resume-section {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-}
-
-[data-theme="dark"] .subheading {
-    color: var(--text-color);
-}
-
-[data-theme="dark"] .list-social-icons a:hover {
-    color: var(--hover-color);
-}
-
-[data-theme="dark"] .list-social-icons a {
-    color: var(--link-color-def);
+  --bg-color: #fff;
+  --text-color: #343a40;
+  --link-color-def: #343a40;
+  --primary-color: #00d646;
+  --toolbar-color: #4a5568;
+  --secondary-bg: #f8f9fa;
 }
 
 [data-theme="dark"] {
-    --bg-color: #1a1a1a;
-    --text-color: #f8f9fa;
-    --primary-color: #4a5568;
-    --secondary-bg: #2d2d2d;
+  --bg-color: #1a1a1a;
+  --text-color: #f8f9fa;
+  --link-color-def: #343a40;
+  --toolbar-color: #4a5568;
+  --primary-color: #4a5568;
+  --secondary-bg: #2d2d2d;
+  --border-color: #4a4a4a;
+  --link-color: #63b3ed;
+  --hover-color: #90cdf4;
+}
+
+/* ==============================
+   Base & Global Layout
+   ============================== */
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    transition: all 0.3s ease;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: all 0.3s ease;
+  color: #868e96; /* Secondary text color */
 }
 
-p.bold {
-    font-weight: bold;
+#webgl-container {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
 }
 
-span.through {
-    text-decoration: line-through;
+.container-fluid,
+.resume-section {
+  position: relative;
+  z-index: 1;
 }
 
-i.fa-heart {
-    color: #ed1515;
+/* ==============================
+   Typography & Text Utilities
+   ============================== */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Saira Extra Condensed', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #343a40;
 }
 
-.navbar {
-    background-color: var(--toolbar-color) !important;
+h1 { font-size: 6rem; line-height: 5.5rem; }
+h2 { font-size: 3.5rem; }
+.subheading {
+  text-transform: uppercase;
+  font-weight: 500;
+  font-family: 'Saira Extra Condensed', serif;
+  font-size: 1.35rem;
+  color: inherit;
 }
+
+p.bold { font-weight: bold; }
+span.through { text-decoration: line-through; }
+
+
+.text-primary { color: var(--primary-color) !important; }
+
+/* ==============================
+   Navbar & Theme Switch
+   ============================== */
+.navbar { background-color: var(--toolbar-color) !important; }
 
 .theme-switch {
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.5);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  padding: 0.5rem 1rem;
 }
-
-.mobile-theme-switch {
-    margin-left: auto;
+.theme-switch:hover {
+  color: rgba(255, 255, 255, 0.75);
+  transform: scale(1.1);
 }
-
+.theme-switch:focus { outline: none; }
+.mobile-theme-switch { margin-left: auto; }
 .desktop-theme-switch {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 1rem;
 }
-
 @media (min-width: 992px) {
-    .desktop-theme-switch {
-        margin-top: 2rem;
-    }
+  .desktop-theme-switch { margin-top: 2rem; }
 }
 
-.theme-switch:hover {
-    color: rgba(255, 255, 255, 0.75);
-}
-
-.theme-switch:focus {
-    outline: none;
-}
-
-.theme-switch:hover {
-    transform: scale(1.1);
-}
-
-.resume-section {
-    background-color: var(--bg-color);
-}
-
-.text-primary {
-    color: var(--primary-color) !important;
-}
-
-.resume-date {
-    min-width: 200px;
-    text-align: right;
-}
-
+/* ==============================
+   Social Icons & Lists
+   ============================== */
 .list-social-icons {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    justify-content: flex-start;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: flex-start;
 }
-
-.list-social-icons .list-inline-item {
-    margin-right: 0;
-}
-
+.list-social-icons .list-inline-item { margin-right: 0; }
 .list-social-icons a {
-    color: var(--link-color-def);
-    transition: transform 0.3s ease;
-    display: block;
+  color: #495057;
+  transition: transform 0.3s ease, color 0.3s;
+  display: block;
 }
-
 .list-social-icons a:hover {
-    transform: scale(1.1);
+  color: #00d646;
+  transform: scale(1.1);
+}
+.list-social-icons a .fa-lg { font-size: 1.75rem; }
+
+.list-icons { font-size: 3rem; }
+.list-icons .list-inline-item i:hover { color: #00d646; }
+
+/* ==============================
+   Resume Section (Glass/Apple style)
+   ============================== */
+.resume-section {
+  background: rgba(255,255,255,0.18); /* Glass base */
+  background-color: var(--bg-color);
+  border-radius: 28px;
+  margin: 2rem 2rem 2rem 2rem;
+  box-shadow: 0 8px 40px 0 rgba(34,34,51,0.17), 0 1.5px 8px 0 rgba(0,0,0,0.11);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1.5px solid rgba(255,255,255,0.28);
+  outline: 1px solid rgba(255,255,255,0.16);
+  position: relative;
+  transition: box-shadow 0.3s, border-color 0.2s;
+  overflow: hidden;
+  z-index: 1;
+  padding-top: 5rem !important;
+  padding-bottom: 5rem !important;
+}
+.resume-section:hover {
+  box-shadow: 0 12px 64px 0 rgba(0,255,200,0.09), 0 1.5px 8px 0 rgba(0,0,0,0.13);
+  border-color: rgba(0,214,70,0.27);
+}
+@media (max-width: 600px) {
+  .resume-section {
+    backdrop-filter: blur(4px) saturate(130%);
+    -webkit-backdrop-filter: blur(4px) saturate(130%);
+  }
+}
+@media (min-width: 992px) {
+  .resume-section {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+  }
 }
 
+section.resume-section .my-auto {
+  background: linear-gradient(120deg,rgba(255,255,255,0.15) 80%,rgba(0,214,70,0.07));
+  border-radius: 18px;
+  padding: 1rem 2rem;
+  backdrop-filter: blur(2px);
+}
+
+section.resume-section h2,
+section.resume-section h1,
+section.resume-section h3 {
+  background: linear-gradient(90deg, rgba(0,214,70,0.11) 0%,rgba(255,255,255,0.15) 100%);
+  display: inline-block;
+  padding: 0.2em 0.75em;
+  border-radius: 1em;
+  backdrop-filter: blur(1.5px);
+}
+
+section.resume-section .resume-date {
+  background: rgba(255,255,255,0.22);
+  border-radius: 8px;
+  padding: 0.5em 1em;
+  margin-top: 1.5em;
+  font-weight: 600;
+  font-size: 1.1em;
+  letter-spacing: 0.01em;
+  color: #222233;
+  box-shadow: 0 0.5px 4px 0 rgba(0,0,0,0.07);
+  min-width: 200px;
+  text-align: right;
+}
+
+/* ==============================
+   Resume Item Flex Layout
+   ============================== */
 .resume-item {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
-
 @media (min-width: 768px) {
-    .resume-item {
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 2rem;
-    }
-
-    .resume-content {
-        flex: 1;
-    }
+  .resume-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+  }
+  .resume-content { flex: 1; }
 }
+
+/* ==============================
+   Glassmorphism Card Utility
+   ============================== */
+.glass {
+  position: relative;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(2px) saturate(180%);
+  -webkit-backdrop-filter: blur(2px) saturate(180%);
+  border: 1.5px solid rgba(255,255,255,0.80);
+  border-radius: 2rem;
+  box-shadow: 0 8px 32px rgba(31,38,135,0.22),
+              inset 0 4px 20px rgba(255,255,255,0.32);
+  overflow: hidden;
+  z-index: 1;
+  transition: box-shadow 0.3s, border-color 0.2s;
+}
+.glass::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: 2rem;
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  box-shadow: inset -10px -8px 0px -11px rgba(255,255,255,1),
+              inset 0px -9px 0px -8px rgba(255,255,255,0.88);
+  opacity: 0.65;
+  z-index: -1;
+  filter: blur(1px) drop-shadow(10px 4px 6px black) brightness(1.15);
+  pointer-events: none;
+}
+.glass:hover {
+  box-shadow: 0 16px 48px rgba(31,38,135,0.22), 0 1.5px 8px 0 rgba(0,214,70,0.14);
+  border-color: #00d646;
+}
+.glass .my-auto {
+  background: none;
+  padding: 1rem 2rem;
+}
+
+/* ==============================
+   Icon Utilities
+   ============================== */
+i.fa-heart { color: #ed1515; }
+.white-text .fa-heart {
+  color: #ed1515 !important; /* Rosso, se vuoi mantenere il cuore rosso! */
+}
+.white-text, .white-text * {
+  color: #fff !important;
+  /* Opzionale: aumentare contrasto per accessibilità */
+  text-shadow: 0 1px 6px rgba(0,0,0,0.16);
+}
+.resume-section p, .resume-section div{
+  color: #fff !important;
+}
+
+/* ==============================
+   Dark Mode Adaptations
+   ============================== */
+[data-theme="dark"] .bg-primary      { background-color: var(--primary-color) !important; }
+[data-theme="dark"] .text-primary    { color: var(--link-color) !important; }
+[data-theme="dark"] a                { color: var(--link-color); }
+[data-theme="dark"] a:hover          { color: var(--hover-color); }
+[data-theme="dark"] .resume-section  { background-color: var(--bg-color); color: var(--text-color); }
+[data-theme="dark"] .subheading      { color: var(--text-color); }
+[data-theme="dark"] .list-social-icons a:hover { color: var(--hover-color); }
+[data-theme="dark"] .list-social-icons a { color: var(--link-color-def); }
