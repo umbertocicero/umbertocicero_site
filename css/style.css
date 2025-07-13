@@ -40,18 +40,61 @@ body {
   color: #868e96; /* Secondary text color */
 }
 
+/*
+==============================
+background liquid effect
+============================== */
+body, html {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+.liquid-bg {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, #23233a 0%, #1b232d 100%),
+    radial-gradient(ellipse at 20% 40%, rgba(60,90,200,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse at 90% 80%, rgba(0,214,70,0.09) 0%, transparent 70%);
+  /* Pattern glass highlight */
+  filter: blur(0.5px) brightness(0.85);
+  opacity: 0.96;
+}
+
+#webgl-container {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 1;
+  pointer-events: none;
+}
+.container-fluid, .resume-section { z-index: 2; position: relative; }
+
+/* ==============================
+   WebGL Container
+   ============================== */
+/* This container is used for WebGL effects, positioned behind the main content */
+
+
 #webgl-container {
   position: fixed;
   width: 100vw;
   height: 100vh;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
 }
 
 .container-fluid,
 .resume-section {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 /* Empty section layout only */
 @media (min-width: 768px) {
@@ -323,3 +366,4 @@ i.fa-heart { color: #ed1515; }
 [data-theme="dark"] .subheading      { color: var(--text-color); }
 [data-theme="dark"] .list-social-icons a:hover { color: var(--hover-color); }
 [data-theme="dark"] .list-social-icons a { color: var(--link-color-def); }
+
