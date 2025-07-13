@@ -29,6 +29,8 @@ html, body {
   height: 100%;
   width: 100%;
   overflow-x: hidden;
+    font-family: 'Open Sans', serif;
+
 }
 
 body {
@@ -40,8 +42,6 @@ body {
 
 #webgl-container {
   position: fixed;
- /* left: 0;
-  top: 0;*/
   width: 100vw;
   height: 100vh;
   z-index: 0;
@@ -53,6 +53,43 @@ body {
   position: relative;
   z-index: 1;
 }
+/* Empty section layout only */
+@media (min-width: 768px) {
+  section.empty-section {
+    min-height: 100vh;
+  }
+  section.empty-section .resume-item .resume-date {
+    min-width: 18rem;
+  }
+}
+@media (min-width: 992px) {
+  section.empty-section {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+  }
+}
+
+
+/* Titoli struttura */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Saira Extra Condensed', serif;
+  text-transform: uppercase;
+}
+h1 { font-size: 6rem; line-height: 5.5rem; }
+h2 { font-size: 3.5rem; }
+.subheading {
+  text-transform: uppercase;
+  font-size: 1.35rem;
+}
+
+/* Resume section layout only */
+section.resume-section {
+  padding-top: 5rem !important;
+  padding-bottom: 5rem !important;
+}
+section.resume-section .resume-item .resume-date {
+  min-width: none;
+}
 
 /* ==============================
    Typography & Text Utilities
@@ -61,7 +98,13 @@ h1, h2, h3, h4, h5, h6 {
   font-family: 'Saira Extra Condensed', serif;
   font-weight: 700;
   text-transform: uppercase;
-  color: #343a40;
+}
+h1{
+    color: var(--text-color);
+}
+h2, h3, h4, h5, h6 {
+    
+  color: #fff; /* glass: testo sempre chiaro */
 }
 
 h1 { font-size: 6rem; line-height: 5.5rem; }
@@ -77,13 +120,8 @@ h2 { font-size: 3.5rem; }
 p.bold { font-weight: bold; }
 span.through { text-decoration: line-through; }
 
-
 .text-primary { color: var(--primary-color) !important; }
 
-/* ==============================
-   Navbar & Theme Switch
-   ============================== */
-.navbar { background-color: var(--toolbar-color) !important; }
 
 .theme-switch {
   background: transparent;
@@ -140,11 +178,10 @@ span.through { text-decoration: line-through; }
    Resume Section (Glass/Apple style)
    ============================== */
 .resume-section {
-  background: rgba(255,255,255,0.18); /* Glass base */
-  background-color: var(--bg-color);
-  border-radius: 28px;
+  background: rgba(255,255,255,0.17); /* Glass base */
+  border-radius: 2rem;
   margin: 2rem 2rem 2rem 2rem;
-  box-shadow: 0 8px 40px 0 rgba(34,34,51,0.17), 0 1.5px 8px 0 rgba(0,0,0,0.11);
+  box-shadow: 0 8px 40px 0 rgba(34,34,51,0.13), 0 1.5px 8px 0 rgba(0,0,0,0.11);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1.5px solid rgba(255,255,255,0.28);
@@ -156,16 +193,13 @@ span.through { text-decoration: line-through; }
   padding-top: 5rem !important;
   padding-bottom: 5rem !important;
 }
-.resume-section:hover {
-    /*
-  box-shadow: 0 12px 64px 0 rgba(0,255,200,0.09), 0 1.5px 8px 0 rgba(0,0,0,0.13);
-  border-color: rgba(0,214,70,0.27);
-  */
-}
 @media (max-width: 600px) {
   .resume-section {
     backdrop-filter: blur(4px) saturate(130%);
     -webkit-backdrop-filter: blur(4px) saturate(130%);
+    margin: 1rem;
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
   }
 }
 @media (min-width: 992px) {
@@ -175,30 +209,32 @@ span.through { text-decoration: line-through; }
   }
 }
 
-section.resume-section .my-auto {
+.resume-section .my-auto {
   background: linear-gradient(120deg,rgba(255,255,255,0.15) 80%,rgba(0,214,70,0.07));
-  border-radius: 18px;
+  border-radius: 1.5rem;
   padding: 1rem 2rem;
   backdrop-filter: blur(2px);
 }
-
-section.resume-section h2 {
-    color: #fff;
+.resume-section h2{
+  display: inline-block;
+  padding: 0.2em 0.75em;
+  border-radius: 1rem;
+  color: #fff;
 }
-section.resume-section h1,
-section.resume-section h3 {
+.resume-section h1,
+.resume-section h3 {
   background: linear-gradient(90deg, rgba(0,214,70,0.11) 0%,rgba(255,255,255,0.15) 100%);
   display: inline-block;
   padding: 0.2em 0.75em;
-  border-radius: 10px;
+  border-radius: 1rem;
   backdrop-filter: blur(1.5px);
+  color: #fff;
 }
 
-section.resume-section .resume-date {
+.resume-section .resume-date {
   background: rgba(255,255,255,0.22);
-  border-radius: 10px;
+  border-radius: 1rem;
   padding: 0.5em 1em;
- /* margin-top: 1.5em; */
   font-weight: 600;
   font-size: 1.1em;
   letter-spacing: 0.01em;
@@ -226,7 +262,7 @@ section.resume-section .resume-date {
 }
 
 /* ==============================
-   Glassmorphism Card Utility
+   Liquid Glass Card Utility
    ============================== */
 .glass {
   position: relative;
@@ -246,7 +282,7 @@ section.resume-section .resume-date {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(255, 255, 255, 0.13);
-  border-radius: 1.5rem;
+  border-radius: 2rem;
   backdrop-filter: blur(1px);
   -webkit-backdrop-filter: blur(1px);
   box-shadow: inset -10px -8px 0px -11px rgba(255,255,255,1),
@@ -255,10 +291,6 @@ section.resume-section .resume-date {
   z-index: -1;
   filter: blur(1px) drop-shadow(10px 4px 6px black) brightness(1.15);
   pointer-events: none;
-}
-.glass:hover {
- /* box-shadow: 0 16px 48px rgba(31,38,135,0.22), 0 1.5px 8px 0 rgba(0,214,70,0.14);
-  border-color: #00d646;*/
 }
 .glass .my-auto {
   background: none;
@@ -270,11 +302,10 @@ section.resume-section .resume-date {
    ============================== */
 i.fa-heart { color: #ed1515; }
 .white-text .fa-heart {
-  color: #ed1515 !important; /* Rosso, se vuoi mantenere il cuore rosso! */
+  color: #ed1515 !important;
 }
 .white-text, .white-text * {
   color: #fff !important;
-  /* Opzionale: aumentare contrasto per accessibilità */
   text-shadow: 0 1px 6px rgba(0,0,0,0.16);
 }
 .resume-section p, .resume-section div{
