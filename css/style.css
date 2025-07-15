@@ -52,6 +52,14 @@ body, html {
   overflow-x: hidden;
 }
 
+
+
+
+   /* ==============================
+   Liquid Background Effect OLD
+   ============================== */
+
+   
 .liquid-bg {
   position: fixed;
   top: 0; left: 0;
