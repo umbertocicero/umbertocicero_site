@@ -98,19 +98,11 @@ body, html {
 }
 /* Empty section layout only */
 @media (min-width: 768px) {
-  section.empty-section {
+  /* solo per schermi larghi */
+}
+section.empty-section {
     min-height: 100vh;
   }
-  section.empty-section .resume-item .resume-date {
-    min-width: 18rem;
-  }
-}
-@media (min-width: 992px) {
-  section.empty-section {
-    padding-top: 3rem !important;
-    padding-bottom: 3rem !important;
-  }
-}
 
 
 /* Titoli struttura */
@@ -283,26 +275,34 @@ span.through { text-decoration: line-through; }
   letter-spacing: 0.01em;
   color: #222233;
   box-shadow: 0 0.5px 4px 0 rgba(0,0,0,0.07);
-  min-width: 200px;
+  
   text-align: right;
 }
 
 /* ==============================
    Resume Item Flex Layout
    ============================== */
+
 .resume-item {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
 }
-@media (min-width: 768px) {
-  .resume-item {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 2rem;
-  }
-  .resume-content { flex: 1; }
+.resume-content {
+  flex: 0 0 60%;
+  max-width: 60%;
 }
+.resume-date {
+  /*
+  flex: 0 0 36%;
+  max-width: 16%;
+  min-width: 200px; 
+  */
+  text-align: right;
+}
+
 
 /* ==============================
    Liquid Glass Card Utility

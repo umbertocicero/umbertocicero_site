@@ -8,3 +8,6 @@ serve .
 or using pyton
 python3 -m http.server 8000 
 
+# ispiration
+https://lusion.co/ 
+
