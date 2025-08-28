@@ -1,3 +1,5 @@
+
+
 /* ==============================
    Root CSS Variables & Themes
    ============================== */
@@ -29,8 +31,7 @@ html, body {
   height: 100%;
   width: 100%;
   overflow-x: hidden;
-    font-family: 'Open Sans', serif;
-
+    font-family:'Open Sans', sans-serif;
 }
 
 body {
@@ -115,7 +116,7 @@ section.empty-section {
 
 /* Titoli struttura */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Saira Extra Condensed', serif;
+  font-family:'Saira Extra Condensed', sans-serif; 
   text-transform: uppercase;
 }
 h1 { font-size: 6rem; line-height: 5.5rem; }
@@ -155,7 +156,7 @@ h2 { font-size: 3.5rem; }
 .subheading {
   text-transform: uppercase;
   font-weight: 500;
-  font-family: 'Saira Extra Condensed', serif;
+  font-family:'Saira Extra Condensed', sans-serif; 
   font-size: 1.35rem;
   color: inherit;
 }
