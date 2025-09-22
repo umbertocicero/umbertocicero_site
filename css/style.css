@@ -1,3 +1,10 @@
+/* Footer cat GIF right alignment */
+.footer-cat-right {
+  align-items: center;
+  display: flex; 
+  justify-content: flex-end; 
+  width: 100%;
+}
 
 
 /* ==============================
