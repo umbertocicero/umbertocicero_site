@@ -408,24 +408,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </section>
 
-    <section class="p-3 p-lg-5 d-flex d-column white-text">
-
-      
-      
-      <div class="my-auto">
-        <h5>I
-          <span> <i class="fa fa-heart"></i> </span>
-          <span id="typewriter"></span>
-        </h5>
-        <br>
-        <p>©
-          <script>document.write(new Date().getFullYear())</script> COPYRIGHT Umberto Antonio Cicero
-        </p>
-      </div>
-      <div class="subheading mb-3 footer-cat-right">
-        <img src="img/lechat-gif.gif" alt="cat gif" style="height: 60px;">
-      </div>
-    </section>
+    <div id="footer"></div>
+    
   </div>
   <!-- Bootstrap core JavaScript -->
   <script src="vendor/jquery/jquery.min.js"></script>
@@ -439,6 +423,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <script src="js/main.js"></script>
   <script data-ad-client="ca-pub-9274119154173608" async
     src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+  <script>
+    fetch('footer.html')
+      .then(response => response.text())
+      .then(html => { document.getElementById('footer').innerHTML = html; });
+  </script> 
 </body>
 
 </html>

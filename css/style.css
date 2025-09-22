@@ -1,9 +1,24 @@
 /* Footer cat GIF right alignment */
-.footer-cat-right {
-  align-items: center;
-  display: flex; 
-  justify-content: flex-end; 
+/* Sezione footer */
+.footer-section {
+  display: flex;
+  flex-direction: row;   /* allinea in orizzontale */
+  align-items: center;   /* centra verticalmente */
+  justify-content: space-between;
   width: 100%;
+}
+
+/* Colonna testo a sinistra */
+.footer-left {
+  flex: 0 0 70%;  /* occupa il 70% */
+}
+
+/* Colonna gatto a destra */
+.footer-cat-right {
+  flex: 0 0 30%;  /* occupa il 30% */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 

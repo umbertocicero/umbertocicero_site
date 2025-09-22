@@ -172,18 +172,7 @@
       </div>
     </section>
 
-    <section class="p-3 p-lg-5 d-flex d-column white-text">
-      <div class="my-auto">
-        <h5>I
-          <span> <i class="fa fa-heart"></i> </span>
-          <span id="typewriter"></span>
-        </h5>
-        <br>
-        <p>©
-          <script>document.write(new Date().getFullYear())</script> COPYRIGHT Umberto Antonio Cicero
-        </p>
-      </div>
-    </section>
+    <div id="footer"></div>
   </div>
 
   <!-- Vendor JS -->
@@ -195,5 +184,11 @@
   <script src="vendor/typewriter/typewriter.js"></script>
   <!-- Custom scripts for this template -->
   <script src="js/main.js"></script>
+
+  <script>
+    fetch('footer.html')
+      .then(response => response.text())
+      .then(html => { document.getElementById('footer').innerHTML = html; });
+  </script> 
 </body>
 </html>
