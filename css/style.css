@@ -14,7 +14,26 @@
 }
 
 /* Colonna gatto a destra */
-.footer-cat-right {
+.footer/* Icon Utilities
+   ============================== */
+i.fa-heart { color: #ed1515; }
+.white-text .fa-heart {
+  color: #ed1515 !important;
+}
+
+/* Carousel Styles
+   ============================== */
+#carousel-cocktail .carousel-item img,
+#carousel-runrun .carousel-item img {
+  max-height: 600px;
+  width: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+.carousel-inner {
+  background: rgba(0,0,0,0.1);
+  backdrop-filter: blur(4px);
+}ight {
   flex: 0 0 30%;  /* occupa il 30% */
   display: flex;
   justify-content: flex-end;
