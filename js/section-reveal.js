@@ -113,7 +113,7 @@
   /* ─── Init ───────────────────────────────────────────────────────────── */
   function init() {
     var els = Array.prototype.slice.call(
-      document.querySelectorAll('section.resume-section')
+      document.querySelectorAll('.section-title, section.resume-section')
     );
     if (!els.length) return;
 

@@ -121,7 +121,7 @@ body {
   touch-action: none;
   pointer-events: none;
   z-index: 9998;
-  opacity: 0.35;
+  opacity: 0.5;
 }
 
 /* ==============================
@@ -379,6 +379,26 @@ section.resume-section .resume-item .resume-date {
   border-radius: 0;
   padding: 0.5rem 2rem;
   backdrop-filter: none;
+}
+
+/* Section titles — outside cards, on page background */
+.section-title {
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text-color);
+  text-transform: none;
+  margin: 0 2rem;
+  padding: 2.5rem 0 1rem;
+  will-change: transform, opacity;
+}
+@media (min-width: 992px) {
+  .section-title {
+    margin: 0 4rem;
+    padding: 3.5rem 0 1.2rem;
+  }
 }
 
 /* Headings inside cards — dark on white */
