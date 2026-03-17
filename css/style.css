@@ -387,18 +387,25 @@ section.resume-section .resume-item .resume-date {
   font-size: clamp(2.5rem, 6vw, 5rem);
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 0.95;
   color: var(--text-color);
   text-transform: none;
   margin: 0 2rem;
   padding: 2.5rem 0 1rem;
-  will-change: transform, opacity;
 }
 @media (min-width: 992px) {
   .section-title {
     margin: 0 4rem;
     padding: 3.5rem 0 1.2rem;
   }
+}
+/* Word & char containers for reveal animation */
+.section-title .title-word {
+  overflow: hidden;
+  padding-bottom: 0.08em; /* prevent descender clipping */
+}
+.section-title .title-char {
+  will-change: transform;
 }
 
 /* Headings inside cards — dark on white */
