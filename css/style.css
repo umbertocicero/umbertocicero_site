@@ -98,7 +98,7 @@ body, html {
 
 
    /* ==============================
-   WebGL ScreenPaint Canvas — Lusion.co replica
+   WebGL ScreenPaint Canvas
    ============================== */
 #canvas {
   position: fixed;
@@ -172,6 +172,9 @@ body, html {
 }
 section.empty-section {
     min-height: 100vh;
+    /* Hero section is always visible */
+    opacity: 1 !important;
+    transform: none !important;
   }
 
 
@@ -297,7 +300,11 @@ span.through { text-decoration: line-through; }
   z-index: 1;
   padding-top: 5rem !important;
   padding-bottom: 5rem !important;
+  transform-origin: center center; /* scale expands evenly from center */
 }
+/* Animation is driven entirely by JS (rAF).
+   clip-path + scale + translateX + rotate replicate the WebGL
+   shader expansion effect. */
 @media (max-width: 600px) {
   .resume-section {
     backdrop-filter: blur(4px) saturate(130%);

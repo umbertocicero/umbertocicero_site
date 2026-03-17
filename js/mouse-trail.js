@@ -1,10 +1,10 @@
 /**
- * WebGL ScreenPaint + ScreenPaintDistortion — Lusion.co replica
+ * WebGL ScreenPaint + ScreenPaintDistortion
  * ──────────────────────────────────────────────────────────────
- * Full WebGL implementation using the exact same shader pipeline as Lusion:
+ * Full WebGL implementation:
  * - ScreenPaint: FBO ping-pong fluid simulation (frag$n)
  * - ScreenPaintDistortion: Post-effect with velocity distortion + RGB shift (frag$1)
- * - Canvas styled identically to Lusion's #canvas element
+ * - Canvas styled
  */
 (function () {
     'use strict';
@@ -37,7 +37,7 @@
     var accelDissipation = 0.80;
 
     /* ========================================
-       CONFIG — Lusion defaults
+       CONFIG — defaults
        ======================================== */
     var PUSH_STRENGTH       = 25;
     var VEL_DISSIPATION     = 0.975;
@@ -54,7 +54,7 @@
     var DISTORT_MULTIPLIER  = 6.0;
 
     /* ========================================
-       GLSL SHADERS — exact Lusion replica
+       GLSL SHADERS
        ======================================== */
 
     /* Shared fullscreen triangle vertex shader */
@@ -68,7 +68,7 @@
         '}'
     ].join('\n');
 
-    /* ── ScreenPaint simulation shader (Lusion's frag$n) ── */
+    /* ── ScreenPaint simulation shader (frag$n) ── */
     var paintFrag = [
         'precision highp float;',
         'uniform sampler2D u_lowPaintTexture;',
@@ -83,21 +83,21 @@
         'uniform vec3 u_dissipations;', // x=vel, y=w1, z=w2
         'varying vec2 v_uv;',
         '',
-        '/* Lusion sdSegment */',
+        '/* sdSegment */',
         'vec2 sdSegment(in vec2 p, in vec2 a, in vec2 b) {',
         '    vec2 pa = p - a, ba = b - a;',
         '    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);',
         '    return vec2(length(pa - ba * h), h);',
         '}',
         '',
-        '/* Lusion hash for noise */',
+        '/* hash for noise */',
         'vec2 hash(vec2 p) {',
         '    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));',
         '    p3 += dot(p3, p3.yzx + 33.33);',
         '    return fract((p3.xx + p3.yz) * p3.zy) * 2.0 - 1.0;',
         '}',
         '',
-        '/* Lusion noised — value noise with derivatives */',
+        '/* noised — value noise with derivatives */',
         'vec3 noised(in vec2 p) {',
         '    vec2 i = floor(p);',
         '    vec2 f = fract(p);',
@@ -192,7 +192,7 @@
         '}'
     ].join('\n');
 
-    /* ── ScreenPaintDistortion shader (Lusion's frag$1) ── */
+    /* ── ScreenPaintDistortion shader (frag$1) ── */
     var distortionFrag = [
         'precision highp float;',
         'uniform sampler2D u_screenPaintTexture;',
@@ -210,7 +210,7 @@
         '    vec2 vel = (0.5 - data.xy - 0.001) * 2.0 * weight;',
         '    float velMag = length(vel);',
         '',
-        '    /* Spectral chromatic color — enhanced Lusion formula */',
+        '    /* Spectral chromatic color — enhanced formula */',
         '    float param = (vel.x + vel.y) * 40.0;',
         '    vec3 rainbow = vec3(',
         '        sin(param + 0.0 * u_rgbShift),',
@@ -408,7 +408,7 @@
     }
 
     /* ========================================
-       SIMULATION STEP — runs Lusion's frag$n on GPU
+       SIMULATION STEP — runs frag$n on GPU
        ======================================== */
     function stepSimulation() {
         /* ── Swap ping-pong ── */
@@ -485,7 +485,7 @@
     }
 
     /* ========================================
-       DISTORTION RENDER — Lusion's frag$1
+       DISTORTION RENDER — frag$1
        ======================================== */
     function renderDistortion() {
         /* Render to screen (null framebuffer) */
@@ -511,12 +511,11 @@
     }
 
     /* ========================================
-       CANVAS SETUP — matches Lusion's #canvas CSS
+       CANVAS SETUP
        ======================================== */
     function createCanvas() {
         canvas = document.createElement('canvas');
         canvas.id = 'canvas';
-        /* Exact Lusion CSS for #canvas */
         canvas.style.cssText = [
             'position: fixed',
             'top: 0',
@@ -616,10 +615,6 @@
         window.addEventListener('touchmove', onTouch, { passive: true });
         window.addEventListener('touchend', onTouchEnd, { passive: true });
         window.addEventListener('resize', resize, false);
-
-        /* Remove previous cursor styling if present */
-        var oldStyle = document.getElementById('lusion-cursor-style');
-        if (oldStyle) oldStyle.remove();
 
         requestAnimationFrame(loop);
     }
