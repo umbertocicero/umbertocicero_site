@@ -1,143 +1,147 @@
+/**
+ * Interactive 3D showcase — contained in .hero-3d-card
+ * Renders a rotating cube with bloom inside a rounded dark container.
+ * Users can drag to rotate the object.
+ */
 import * as THREE from 'https://esm.sh/three@0.153.0';
 import { EffectComposer } from 'https://esm.sh/three@0.153.0/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'https://esm.sh/three@0.153.0/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'https://esm.sh/three@0.153.0/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 let scene, camera, renderer, cube, composer;
-let mouse = { x: 0.5, y: 0.5 };
-let liquidPlane, liquidUniforms;
+let container;
+let isDragging = false;
+let prevMouse = { x: 0, y: 0 };
+let targetRotation = { x: 0.4, y: 0.6 };
+let currentRotation = { x: 0.4, y: 0.6 };
+let autoRotate = true;
 
 function init() {
+    container = document.getElementById('webgl-container');
+    if (!container) return;
+
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+
+    // Scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xEDEEF3);
+    scene.background = new THREE.Color(0x111118);
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 5;
+    // Camera
+    camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
+    camera.position.set(0, 0, 5);
 
+    // Renderer — contained, not full screen
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('webgl-container').appendChild(renderer.domElement);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(w, h);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    container.appendChild(renderer.domElement);
 
-    // --------- Liquid Shader Plane (background) ----------
-    liquidUniforms = {
-        u_time: { value: 0.0 },
-        u_mouse: { value: new THREE.Vector2(mouse.x, mouse.y) },
-        u_res:   { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
-    };
-    const liquidMaterial = new THREE.ShaderMaterial({
-        uniforms: liquidUniforms,
-        vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-            }
-        `,
-        fragmentShader: `
-            varying vec2 vUv;
-            uniform float u_time;
-            uniform vec2 u_mouse;
-            uniform vec2 u_res;
-
-            void main() {
-                // Normalized mouse
-                vec2 mouseN = u_mouse / u_res;
-                // Distance from current pixel to mouse (in UV)
-                float d = distance(vUv, mouseN);
-                // Wave effect around mouse
-                float wave = 0.06 * sin(20.0 * d - u_time*2.0) / (0.08 + d*9.0);
-
-                // Color base
-                // Light lavender base matching --bg-color #EDEEF3
-                vec3 base = mix(vec3(0.91,0.92,0.95), vec3(0.94,0.94,0.97), vUv.y);
-                // Subtle blue highlight with mouse
-                float highlight = smoothstep(0.14+wave, 0.03+wave, d);
-
-                vec3 color = base + highlight * vec3(0.04,0.04,0.18);
-                gl_FragColor = vec4(color, 0.92);
-            }
-        `,
-        transparent: true
-    });
-    const liquidGeometry = new THREE.PlaneGeometry(14, 9, 64, 64);
-    liquidPlane = new THREE.Mesh(liquidGeometry, liquidMaterial);
-    liquidPlane.position.z = -2.7;
-    scene.add(liquidPlane);
-
-    // --------- Rotating Cube ----------
-    const geometry = new THREE.BoxGeometry(2.1, 2.1, 2.1);
+    // Cube
+    const geometry = new THREE.BoxGeometry(2, 2, 2);
     const material = new THREE.MeshStandardMaterial({
-        color: 0xd0d0e8,
-        metalness: 0.4,
-        roughness: 0.35,
+        color: 0xffffff,
+        metalness: 0.85,
+        roughness: 0.08,
     });
     cube = new THREE.Mesh(geometry, material);
-    cube.position.y = 2.3; // <-- PIU' IN ALTO!
-
     scene.add(cube);
 
-    scene.add(new THREE.AmbientLight(0xf0f0f5, 0.8));
-    const pointLight = new THREE.PointLight(0xf0f0ff, 1.2, 100);
-    pointLight.position.set(5, 8, 10);
-    scene.add(pointLight);
+    // Lights
+    scene.add(new THREE.AmbientLight(0x8888cc, 0.4));
 
-    // Post-processing: Bloom
+    const key = new THREE.PointLight(0xffffff, 2, 50);
+    key.position.set(5, 5, 5);
+    scene.add(key);
+
+    const fill = new THREE.PointLight(0x4444ff, 0.8, 50);
+    fill.position.set(-4, -2, 3);
+    scene.add(fill);
+
+    const rim = new THREE.PointLight(0x6666ff, 1.2, 50);
+    rim.position.set(0, 3, -5);
+    scene.add(rim);
+
+    // Post-processing: subtle bloom
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new UnrealBloomPass(
-        new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.3,   // intensity (subtle glow for light theme)
-        0.4,   // radius
-        0.85   // threshold (only brightest spots bloom)
+        new THREE.Vector2(w, h),
+        0.4,   // intensity
+        0.6,   // radius
+        0.75   // threshold
     ));
 
-    animate();
-    window.addEventListener('resize', onWindowResize, false);
+    // Interaction: drag to rotate
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('pointermove', onPointerMove);
+    container.addEventListener('pointerup', onPointerUp);
+    container.addEventListener('pointerleave', onPointerUp);
 
-    // --- Mousemove
-    window.addEventListener('mousemove', (e) => {
-        mouse.x = e.clientX;
-        mouse.y = window.innerHeight - e.clientY; // Y-flip per le UV
-        if (liquidUniforms) {
-            liquidUniforms.u_mouse.value.set(mouse.x, mouse.y);
-        }
-    }, false);
+    window.addEventListener('resize', onResize);
+
+    animate();
 }
 
-function animate(time) {
-    requestAnimationFrame(animate);
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
+function onPointerDown(e) {
+    isDragging = true;
+    autoRotate = false;
+    prevMouse.x = e.clientX;
+    prevMouse.y = e.clientY;
+    container.style.cursor = 'grabbing';
+}
 
-    if (liquidUniforms) {
-        liquidUniforms.u_time.value = (time || 0) * 0.001;
+function onPointerMove(e) {
+    if (!isDragging) return;
+    const dx = e.clientX - prevMouse.x;
+    const dy = e.clientY - prevMouse.y;
+    targetRotation.y += dx * 0.008;
+    targetRotation.x += dy * 0.008;
+    prevMouse.x = e.clientX;
+    prevMouse.y = e.clientY;
+}
+
+function onPointerUp() {
+    isDragging = false;
+    container.style.cursor = 'grab';
+    // Resume auto-rotate after 2s of no interaction
+    setTimeout(function() { if (!isDragging) autoRotate = true; }, 2000);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    // Auto-rotate when not dragging
+    if (autoRotate) {
+        targetRotation.y += 0.005;
+        targetRotation.x += 0.002;
     }
 
-    // Parallax effetto su camera
-    const scrollY = window.scrollY || window.pageYOffset;
-    const docHeight = document.body.scrollHeight - window.innerHeight;
-    let scrollNorm = docHeight > 0 ? scrollY / docHeight : 0;
+    // Smooth interpolation
+    currentRotation.x += (targetRotation.x - currentRotation.x) * 0.08;
+    currentRotation.y += (targetRotation.y - currentRotation.y) * 0.08;
 
-    camera.position.z = 5 + scrollNorm * 8;
-    camera.position.y = (scrollNorm - 0.5) * 3;
-    camera.lookAt(cube.position);
+    cube.rotation.x = currentRotation.x;
+    cube.rotation.y = currentRotation.y;
 
     composer.render();
 }
 
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+function onResize() {
+    if (!container) return;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    composer.setSize(window.innerWidth, window.innerHeight);
-    if (liquidUniforms)
-        liquidUniforms.u_res.value.set(window.innerWidth, window.innerHeight);
+    renderer.setSize(w, h);
+    composer.setSize(w, h);
 }
 
-window.onload = function() {
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(init, 1);
-    } else {
-        document.addEventListener('DOMContentLoaded', init);
-    }
-};
+// Boot
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
