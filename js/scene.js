@@ -9,7 +9,7 @@ let liquidPlane, liquidUniforms;
 
 function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x222233);
+    scene.background = new THREE.Color(0xEDEEF3);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 5;
@@ -48,12 +48,13 @@ function init() {
                 float wave = 0.06 * sin(20.0 * d - u_time*2.0) / (0.08 + d*9.0);
 
                 // Color base
-                vec3 base = mix(vec3(0.11,0.14,0.22), vec3(0.15,0.20,0.28), vUv.y);
-                // Highlight with mouse
+                // Light lavender base matching --bg-color #EDEEF3
+                vec3 base = mix(vec3(0.91,0.92,0.95), vec3(0.94,0.94,0.97), vUv.y);
+                // Subtle blue highlight with mouse
                 float highlight = smoothstep(0.14+wave, 0.03+wave, d);
 
-                vec3 color = base + highlight * vec3(0.09,0.28,0.38);
-                gl_FragColor = vec4(color, 0.96);
+                vec3 color = base + highlight * vec3(0.04,0.04,0.18);
+                gl_FragColor = vec4(color, 0.92);
             }
         `,
         transparent: true
@@ -66,17 +67,17 @@ function init() {
     // --------- Rotating Cube ----------
     const geometry = new THREE.BoxGeometry(2.1, 2.1, 2.1);
     const material = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        metalness: 0.8,
-        roughness: 0.1,
+        color: 0xd0d0e8,
+        metalness: 0.4,
+        roughness: 0.35,
     });
     cube = new THREE.Mesh(geometry, material);
     cube.position.y = 2.3; // <-- PIU' IN ALTO!
 
     scene.add(cube);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-    const pointLight = new THREE.PointLight(0xffffff, 2.5, 100);
+    scene.add(new THREE.AmbientLight(0xf0f0f5, 0.8));
+    const pointLight = new THREE.PointLight(0xf0f0ff, 1.2, 100);
     pointLight.position.set(5, 8, 10);
     scene.add(pointLight);
 
@@ -85,9 +86,9 @@ function init() {
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.2,   // intensity
-        0.7,   // radius
-        0.15   // threshold
+        0.3,   // intensity (subtle glow for light theme)
+        0.4,   // radius
+        0.85   // threshold (only brightest spots bloom)
     ));
 
     animate();

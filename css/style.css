@@ -1,27 +1,48 @@
-/* Footer cat GIF right alignment */
-/* Sezione footer */
+/* ==============================
+   LUSION-INSPIRED LIGHT THEME
+   Clean, minimal, light lavender
+   ============================== */
+
+/* Footer
+   ============================== */
 .footer-section {
   display: flex;
-  flex-direction: row;   /* allinea in orizzontale */
-  align-items: center;   /* centra verticalmente */
+  flex-direction: row;
+  align-items: center;
   justify-content: space-between;
   width: 100%;
 }
-
-/* Colonna testo a sinistra */
-.footer-left {
-  flex: 0 0 70%;  /* occupa il 70% */
+.footer-left  { flex: 0 0 70%; }
+.footer-right {
+  flex: 0 0 30%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.footer-section {
+  color: var(--text-secondary);
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+.footer-section h5 {
+  color: var(--text-color);
+  text-transform: none;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+.footer-section p {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 0;
 }
 
-/* Colonna gatto a destra */
-.footer/* Icon Utilities
+/* Icon Utilities
    ============================== */
 i.fa-heart { color: #ed1515; }
-.white-text .fa-heart {
-  color: #ed1515 !important;
-}
+.white-text .fa-heart { color: #ed1515 !important; }
 
-/* Carousel Styles
+/* Carousel
    ============================== */
 #carousel-cocktail .carousel-item img,
 #carousel-runrun .carousel-item img {
@@ -31,38 +52,40 @@ i.fa-heart { color: #ed1515; }
   object-fit: contain;
 }
 .carousel-inner {
-  background: rgba(0,0,0,0.1);
-  backdrop-filter: blur(4px);
-}ight {
-  flex: 0 0 30%;  /* occupa il 30% */
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+  background: rgba(0,0,0,0.03);
+  border-radius: 1rem;
 }
 
-
 /* ==============================
-   Root CSS Variables & Themes
+   Root CSS Variables
    ============================== */
 :root {
-  --bg-color: #fff;
-  --text-color: #343a40;
-  --link-color-def: #343a40;
-  --primary-color: #00d646;
-  --toolbar-color: #4a5568;
-  --secondary-bg: #f8f9fa;
+  --bg-color: #EDEEF3;
+  --text-color: #1a1a2e;
+  --text-secondary: #555568;
+  --link-color-def: #1a1a2e;
+  --primary-color: #3b3bfd;
+  --accent-color: #3b3bfd;
+  --toolbar-color: #1a1a2e;
+  --secondary-bg: #f5f5fa;
+  --card-bg: #ffffff;
+  --card-border: rgba(0,0,0,0.06);
+  --card-shadow: 0 2px 20px rgba(0,0,0,0.06);
+  --card-radius: 1.25rem;
 }
 
 [data-theme="dark"] {
-  --bg-color: #1a1a1a;
-  --text-color: #f8f9fa;
-  --link-color-def: #343a40;
-  --toolbar-color: #4a5568;
-  --primary-color: #4a5568;
-  --secondary-bg: #2d2d2d;
-  --border-color: #4a4a4a;
-  --link-color: #63b3ed;
-  --hover-color: #90cdf4;
+  --bg-color: #111118;
+  --text-color: #f0f0f5;
+  --text-secondary: #a0a0b0;
+  --link-color-def: #f0f0f5;
+  --primary-color: #6b6bff;
+  --accent-color: #6b6bff;
+  --toolbar-color: #f0f0f5;
+  --secondary-bg: #1a1a24;
+  --card-bg: #1e1e28;
+  --card-border: rgba(255,255,255,0.08);
+  --card-shadow: 0 2px 20px rgba(0,0,0,0.3);
 }
 
 /* ==============================
@@ -71,71 +94,47 @@ i.fa-heart { color: #ed1515; }
 html, body {
   height: 100%;
   width: 100%;
+  margin: 0;
+  padding: 0;
   overflow-x: hidden;
-    font-family:'Open Sans', sans-serif;
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  transition: all 0.3s ease;
-  color: #868e96; /* Secondary text color */
+  transition: background-color 0.4s ease, color 0.4s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/*
-==============================
-background liquid effect
-============================== */
-body, html {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-}
-
-
-
-
-   /* ==============================
-   WebGL ScreenPaint Canvas
+/* ==============================
+   WebGL Canvas (mouse trail)
    ============================== */
 #canvas {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  margin: 0; padding: 0; border: 0;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
   pointer-events: none;
   z-index: 9998;
-  mix-blend-mode: screen;
+  mix-blend-mode: multiply;
+  opacity: 0.15;
 }
 
-   /* ==============================
-   Liquid Background Effect OLD
+/* ==============================
+   Background — soft flat tint (no glass blur)
    ============================== */
-
-   
 .liquid-bg {
   position: fixed;
   top: 0; left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100vw; height: 100vh;
   z-index: 0;
   pointer-events: none;
-  background:
-    linear-gradient(135deg, #23233a 0%, #1b232d 100%),
-    radial-gradient(ellipse at 20% 40%, rgba(60,90,200,0.22) 0%, transparent 60%),
-    radial-gradient(ellipse at 90% 80%, rgba(0,214,70,0.09) 0%, transparent 70%);
-  /* Pattern glass highlight */
-  filter: blur(0.5px) brightness(0.85);
-  opacity: 0.96;
+  background: var(--bg-color);
 }
 
 #webgl-container {
@@ -145,96 +144,58 @@ body, html {
   z-index: 1;
   pointer-events: none;
 }
-.container-fluid, .resume-section { z-index: 2; position: relative; }
-
-/* ==============================
-   WebGL Container
-   ============================== */
-/* This container is used for WebGL effects, positioned behind the main content */
-
-
-#webgl-container {
-  position: fixed;
-  width: 100vw;
-  height: 100vh;
-  z-index: 1;
-  pointer-events: none;
-}
 
 .container-fluid,
 .resume-section {
   position: relative;
   z-index: 2;
 }
-/* Empty section layout only */
-@media (min-width: 768px) {
-  /* solo per schermi larghi */
-}
+
+/* ==============================
+   Hero / Empty Section
+   ============================== */
 section.empty-section {
-    min-height: 100vh;
-    /* Hero section is always visible */
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-
-/* Titoli struttura */
-h1, h2, h3, h4, h5, h6 {
-  font-family:'Saira Extra Condensed', sans-serif; 
-  text-transform: uppercase;
-}
-h1 { font-size: 6rem; line-height: 5.5rem; }
-h2 { font-size: 3.5rem; }
-.subheading {
-  text-transform: uppercase;
-  font-size: 1.35rem;
-}
-
-/* Resume section layout only */
-section.resume-section {
-  padding-top: 5rem !important;
-  padding-bottom: 5rem !important;
-}
-section.resume-section .resume-item .resume-date {
-  min-width: none;
+  min-height: 100vh;
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 /* ==============================
-   Typography & Text Utilities
+   Typography — Lusion-inspired
    ============================== */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Saira Extra Condensed', serif;
+  font-family: 'Saira Extra Condensed', -apple-system, sans-serif;
   font-weight: 700;
   text-transform: uppercase;
-}
-h1{
-    color: var(--text-color);
-}
-h2, h3, h4, h5, h6 {
-    
-  color: #fff; /* glass: testo sempre chiaro */
+  color: var(--text-color);
+  letter-spacing: -0.01em;
 }
 
-h1 { font-size: 6rem; line-height: 5.5rem; }
+h1 { font-size: 6rem; line-height: 5.5rem; color: var(--text-color); }
 h2 { font-size: 3.5rem; }
+h3 { font-size: 1.75rem; }
+
 .subheading {
   text-transform: uppercase;
-  font-weight: 500;
-  font-family:'Saira Extra Condensed', sans-serif; 
+  font-weight: 600;
+  font-family: 'Saira Extra Condensed', sans-serif;
   font-size: 1.35rem;
-  color: inherit;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
 }
 
-p.bold { font-weight: bold; }
-span.through { text-decoration: line-through; }
+p.bold { font-weight: 600; }
+span.through { text-decoration: line-through; opacity: 0.5; }
 
 .text-primary { color: var(--primary-color) !important; }
 
-
+/* ==============================
+   Theme Switch
+   ============================== */
 .theme-switch {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -243,7 +204,7 @@ span.through { text-decoration: line-through; }
   padding: 0.5rem 1rem;
 }
 .theme-switch:hover {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-color);
   transform: scale(1.1);
 }
 .theme-switch:focus { outline: none; }
@@ -269,97 +230,134 @@ span.through { text-decoration: line-through; }
 }
 .list-social-icons .list-inline-item { margin-right: 0; }
 .list-social-icons a {
-  color: #495057;
+  color: var(--text-secondary);
   transition: transform 0.3s ease, color 0.3s;
   display: block;
 }
 .list-social-icons a:hover {
-  color: #00d646;
+  color: var(--primary-color);
   transform: scale(1.1);
 }
 .list-social-icons a .fa-lg { font-size: 1.75rem; }
 
 .list-icons { font-size: 3rem; }
-.list-icons .list-inline-item i:hover { color: #00d646; }
+.list-icons .list-inline-item i:hover { color: var(--primary-color); }
 
 /* ==============================
-   Resume Section (Glass/Apple style)
+   Resume Section — Lusion Light Card
+   Clean white cards on lavender bg
    ============================== */
 .resume-section {
-  background: rgba(255,255,255,0.17); /* Glass base */
-  border-radius: 2rem;
-  margin: 2rem 2rem 2rem 2rem;
-  box-shadow: 0 8px 40px 0 rgba(34,34,51,0.13), 0 1.5px 8px 0 rgba(0,0,0,0.11);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1.5px solid rgba(255,255,255,0.28);
-  outline: 1px solid rgba(255,255,255,0.16);
+  background: var(--card-bg);
+  border-radius: var(--card-radius);
+  margin: 1.5rem 2rem;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
   position: relative;
-  transition: box-shadow 0.3s, border-color 0.2s;
   overflow: hidden;
   z-index: 1;
-  padding-top: 5rem !important;
-  padding-bottom: 5rem !important;
-  transform-origin: center center; /* scale expands evenly from center */
+  padding-top: 4rem !important;
+  padding-bottom: 4rem !important;
+  transform-origin: center center;
+  transition: box-shadow 0.3s ease;
 }
-/* Animation is driven entirely by JS (rAF).
-   clip-path + scale + translateX + rotate replicate the WebGL
-   shader expansion effect. */
+.resume-section:hover {
+  box-shadow: 0 4px 30px rgba(0,0,0,0.10);
+}
+
+/* Override glass class — flatten it */
+.resume-section.glass {
+  background: var(--card-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+}
+.resume-section.glass::after {
+  display: none; /* Remove glass pseudo-element */
+}
+.resume-section.glass .my-auto {
+  background: none;
+  padding: 1rem 2rem;
+}
+
+/* Resume section layout */
+section.resume-section {
+  padding-top: 4rem !important;
+  padding-bottom: 4rem !important;
+}
+section.resume-section .resume-item .resume-date {
+  min-width: none;
+}
+
 @media (max-width: 600px) {
   .resume-section {
-    backdrop-filter: blur(4px) saturate(130%);
-    -webkit-backdrop-filter: blur(4px) saturate(130%);
     margin: 1rem;
-    padding-top: 2.5rem !important;
-    padding-bottom: 2.5rem !important;
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    border-radius: 1rem;
   }
 }
 @media (min-width: 992px) {
   .resume-section {
     padding-top: 3rem !important;
     padding-bottom: 3rem !important;
+    margin: 1.5rem 4rem;
   }
 }
 
+/* Inner containers — no glass bg */
 .resume-section .my-auto {
-  background: linear-gradient(120deg,rgba(255,255,255,0.15) 80%,rgba(0,214,70,0.07));
-  border-radius: 1.5rem;
-  padding: 1rem 2rem;
-  backdrop-filter: blur(2px);
+  background: none;
+  border-radius: 0;
+  padding: 0.5rem 2rem;
+  backdrop-filter: none;
 }
-.resume-section h2{
+
+/* Headings inside cards — dark on white */
+.resume-section h2 {
   display: inline-block;
-  padding: 0.2em 0.75em;
-  border-radius: 1rem;
-  color: #fff;
+  padding: 0.2em 0;
+  border-radius: 0;
+  color: var(--text-color);
+  font-weight: 800;
 }
 .resume-section h1,
 .resume-section h3 {
-  background: linear-gradient(90deg, rgba(0,214,70,0.11) 0%,rgba(255,255,255,0.15) 100%);
+  background: none;
   display: inline-block;
-  padding: 0.2em 0.75em;
-  border-radius: 1rem;
-  backdrop-filter: blur(1.5px);
-  color: #fff;
+  padding: 0.2em 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  color: var(--text-color);
 }
 
+/* Date badge — subtle pill */
 .resume-section .resume-date {
-  background: rgba(255,255,255,0.22);
-  border-radius: 1rem;
-  padding: 0.5em 1em;
+  background: var(--secondary-bg);
+  border-radius: 0.75rem;
+  padding: 0.4em 0.9em;
   font-weight: 600;
-  font-size: 1.1em;
+  font-size: 0.95em;
   letter-spacing: 0.01em;
-  color: #222233;
-  box-shadow: 0 0.5px 4px 0 rgba(0,0,0,0.07);
-  
+  color: var(--text-secondary);
+  box-shadow: none;
+  border: 1px solid var(--card-border);
   text-align: right;
+}
+
+/* Body text inside cards — dark */
+.resume-section p,
+.resume-section div {
+  color: var(--text-color) !important;
+}
+.resume-section li {
+  color: var(--text-color);
 }
 
 /* ==============================
    Resume Item Flex Layout
    ============================== */
-
 .resume-item {
   display: flex;
   flex-direction: row;
@@ -372,45 +370,26 @@ span.through { text-decoration: line-through; }
   max-width: 60%;
 }
 .resume-date {
-  /*
-  flex: 0 0 36%;
-  max-width: 16%;
-  min-width: 200px; 
-  */
   text-align: right;
 }
 
-
 /* ==============================
-   Liquid Glass Card Utility
+   Glass Utility — flattened for light theme
    ============================== */
 .glass {
   position: relative;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(2px) saturate(180%);
-  -webkit-backdrop-filter: blur(2px) saturate(180%);
-  border: 1.5px solid rgba(255,255,255,0.80);
-  border-radius: 2rem;
-  box-shadow: 0 8px 32px rgba(31,38,135,0.22),
-              inset 0 4px 20px rgba(255,255,255,0.32);
+  background: var(--card-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
   overflow: hidden;
   z-index: 1;
-  transition: box-shadow 0.3s, border-color 0.2s;
+  transition: box-shadow 0.3s ease;
 }
 .glass::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(255, 255, 255, 0.13);
-  border-radius: 2rem;
-  backdrop-filter: blur(1px);
-  -webkit-backdrop-filter: blur(1px);
-  box-shadow: inset -10px -8px 0px -11px rgba(255,255,255,1),
-              inset 0px -9px 0px -8px rgba(255,255,255,0.88);
-  opacity: 0.65;
-  z-index: -1;
-  filter: blur(1px) drop-shadow(10px 4px 6px black) brightness(1.15);
-  pointer-events: none;
+  display: none;
 }
 .glass .my-auto {
   background: none;
@@ -418,29 +397,38 @@ span.through { text-decoration: line-through; }
 }
 
 /* ==============================
-   Icon Utilities
+   White text utility (keep for special use)
    ============================== */
-i.fa-heart { color: #ed1515; }
-.white-text .fa-heart {
-  color: #ed1515 !important;
-}
 .white-text, .white-text * {
   color: #fff !important;
   text-shadow: 0 1px 6px rgba(0,0,0,0.16);
 }
-.resume-section p, .resume-section div{
-  color: #fff !important;
+
+/* ==============================
+   Links
+   ============================== */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+a:hover {
+  color: var(--accent-color);
+  opacity: 0.8;
 }
 
 /* ==============================
    Dark Mode Adaptations
    ============================== */
 [data-theme="dark"] .bg-primary      { background-color: var(--primary-color) !important; }
-[data-theme="dark"] .text-primary    { color: var(--link-color) !important; }
-[data-theme="dark"] a                { color: var(--link-color); }
-[data-theme="dark"] a:hover          { color: var(--hover-color); }
-[data-theme="dark"] .resume-section  { background-color: var(--bg-color); color: var(--text-color); }
-[data-theme="dark"] .subheading      { color: var(--text-color); }
-[data-theme="dark"] .list-social-icons a:hover { color: var(--hover-color); }
-[data-theme="dark"] .list-social-icons a { color: var(--link-color-def); }
-
+[data-theme="dark"] .text-primary    { color: var(--accent-color) !important; }
+[data-theme="dark"] a               { color: var(--accent-color); }
+[data-theme="dark"] a:hover         { color: var(--accent-color); opacity: 0.7; }
+[data-theme="dark"] .resume-section { background: var(--card-bg); color: var(--text-color); }
+[data-theme="dark"] .subheading     { color: var(--text-secondary); }
+[data-theme="dark"] .list-social-icons a:hover { color: var(--accent-color); }
+[data-theme="dark"] .list-social-icons a       { color: var(--text-secondary); }
+[data-theme="dark"] .liquid-bg      { background: var(--bg-color); }
+[data-theme="dark"] #canvas         { mix-blend-mode: screen; opacity: 0.3; }
+[data-theme="dark"] .resume-section p,
+[data-theme="dark"] .resume-section div { color: var(--text-color) !important; }
