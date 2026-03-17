@@ -505,7 +505,7 @@
         gl.uniform1f(distortionProgram.uniforms.u_shade, 1.8);
 
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive blend — screen-like
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         drawQuad();
         gl.disable(gl.BLEND);
     }
@@ -529,8 +529,7 @@
             'overscroll-behavior: none',
             'touch-action: none',
             'pointer-events: none',
-            'z-index: 9998',
-            'mix-blend-mode: screen'
+            'z-index: 9998'
         ].join(';');
         document.body.appendChild(canvas);
 
