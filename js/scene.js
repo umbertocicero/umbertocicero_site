@@ -1,21 +1,145 @@
 /**
- * Interactive 3D showcase — contained in .hero-3d-card
- * Renders a rotating cube with bloom inside a rounded dark container.
- * Users can drag to rotate the object.
+ * Interactive 3D showcase — Floating jack/cross objects
+ *
+ * Pure kinematic system — NO physics engine.
+ * Each jack drifts gently (sine waves) and rotates slowly.
+ * Mouse hover pushes them via a velocity impulse that decays smoothly.
+ * Soft boundary keeps everything inside the container.
+ * Zero jitter, zero scatti, perfectly smooth.
  */
 import * as THREE from 'https://esm.sh/three@0.153.0';
 import { EffectComposer } from 'https://esm.sh/three@0.153.0/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'https://esm.sh/three@0.153.0/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'https://esm.sh/three@0.153.0/examples/jsm/postprocessing/UnrealBloomPass.js';
 
-let scene, camera, renderer, cube, composer;
+/* ─── State ────────────────────────────────────────────────────────── */
+let scene, camera, renderer, composer;
 let container;
-let isDragging = false;
-let prevMouse = { x: 0, y: 0 };
-let targetRotation = { x: 0.4, y: 0.6 };
-let currentRotation = { x: 0.4, y: 0.6 };
-let autoRotate = true;
+let jacks = [];
+let mouseWorld = new THREE.Vector3(9999, 9999, 9999);
+let raycaster = new THREE.Raycaster();
+let pointer = new THREE.Vector2(9999, 9999);
+let mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+const clock = new THREE.Clock();
+let elapsed = 0;
+let mouseActive = false;
 
+/* ─── Config ───────────────────────────────────────────────────────── */
+const JACK_COUNT   = 30;
+const ARM_LEN      = 1.4;
+const ARM_RADIUS   = 0.20;
+const HOLE_RADIUS  = 0.09;
+const BEVEL        = 0.01;
+const SEGS         = 32;
+const PUSH_RADIUS  = 2.8;
+const PUSH_STRENGTH = 2.5;
+const DAMPING      = 0.965;
+const BOUNDS       = { x: 4.8, y: 3.0, z: 1.8 };
+const COLLISION_R  = 1.2;     // repulsion radius between jacks
+const COLLISION_K  = 3.0;     // repulsion strength
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GEOMETRY
+   ═════════════════════════════════════════════════════════════════════ */
+function createArmGeometry() {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, ARM_RADIUS, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, HOLE_RADIUS, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: ARM_LEN,
+        bevelEnabled: true,
+        bevelThickness: BEVEL,
+        bevelSize: BEVEL,
+        bevelSegments: 5,
+        curveSegments: SEGS,
+    });
+    geo.translate(0, 0, -ARM_LEN / 2);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+let _armGeo = null;
+function getArmGeo() {
+    if (!_armGeo) _armGeo = createArmGeometry();
+    return _armGeo;
+}
+
+function createJackMesh(material) {
+    const g = new THREE.Group();
+    const geo = getArmGeo();
+    // Z arm (default extrude direction)
+    g.add(new THREE.Mesh(geo, material));
+    // X arm
+    const mx = new THREE.Mesh(geo, material);
+    mx.rotation.y = Math.PI / 2;
+    g.add(mx);
+    // Y arm
+    const my = new THREE.Mesh(geo, material);
+    my.rotation.x = Math.PI / 2;
+    g.add(my);
+    // Larger core sphere to blend the arms smoothly at center
+    g.add(new THREE.Mesh(
+        new THREE.SphereGeometry(ARM_RADIUS + BEVEL * 0.3, SEGS, SEGS / 2),
+        material
+    ));
+    return g;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MATERIALS
+   ═════════════════════════════════════════════════════════════════════ */
+function createMaterials() {
+    return [
+        // White matte
+        new THREE.MeshPhysicalMaterial({
+            color: 0xd8d8d8, metalness: 0.0, roughness: 0.65,
+            clearcoat: 0.0,
+        }),
+        // White glossy / specular
+        new THREE.MeshPhysicalMaterial({
+            color: 0xf0f0f0, metalness: 0.05, roughness: 0.05,
+            clearcoat: 1.0, clearcoatRoughness: 0.04,
+        }),
+        // Blue matte
+        new THREE.MeshPhysicalMaterial({
+            color: 0x2020e0, metalness: 0.0, roughness: 0.55,
+            clearcoat: 0.0,
+        }),
+        // Blue glossy / mirror-like
+        new THREE.MeshPhysicalMaterial({
+            color: 0x1818ff, metalness: 0.05, roughness: 0.04,
+            clearcoat: 1.0, clearcoatRoughness: 0.02,
+        }),
+        // Black matte
+        new THREE.MeshPhysicalMaterial({
+            color: 0x0e0e0e, metalness: 0.0, roughness: 0.7,
+            clearcoat: 0.0,
+        }),
+        // Black semi-glossy
+        new THREE.MeshPhysicalMaterial({
+            color: 0x141414, metalness: 0.05, roughness: 0.25,
+            clearcoat: 0.5, clearcoatRoughness: 0.15,
+        }),
+    ];
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOUSE
+   ═════════════════════════════════════════════════════════════════════ */
+function updateMouseWorld(e) {
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.ray.intersectPlane(mousePlane, mouseWorld);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   INIT
+   ═════════════════════════════════════════════════════════════════════ */
 function init() {
     container = document.getElementById('webgl-container');
     if (!container) return;
@@ -23,112 +147,224 @@ function init() {
     const w = container.clientWidth;
     const h = container.clientHeight;
 
-    // Scene
+    /* ── Three.js ───────────────────────────────────────────────────── */
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111118);
+    scene.background = new THREE.Color(0x1e1e28);
 
-    // Camera
-    camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
-    camera.position.set(0, 0, 5);
+    camera = new THREE.PerspectiveCamera(38, w / h, 0.1, 100);
+    camera.position.set(0, 0, 9.5);
 
-    // Renderer — contained, not full screen
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
 
-    // Cube
-    const geometry = new THREE.BoxGeometry(2, 2, 2);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        metalness: 0.85,
-        roughness: 0.08,
-    });
-    cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    /* ── Environment map for reflections ────────────────────────────── */
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envScene = new THREE.Scene();
+    envScene.background = new THREE.Color(0x1a1a24);
+    // Simulate a soft studio lighting environment
+    const envLight1 = new THREE.DirectionalLight(0xffffff, 3);
+    envLight1.position.set(5, 5, 5);
+    envScene.add(envLight1);
+    const envLight2 = new THREE.DirectionalLight(0x4466ff, 1);
+    envLight2.position.set(-4, -2, 3);
+    envScene.add(envLight2);
+    envScene.add(new THREE.AmbientLight(0x333344, 0.5));
+    const envMap = pmrem.fromScene(envScene, 0, 0.1, 100).texture;
+    scene.environment = envMap;
+    pmrem.dispose();
 
-    // Lights
-    scene.add(new THREE.AmbientLight(0x8888cc, 0.4));
+    /* ── Lighting — strong key from top-right ─────────────────────── */
+    scene.add(new THREE.AmbientLight(0x555566, 0.3));
 
-    const key = new THREE.PointLight(0xffffff, 2, 50);
-    key.position.set(5, 5, 5);
-    scene.add(key);
+    // Key light — strong, warm-white from top-right
+    const keyLight = new THREE.DirectionalLight(0xfff8f0, 3.0);
+    keyLight.position.set(8, 6, 5);
+    scene.add(keyLight);
 
-    const fill = new THREE.PointLight(0x4444ff, 0.8, 50);
-    fill.position.set(-4, -2, 3);
-    scene.add(fill);
+    // Subtle cool fill from left
+    const fillLight = new THREE.DirectionalLight(0x6680cc, 0.4);
+    fillLight.position.set(-6, -2, 4);
+    scene.add(fillLight);
 
-    const rim = new THREE.PointLight(0x6666ff, 1.2, 50);
-    rim.position.set(0, 3, -5);
-    scene.add(rim);
+    // Rim light from behind
+    const rimLight = new THREE.DirectionalLight(0x445588, 0.5);
+    rimLight.position.set(0, 3, -6);
+    scene.add(rimLight);
 
-    // Post-processing: subtle bloom
+    /* ── Create jacks ───────────────────────────────────────────────── */
+    const materials = createMaterials();
+
+    for (let i = 0; i < JACK_COUNT; i++) {
+        const mat = materials[Math.floor(Math.random() * materials.length)];
+        const mesh = createJackMesh(mat);
+
+        const pad = 0.6;
+        const px = (Math.random() - 0.5) * (BOUNDS.x - pad) * 2;
+        const py = (Math.random() - 0.5) * (BOUNDS.y - pad) * 2;
+        const pz = (Math.random() - 0.5) * (BOUNDS.z - pad) * 2;
+
+        const euler = new THREE.Euler(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        );
+
+        mesh.position.set(px, py, pz);
+        mesh.quaternion.setFromEuler(euler);
+        scene.add(mesh);
+
+        jacks.push({
+            mesh,
+            // Position
+            homeX: px, homeY: py, homeZ: pz,
+            vx: 0, vy: 0, vz: 0,
+            // Drift (sine-wave float)
+            dxFreq: 0.06 + Math.random() * 0.08,
+            dyFreq: 0.05 + Math.random() * 0.07,
+            dzFreq: 0.04 + Math.random() * 0.05,
+            dxPhase: Math.random() * Math.PI * 2,
+            dyPhase: Math.random() * Math.PI * 2,
+            dzPhase: Math.random() * Math.PI * 2,
+            dxAmp: 0.06 + Math.random() * 0.1,
+            dyAmp: 0.05 + Math.random() * 0.08,
+            dzAmp: 0.02 + Math.random() * 0.04,
+            // Rotation (incremental quaternion)
+            spinSpeedX: (Math.random() - 0.5) * 0.06,
+            spinSpeedY: (Math.random() - 0.5) * 0.05,
+            spinSpeedZ: (Math.random() - 0.5) * 0.04,
+        });
+    }
+
+    /* ── Post-processing ────────────────────────────────────────────── */
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     composer.addPass(new UnrealBloomPass(
-        new THREE.Vector2(w, h),
-        0.4,   // intensity
-        0.6,   // radius
-        0.75   // threshold
+        new THREE.Vector2(w, h), 0.2, 0.4, 0.88
     ));
 
-    // Interaction: drag to rotate
-    container.addEventListener('pointerdown', onPointerDown);
+    /* ── Events ─────────────────────────────────────────────────────── */
     container.addEventListener('pointermove', onPointerMove);
-    container.addEventListener('pointerup', onPointerUp);
-    container.addEventListener('pointerleave', onPointerUp);
-
+    container.addEventListener('pointerleave', onPointerLeave);
     window.addEventListener('resize', onResize);
 
     animate();
 }
 
-function onPointerDown(e) {
-    isDragging = true;
-    autoRotate = false;
-    prevMouse.x = e.clientX;
-    prevMouse.y = e.clientY;
-    container.style.cursor = 'grabbing';
-}
-
+/* ─── Events ───────────────────────────────────────────────────────── */
 function onPointerMove(e) {
-    if (!isDragging) return;
-    const dx = e.clientX - prevMouse.x;
-    const dy = e.clientY - prevMouse.y;
-    targetRotation.y += dx * 0.008;
-    targetRotation.x += dy * 0.008;
-    prevMouse.x = e.clientX;
-    prevMouse.y = e.clientY;
+    mouseActive = true;
+    updateMouseWorld(e);
+}
+function onPointerLeave() {
+    mouseActive = false;
+    pointer.set(9999, 9999);
+    mouseWorld.set(9999, 9999, 9999);
 }
 
-function onPointerUp() {
-    isDragging = false;
-    container.style.cursor = 'grab';
-    // Resume auto-rotate after 2s of no interaction
-    setTimeout(function() { if (!isDragging) autoRotate = true; }, 2000);
-}
+/* ─── Animation loop ───────────────────────────────────────────────── */
+const _dq = new THREE.Quaternion();
+const _euler = new THREE.Euler();
 
 function animate() {
     requestAnimationFrame(animate);
 
-    // Auto-rotate when not dragging
-    if (autoRotate) {
-        targetRotation.y += 0.005;
-        targetRotation.x += 0.002;
+    const dt = Math.min(clock.getDelta(), 1 / 30);
+    elapsed += dt;
+
+    for (let i = 0; i < jacks.length; i++) {
+        const j = jacks[i];
+        const m = j.mesh;
+
+        /* ── Mouse push ─────────────────────────────────────────────── */
+        if (mouseActive) {
+            const dx = m.position.x - mouseWorld.x;
+            const dy = m.position.y - mouseWorld.y;
+            const dz = m.position.z - mouseWorld.z;
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist < PUSH_RADIUS && dist > 0.01) {
+                const strength = PUSH_STRENGTH * Math.pow(1 - dist / PUSH_RADIUS, 2);
+                const inv = strength / dist;
+                j.vx += dx * inv;
+                j.vy += dy * inv;
+                j.vz += dz * inv * 0.3;
+            }
+        }
+
+        /* ── Inter-jack repulsion (solid bodies) ────────────────────── */
+        for (let k = i + 1; k < jacks.length; k++) {
+            const o = jacks[k];
+            const ox = o.mesh.position.x;
+            const oy = o.mesh.position.y;
+            const oz = o.mesh.position.z;
+            const dx = m.position.x - ox;
+            const dy = m.position.y - oy;
+            const dz = m.position.z - oz;
+            const dist2 = dx * dx + dy * dy + dz * dz;
+            if (dist2 < COLLISION_R * COLLISION_R && dist2 > 0.001) {
+                const dist = Math.sqrt(dist2);
+                const overlap = COLLISION_R - dist;
+                const force = overlap * COLLISION_K;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const nz = dz / dist;
+                // Push both apart equally
+                j.vx += nx * force * 0.5;
+                j.vy += ny * force * 0.5;
+                j.vz += nz * force * 0.5;
+                o.vx -= nx * force * 0.5;
+                o.vy -= ny * force * 0.5;
+                o.vz -= nz * force * 0.5;
+            }
+        }
+
+        /* ── Decay push velocity ────────────────────────────────────── */
+        j.vx *= DAMPING;
+        j.vy *= DAMPING;
+        j.vz *= DAMPING;
+
+        // Kill tiny residual
+        if (j.vx * j.vx + j.vy * j.vy + j.vz * j.vz < 0.00001) {
+            j.vx = 0; j.vy = 0; j.vz = 0;
+        }
+
+        /* ── Update home from push velocity ─────────────────────────── */
+        j.homeX += j.vx * dt;
+        j.homeY += j.vy * dt;
+        j.homeZ += j.vz * dt;
+
+        /* ── Soft boundary ──────────────────────────────────────────── */
+        const bx = BOUNDS.x - 0.5;
+        const by = BOUNDS.y - 0.5;
+        const bz = BOUNDS.z - 0.5;
+        if (j.homeX >  bx) { j.homeX =  bx; j.vx = -Math.abs(j.vx) * 0.3; }
+        if (j.homeX < -bx) { j.homeX = -bx; j.vx =  Math.abs(j.vx) * 0.3; }
+        if (j.homeY >  by) { j.homeY =  by; j.vy = -Math.abs(j.vy) * 0.3; }
+        if (j.homeY < -by) { j.homeY = -by; j.vy =  Math.abs(j.vy) * 0.3; }
+        if (j.homeZ >  bz) { j.homeZ =  bz; j.vz = -Math.abs(j.vz) * 0.3; }
+        if (j.homeZ < -bz) { j.homeZ = -bz; j.vz =  Math.abs(j.vz) * 0.3; }
+
+        /* ── Final position = home + sine drift ─────────────────────── */
+        m.position.set(
+            j.homeX + Math.sin(elapsed * j.dxFreq + j.dxPhase) * j.dxAmp,
+            j.homeY + Math.sin(elapsed * j.dyFreq + j.dyPhase) * j.dyAmp,
+            j.homeZ + Math.sin(elapsed * j.dzFreq + j.dzPhase) * j.dzAmp
+        );
+
+        /* ── Rotation: smooth incremental tumble ────────────────────── */
+        _euler.set(j.spinSpeedX * dt, j.spinSpeedY * dt, j.spinSpeedZ * dt);
+        _dq.setFromEuler(_euler);
+        m.quaternion.multiply(_dq);
+        m.quaternion.normalize();
     }
-
-    // Smooth interpolation
-    currentRotation.x += (targetRotation.x - currentRotation.x) * 0.08;
-    currentRotation.y += (targetRotation.y - currentRotation.y) * 0.08;
-
-    cube.rotation.x = currentRotation.x;
-    cube.rotation.y = currentRotation.y;
 
     composer.render();
 }
 
+/* ─── Resize ───────────────────────────────────────────────────────── */
 function onResize() {
     if (!container) return;
     const w = container.clientWidth;
@@ -139,7 +375,7 @@ function onResize() {
     composer.setSize(w, h);
 }
 
-// Boot
+/* ─── Boot ─────────────────────────────────────────────────────────── */
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
