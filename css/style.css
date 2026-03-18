@@ -125,6 +125,25 @@ body {
 }
 
 /* ==============================
+   Scroll Line — decorative reveal line
+   ============================== */
+#scroll-line-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+  will-change: transform, opacity;
+}
+#scroll-line-container svg {
+  display: block;
+  overflow: visible;
+}
+
+/* ==============================
    Hero 3D Card — dark rounded container for WebGL object
    ============================== */
 .hero-3d-card {
@@ -197,7 +216,10 @@ body {
 /* ==============================
    Content layers
    ============================== */
-.container-fluid,
+.container-fluid {
+  position: relative;
+  z-index: auto;
+}
 .resume-section {
   position: relative;
   z-index: 2;
@@ -376,6 +398,8 @@ section.resume-section .resume-item .resume-date {
   text-transform: none;
   margin: 0 2rem;
   padding: 2.5rem 0 1rem;
+  position: relative;
+  z-index: 2;
 }
 @media (min-width: 992px) {
   .section-title {

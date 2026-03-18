@@ -49,6 +49,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   <!-- Three.js: CARICATO COME MODULO (type="module") -->
   <script type="module" src="js/scene.js"></script>
+  <!-- Scroll-driven decorative line -->
+  <script src="js/scroll-line.js" defer></script>
 
   <!-- Bootstrap core CSS -->
   <link
@@ -75,6 +77,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NTT2GR2H"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
+
+  <!-- Scroll-driven decorative line overlay (OUTSIDE container-fluid for reliable fixed positioning) -->
+  <div id="scroll-line-container"></div>
+
   <div class="container-fluid p-0">
     <section class="p-3 p-lg-5 d-flex d-column empty-section"
       style="background-color: transparent; border-bottom: none;">
@@ -90,7 +96,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="hero-3d-card" id="webgl-container"></div>
 
     <!-- Scroll separator -->
-    <div class="scroll-separator">
+    <div class="scroll-separator" id="init-line">
       <span class="scroll-separator__cross">+</span>
       <span class="scroll-separator__cross">+</span>
       <span class="scroll-separator__cross">+</span>
@@ -146,11 +152,34 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="my-auto mb-5">
           <div class="resume-item d-flex flex-md-row mb-2">
             <div class="resume-content">
+              <h3 class="mb-0">Senior System Engineer</h3>
+
+            </div>
+            <div class="resume-date">
+              <span class="text-primary">November 2025 - Today</span>
+            </div>
+          </div>
+          <div id="bh">
+            <div class="subheading mb-3">Baker Hughes</div>
+            <p class="bold">MAIN ACTIVITIES</p>
+            <p></p>
+            <p>
+              TODO
+
+            </p>
+
+          </div>
+        </div>
+        
+        <div class="my-auto mb-5">
+          <div class="resume-item d-flex flex-md-row mb-2">
+            <div class="resume-content">
               <h3 class="mb-0">Senior Software Engineer | Product Owner</h3>
 
             </div>
             <div class="resume-date">
-              <span class="text-primary">May 2021 - Today</span>
+              <span class="text-primary">May 2021 - </span>
+              <span class="text-primary through">September 2025</span>
             </div>
           </div>
           <div id="movyon">
@@ -175,6 +204,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           </div>
         </div>
+        
+
         <div class="my-auto mb-5">
 
           <div class="resume-item d-flex flex-md-row mb-2">
@@ -345,7 +376,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="my-auto">
         <div class="subheading mb-3">Programming Languages &amp; Tools</div>
         <p>Ottima conoscenza del linguaggio JAVA e di Android SDK. Buona conoscenza
-          di C#.</p>
+          di C# e Python.</p>
         <p class="bold">Front-end:</p>
         <p>Ottima conoscenza di AngularJs e Angular v2+, HTML5, CSS3, jQuery, JSF,
           Rich Faces.</p>
