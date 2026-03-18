@@ -28,8 +28,6 @@ let mouseActive = false;
 const JACK_COUNT   = 30;
 const ARM_LEN      = 1.4;
 const ARM_RADIUS   = 0.20;
-const HOLE_RADIUS  = 0.09;
-const BEVEL        = 0.01;
 const SEGS         = 32;
 const PUSH_RADIUS  = 2.8;
 const PUSH_STRENGTH = 2.5;
@@ -39,23 +37,11 @@ const COLLISION_R  = 1.2;     // repulsion radius between jacks
 const COLLISION_K  = 3.0;     // repulsion strength
 
 /* ═══════════════════════════════════════════════════════════════════════
-   GEOMETRY
+   GEOMETRY — capsule arms + smooth center fillet
    ═════════════════════════════════════════════════════════════════════ */
 function createArmGeometry() {
-    const shape = new THREE.Shape();
-    shape.absarc(0, 0, ARM_RADIUS, 0, Math.PI * 2, false);
-    const hole = new THREE.Path();
-    hole.absarc(0, 0, HOLE_RADIUS, 0, Math.PI * 2, true);
-    shape.holes.push(hole);
-    const geo = new THREE.ExtrudeGeometry(shape, {
-        depth: ARM_LEN,
-        bevelEnabled: true,
-        bevelThickness: BEVEL,
-        bevelSize: BEVEL,
-        bevelSegments: 5,
-        curveSegments: SEGS,
-    });
-    geo.translate(0, 0, -ARM_LEN / 2);
+    // Simple capsule: cylinder with hemispherical ends
+    const geo = new THREE.CapsuleGeometry(ARM_RADIUS, ARM_LEN, 8, SEGS);
     geo.computeVertexNormals();
     return geo;
 }
@@ -69,21 +55,26 @@ function getArmGeo() {
 function createJackMesh(material) {
     const g = new THREE.Group();
     const geo = getArmGeo();
-    // Z arm (default extrude direction)
+
+    // Y arm (capsule default axis)
     g.add(new THREE.Mesh(geo, material));
+
     // X arm
     const mx = new THREE.Mesh(geo, material);
-    mx.rotation.y = Math.PI / 2;
+    mx.rotation.z = Math.PI / 2;
     g.add(mx);
-    // Y arm
-    const my = new THREE.Mesh(geo, material);
-    my.rotation.x = Math.PI / 2;
-    g.add(my);
-    // Larger core sphere to blend the arms smoothly at center
+
+    // Z arm
+    const mz = new THREE.Mesh(geo, material);
+    mz.rotation.x = Math.PI / 2;
+    g.add(mz);
+
+    // Center fillet — sphere just big enough to smooth the junction
     g.add(new THREE.Mesh(
-        new THREE.SphereGeometry(ARM_RADIUS + BEVEL * 0.3, SEGS, SEGS / 2),
+        new THREE.SphereGeometry(ARM_RADIUS * 1.12, SEGS, SEGS / 2),
         material
     ));
+
     return g;
 }
 
@@ -236,6 +227,8 @@ function init() {
             spinSpeedX: (Math.random() - 0.5) * 0.06,
             spinSpeedY: (Math.random() - 0.5) * 0.05,
             spinSpeedZ: (Math.random() - 0.5) * 0.04,
+            // Push-induced angular velocity (decays)
+            spinVx: 0, spinVy: 0, spinVz: 0,
         });
     }
 
@@ -291,6 +284,10 @@ function animate() {
                 j.vx += dx * inv;
                 j.vy += dy * inv;
                 j.vz += dz * inv * 0.3;
+                // Torque from push (cross product of direction × up/side)
+                j.spinVx += (dy * inv) * 1.5;
+                j.spinVy += (-dx * inv) * 1.5;
+                j.spinVz += (dx * inv - dy * inv) * 0.8;
             }
         }
 
@@ -325,10 +322,16 @@ function animate() {
         j.vx *= DAMPING;
         j.vy *= DAMPING;
         j.vz *= DAMPING;
+        j.spinVx *= DAMPING;
+        j.spinVy *= DAMPING;
+        j.spinVz *= DAMPING;
 
         // Kill tiny residual
         if (j.vx * j.vx + j.vy * j.vy + j.vz * j.vz < 0.00001) {
             j.vx = 0; j.vy = 0; j.vz = 0;
+        }
+        if (j.spinVx * j.spinVx + j.spinVy * j.spinVy + j.spinVz * j.spinVz < 0.000001) {
+            j.spinVx = 0; j.spinVy = 0; j.spinVz = 0;
         }
 
         /* ── Update home from push velocity ─────────────────────────── */
@@ -354,8 +357,12 @@ function animate() {
             j.homeZ + Math.sin(elapsed * j.dzFreq + j.dzPhase) * j.dzAmp
         );
 
-        /* ── Rotation: smooth incremental tumble ────────────────────── */
-        _euler.set(j.spinSpeedX * dt, j.spinSpeedY * dt, j.spinSpeedZ * dt);
+        /* ── Rotation: ambient tumble + push spin ───────────────────── */
+        _euler.set(
+            (j.spinSpeedX + j.spinVx) * dt,
+            (j.spinSpeedY + j.spinVy) * dt,
+            (j.spinSpeedZ + j.spinVz) * dt
+        );
         _dq.setFromEuler(_euler);
         m.quaternion.multiply(_dq);
         m.quaternion.normalize();
