@@ -35,6 +35,7 @@ const DAMPING      = 0.965;
 const BOUNDS       = { x: 4.8, y: 3.0, z: 1.8 };
 const COLLISION_R  = 1.2;     // repulsion radius between jacks
 const COLLISION_K  = 3.0;     // repulsion strength
+const GRAVITY_K    = 0.01;    // central gravity pull strength
 
 /* ═══════════════════════════════════════════════════════════════════════
    GEOMETRY — capsule arms + smooth center fillet
@@ -317,6 +318,11 @@ function animate() {
                 o.vz -= nz * force * 0.5;
             }
         }
+
+        /* ── Central gravity — pull toward origin ────────────────────── */
+        j.vx -= j.homeX * GRAVITY_K;
+        j.vy -= j.homeY * GRAVITY_K;
+        j.vz -= j.homeZ * GRAVITY_K;
 
         /* ── Decay push velocity ────────────────────────────────────── */
         j.vx *= DAMPING;
