@@ -25,17 +25,17 @@ let elapsed = 0;
 let mouseActive = false;
 
 /* ─── Config ───────────────────────────────────────────────────────── */
-const JACK_COUNT   = 30;
-const ARM_LEN      = 1.4;
-const ARM_RADIUS   = 0.20;
+const JACK_COUNT   = 17;
+const ARM_LEN      = 1.9;
+const ARM_RADIUS   = 0.30;
 const SEGS         = 32;
-const PUSH_RADIUS  = 2.8;
-const PUSH_STRENGTH = 2.5;
+const PUSH_RADIUS  = 4.0;
+const PUSH_STRENGTH = 3.0;
 const DAMPING      = 0.965;
-const BOUNDS       = { x: 4.8, y: 3.0, z: 1.8 };
-const COLLISION_R  = 1.2;     // repulsion radius between jacks
-const COLLISION_K  = 3.0;     // repulsion strength
-const GRAVITY_K    = 0.01;    // central gravity pull strength
+const BOUNDS       = { x: 8.0, y: 5.0, z: 2.8 };
+const COLLISION_R  = 2.5;     // repulsion radius between jacks (≈ arm reach)
+const COLLISION_K  = 5.0;     // repulsion strength (strong to prevent overlap)
+const GRAVITY_K    = 0.015;    // central gravity pull strength
 
 /* ═══════════════════════════════════════════════════════════════════════
    GEOMETRY — capsule arms + smooth center fillet
@@ -158,32 +158,44 @@ function init() {
     const envScene = new THREE.Scene();
     envScene.background = new THREE.Color(0x1a1a24);
     // Simulate a soft studio lighting environment
-    const envLight1 = new THREE.DirectionalLight(0xffffff, 3);
+    const envLight1 = new THREE.DirectionalLight(0xffffff, 4);
     envLight1.position.set(5, 5, 5);
     envScene.add(envLight1);
-    const envLight2 = new THREE.DirectionalLight(0x4466ff, 1);
+    const envLight2 = new THREE.DirectionalLight(0x4466ff, 2);
     envLight2.position.set(-4, -2, 3);
     envScene.add(envLight2);
-    envScene.add(new THREE.AmbientLight(0x333344, 0.5));
+    const envLight3 = new THREE.DirectionalLight(0xffeedd, 1.5);
+    envLight3.position.set(-3, 4, -4);
+    envScene.add(envLight3);
+    envScene.add(new THREE.AmbientLight(0x555566, 1.5));
     const envMap = pmrem.fromScene(envScene, 0, 0.1, 100).texture;
     scene.environment = envMap;
     pmrem.dispose();
 
-    /* ── Lighting — strong key from top-right ─────────────────────── */
-    scene.add(new THREE.AmbientLight(0x555566, 0.3));
+    /* ── Lighting — diffuse, well-spread illumination ─────────────── */
+    scene.add(new THREE.AmbientLight(0x8888aa, 0.8));
 
-    // Key light — strong, warm-white from top-right
-    const keyLight = new THREE.DirectionalLight(0xfff8f0, 3.0);
+    // Hemisphere light — soft sky/ground fill
+    const hemiLight = new THREE.HemisphereLight(0xc8c8e0, 0x444466, 0.7);
+    scene.add(hemiLight);
+
+    // Key light — warm-white from top-right
+    const keyLight = new THREE.DirectionalLight(0xfff8f0, 2.5);
     keyLight.position.set(8, 6, 5);
     scene.add(keyLight);
 
-    // Subtle cool fill from left
-    const fillLight = new THREE.DirectionalLight(0x6680cc, 0.4);
+    // Strong fill from left (reduces harsh shadows)
+    const fillLight = new THREE.DirectionalLight(0x8899cc, 1.2);
     fillLight.position.set(-6, -2, 4);
     scene.add(fillLight);
 
+    // Secondary fill from below-right
+    const fillLight2 = new THREE.DirectionalLight(0x7788bb, 0.6);
+    fillLight2.position.set(4, -4, 3);
+    scene.add(fillLight2);
+
     // Rim light from behind
-    const rimLight = new THREE.DirectionalLight(0x445588, 0.5);
+    const rimLight = new THREE.DirectionalLight(0x6677aa, 0.8);
     rimLight.position.set(0, 3, -6);
     scene.add(rimLight);
 
