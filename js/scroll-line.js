@@ -6,7 +6,8 @@
 
   var LINE_BUF_URL = 'lusion/line_reel.buf';
   var LINE_COLOR_START = '#2a38ee';
-  var LINE_COLOR_END   = '#35e6ff';
+  var LINE_COLOR_END   = '#8fe9ff';
+  var COLOR_TRANSITION_POWER = 0.62;
   var STROKE_WIDTH = 22;
   var SHOW_FACTOR_START = 0.4;
   var SHOW_FACTOR_RANGE = 1.3;
@@ -14,7 +15,7 @@
   var HIDE_FACTOR_RANGE = 0.8;
 
   var container;
-  var svg, mainPath, endDot;
+  var svg, mainPath, endDot, gradientStopEnd;
   var pathLength = 0;
   var currentDraw = 0;
   var currentOpacity = 0;
@@ -160,6 +161,10 @@
     return '#' + rr + gg + bbHex;
   }
 
+  function getColorMixRatio(drawRatio) {
+    return clamp01(Math.pow(clamp01(drawRatio), COLOR_TRANSITION_POWER));
+  }
+
   function buildSVG() {
     container = document.getElementById('scroll-line-container');
     if (!container || !linePoints || !linePoints.length) return false;
@@ -189,10 +194,10 @@
     stopA.setAttribute('stop-color', LINE_COLOR_START);
     gradient.appendChild(stopA);
 
-    var stopB = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    stopB.setAttribute('offset', '100%');
-    stopB.setAttribute('stop-color', LINE_COLOR_END);
-    gradient.appendChild(stopB);
+    gradientStopEnd = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    gradientStopEnd.setAttribute('offset', '100%');
+    gradientStopEnd.setAttribute('stop-color', LINE_COLOR_START);
+    gradient.appendChild(gradientStopEnd);
 
     defs.appendChild(gradient);
     svg.appendChild(defs);
@@ -241,7 +246,11 @@
   }
 
   function updateLine(drawRatio, opacityRatio) {
-    if (!mainPath || !endDot || pathLength <= 0 || !container) return;
+    if (!mainPath || !endDot || !gradientStopEnd || pathLength <= 0 || !container) return;
+
+    var colorMix = getColorMixRatio(drawRatio);
+    var dynamicEndColor = blendHexColor(LINE_COLOR_START, LINE_COLOR_END, colorMix);
+    gradientStopEnd.setAttribute('stop-color', dynamicEndColor);
 
     var offset = pathLength * (1 - drawRatio);
     mainPath.style.strokeDashoffset = String(offset);
@@ -251,7 +260,7 @@
       var tip = mainPath.getPointAtLength(drawLen);
       endDot.setAttribute('cx', String(tip.x));
       endDot.setAttribute('cy', String(tip.y));
-      endDot.setAttribute('fill', blendHexColor(LINE_COLOR_START, LINE_COLOR_END, drawRatio));
+      endDot.setAttribute('fill', dynamicEndColor);
       endDot.style.opacity = String(opacityRatio);
     } else {
       endDot.style.opacity = '0';
