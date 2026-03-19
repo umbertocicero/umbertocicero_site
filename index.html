@@ -80,6 +80,47 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
+  <!-- ═══ Fixed Lusion-style header ═══ -->
+  <header id="site-header">
+    <div id="site-header__right">
+      <a href="app.html" class="header-btn header-btn--apps" id="header-apps-btn" aria-label="My Apps">
+        <span class="header-btn__icon">
+          <i class="fas fa-gamepad"></i>
+        </span>
+      </a>
+      <a href="mailto:umbertocicero@gmail.com" class="header-btn header-btn--talk" id="header-talk-btn">
+        <span class="header-btn__arrow">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M2.343 8h11.314m0 0-4.984 4.984M13.657 8 8.673 3.016"/>
+          </svg>
+        </span>
+        <span class="header-btn__text">LET'S PLAY</span>
+        <span class="header-btn__dot"></span>
+      </a>
+      <button class="header-btn header-btn--menu" id="header-menu-btn" aria-label="Menu">
+        <span class="header-btn__text">MENU</span>
+        <span class="header-btn__dots">
+          <span class="header-btn__dots-dot"></span>
+          <span class="header-btn__dots-dot"></span>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══ Full-screen menu overlay ═══ -->
+  <nav id="site-menu-overlay" class="menu-overlay" aria-hidden="true">
+    <div class="menu-overlay__inner">
+      <a class="menu-overlay__link" href="#about">About</a>
+      <a class="menu-overlay__link" href="#experience">Experience</a>
+      <a class="menu-overlay__link" href="#education">Education</a>
+      <a class="menu-overlay__link" href="#skills">Skills</a>
+      <a class="menu-overlay__link" href="#interests">Interests</a>
+      <a class="menu-overlay__link" href="#awards">Awards</a>
+      <a class="menu-overlay__link" href="/app.html">My Apps</a>
+    </div>
+  </nav>
+
   <!-- Scroll-driven decorative line overlay (OUTSIDE container-fluid for reliable fixed positioning) -->
   <div id="scroll-line-container"></div>
 
@@ -446,6 +487,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               all[i].scrollTo({ top: 0, behavior: 'smooth' });
             }
           }
+        });
+      }
+
+      /* Menu toggle */
+      var menuBtn = document.getElementById('header-menu-btn');
+      var menuOverlay = document.getElementById('site-menu-overlay');
+      if (menuBtn && menuOverlay) {
+        menuBtn.addEventListener('click', function () {
+          var isOpen = menuOverlay.classList.toggle('--opened');
+          menuBtn.classList.toggle('--opened', isOpen);
+          menuOverlay.setAttribute('aria-hidden', !isOpen);
+        });
+        /* Close menu when clicking a link */
+        menuOverlay.querySelectorAll('.menu-overlay__link').forEach(function (link) {
+          link.addEventListener('click', function () {
+            menuOverlay.classList.remove('--opened');
+            menuBtn.classList.remove('--opened');
+            menuOverlay.setAttribute('aria-hidden', 'true');
+          });
         });
       }
     });

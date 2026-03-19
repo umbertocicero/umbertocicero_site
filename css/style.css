@@ -654,3 +654,276 @@ a:hover {
 [data-theme="dark"] .scroll-separator { border-color: rgba(255,255,255,0.1); }
 [data-theme="dark"] .resume-section p,
 [data-theme="dark"] .resume-section div { color: var(--text-color) !important; }
+
+/* ==============================
+   Fixed Header — Lusion-style nav
+   ============================== */
+#site-header {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 1.25rem 1.5rem;
+  pointer-events: none;
+  display: flex;
+  justify-content: flex-end;
+}
+#site-header__right {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  pointer-events: auto;
+}
+
+/* ——— Shared button base ——— */
+.header-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.8rem;
+  padding: 0 1.1rem 0 1.4rem;
+  border: none;
+  border-radius: 100px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: background-color 0.35s cubic-bezier(.4,0,.1,1),
+              color 0.35s cubic-bezier(.4,0,.1,1);
+}
+
+/* ——— MY APPS (circle icon button) ——— */
+.header-btn--apps {
+  background: #fff;
+  color: var(--text-color, #1a1a2e);
+  width: 2.8rem;
+  height: 2.8rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--card-border, rgba(0,0,0,0.06));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  gap: 0;
+  flex-shrink: 0;
+}
+.header-btn--apps .header-btn__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1em;
+  transition: transform 0.35s cubic-bezier(.4,0,.1,1),
+              color 0.35s cubic-bezier(.4,0,.1,1);
+}
+@media (hover: hover) {
+  .header-btn--apps:hover {
+    background: var(--primary-color, #3b3bfd);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 12px rgba(59,59,253,0.3);
+  }
+  .header-btn--apps:hover .header-btn__icon {
+    transform: scale(1.15) rotate(-8deg);
+  }
+}
+
+/* ——— LET'S TALK ——— */
+.header-btn--talk {
+  background: #2b2e3a;
+  color: #fff;
+}
+.header-btn--talk .header-btn__arrow {
+  position: absolute;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  width: 1em;
+  height: 1em;
+  transform: translateX(-2.2em);
+  transition: transform 0.35s cubic-bezier(.4,0,.1,1);
+}
+.header-btn--talk .header-btn__arrow svg {
+  width: 100%;
+  height: 100%;
+}
+.header-btn--talk .header-btn__text {
+  transition: transform 0.35s cubic-bezier(.4,0,.1,1);
+}
+.header-btn--talk .header-btn__dot {
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  background: #fff;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(.4,0,.1,1);
+  transform: scale(0.9);
+}
+
+/* Talk hover */
+@media (hover: hover) {
+  .header-btn--talk:hover {
+    background: var(--primary-color, #3b3bfd);
+    color: #fff;
+  }
+  .header-btn--talk:hover .header-btn__arrow {
+    transform: translateX(0);
+  }
+  .header-btn--talk:hover .header-btn__text {
+    transform: translateX(1.2em);
+  }
+  .header-btn--talk:hover .header-btn__dot {
+    transform: scale(0);
+  }
+}
+
+/* ——— MENU ——— */
+.header-btn--menu {
+  background: var(--card-bg, #e4e6ef);
+  color: var(--text-color, #000);
+  padding-right: 1rem;
+  border: 1px solid var(--card-border, rgba(0,0,0,0.06));
+}
+.header-btn--menu .header-btn__dots {
+  position: relative;
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.4s cubic-bezier(.4,0,.1,1);
+  transform: rotate(180deg);
+}
+.header-btn--menu .header-btn__dots-dot {
+  position: absolute;
+  display: block;
+  width: 0.3rem;
+  height: 0.3rem;
+  background: currentColor;
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.header-btn--menu .header-btn__dots-dot:first-child {
+  left: 0.05rem;
+}
+.header-btn--menu .header-btn__dots-dot:last-child {
+  right: 0.05rem;
+}
+
+/* Menu hover */
+@media (hover: hover) {
+  .header-btn--menu:hover {
+    background: #fff;
+    color: var(--primary-color, #3b3bfd);
+    border-color: transparent;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .header-btn--menu:hover .header-btn__dots {
+    transform: rotate(270deg);
+  }
+}
+
+/* Menu opened state */
+.header-btn--menu.--opened {
+  background: #fff;
+  color: var(--primary-color, #3b3bfd);
+  border-color: transparent;
+}
+.header-btn--menu.--opened .header-btn__dots {
+  transform: rotate(270deg);
+}
+
+/* ——— Menu overlay ——— */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 22rem;
+  max-width: 90vw;
+  height: 100vh;
+  background: #fff;
+  color: #1a1a2e;
+  z-index: 9998;
+  padding: 5.5rem 2rem 2rem;
+  transform: translateX(100%);
+  transition: transform 0.45s cubic-bezier(.4,0,.1,1);
+  box-shadow: -4px 0 30px rgba(0,0,0,0.10);
+  overflow-y: auto;
+}
+[data-theme="dark"] .menu-overlay {
+  background: #1e1e28;
+  color: #f0f0f5;
+  box-shadow: -4px 0 30px rgba(0,0,0,0.35);
+}
+.menu-overlay.--opened {
+  transform: translateX(0);
+}
+.menu-overlay[aria-hidden="true"]:not(.--opened) {
+  pointer-events: none;
+}
+.menu-overlay__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.menu-overlay__link {
+  display: block;
+  position: relative;
+  padding: 0.9rem 1.2rem;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 1.35rem;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+.menu-overlay__link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--primary-color, #3b3bfd);
+  border-radius: 0.5rem;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.3s, transform 0.35s cubic-bezier(.4,0,.1,1);
+}
+@media (hover: hover) {
+  .menu-overlay__link:hover {
+    color: var(--primary-color, #3b3bfd);
+  }
+  .menu-overlay__link:hover::before {
+    opacity: 0.08;
+    transform: scale(1);
+  }
+}
+
+/* Mobile: hide text in buttons, keep just icons */
+@media (max-width: 576px) {
+  .header-btn--talk .header-btn__text,
+  .header-btn--menu .header-btn__text {
+    display: none;
+  }
+  .header-btn--talk,
+  .header-btn--menu {
+    width: 2.8rem;
+    padding: 0;
+    justify-content: center;
+  }
+  .header-btn--talk .header-btn__arrow {
+    position: static;
+    transform: none;
+  }
+  .header-btn--talk .header-btn__dot {
+    display: none;
+  }
+  .menu-overlay {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}
