@@ -1,10 +1,10 @@
 /**
- * Scroll-driven decorative line — Lusion reel-inspired port
+ * Scroll-driven decorative line
  */
 (function () {
   'use strict';
 
-  var LINE_BUF_URL = 'lusion/line_reel.buf';
+  var LINE_BUF_URL = 'js/buf/line_reel.buf';
   var LINE_COLOR_START = '#2a38ee';
   var LINE_COLOR_END   = '#8fe9ff';
   var COLOR_TRANSITION_POWER = 0.62;
@@ -15,7 +15,7 @@
   var HIDE_FACTOR_RANGE = 0.8;
 
   var container;
-  var svg, mainPath, endDot, gradientStopEnd;
+  var svg, mainPath, gradientStopEnd;
   var pathLength = 0;
   var currentDraw = 0;
   var currentOpacity = 0;
@@ -214,12 +214,6 @@
     mainPath.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(mainPath);
 
-    endDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    endDot.setAttribute('r', String(STROKE_WIDTH * 0.52));
-    endDot.setAttribute('fill', LINE_COLOR_START);
-    endDot.style.opacity = '0';
-    svg.appendChild(endDot);
-
     pathLength = mainPath.getTotalLength();
     mainPath.style.strokeDasharray  = String(pathLength);
     mainPath.style.strokeDashoffset = String(pathLength);
@@ -246,7 +240,7 @@
   }
 
   function updateLine(drawRatio, opacityRatio) {
-    if (!mainPath || !endDot || !gradientStopEnd || pathLength <= 0 || !container) return;
+    if (!mainPath || !gradientStopEnd || pathLength <= 0 || !container) return;
 
     var colorMix = getColorMixRatio(drawRatio);
     var dynamicEndColor = blendHexColor(LINE_COLOR_START, LINE_COLOR_END, colorMix);
@@ -254,17 +248,6 @@
 
     var offset = pathLength * (1 - drawRatio);
     mainPath.style.strokeDashoffset = String(offset);
-
-    if (drawRatio > 0.001) {
-      var drawLen = Math.min(pathLength, drawRatio * pathLength);
-      var tip = mainPath.getPointAtLength(drawLen);
-      endDot.setAttribute('cx', String(tip.x));
-      endDot.setAttribute('cy', String(tip.y));
-      endDot.setAttribute('fill', dynamicEndColor);
-      endDot.style.opacity = String(opacityRatio);
-    } else {
-      endDot.style.opacity = '0';
-    }
 
     container.style.opacity = String(opacityRatio);
     container.style.transform = 'translate3d(0,0,0)';
