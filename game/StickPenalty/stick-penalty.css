@@ -1,0 +1,49 @@
+/* ── reset ─────────────────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#f5f0e6;
+  font-family:'Comic Sans MS','Segoe Print','Marker Felt',cursive;
+  touch-action:none;-webkit-touch-callout:none;user-select:none}
+
+/* ── canvas ────────────────────────────────────────── */
+#c{display:block;width:100%;height:100%;cursor:crosshair}
+
+/* ── HUD ───────────────────────────────────────────── */
+#hud{position:fixed;top:12px;left:50%;transform:translateX(-50%);
+  font-size:1.4rem;color:#222;letter-spacing:.06em;
+  text-shadow:1px 1px 0 #fff;z-index:20;pointer-events:none}
+#hud-score{color:#2a7d2a;font-weight:700}
+#hud-saves{color:#c22;font-weight:700}
+#hud-round{margin-left:12px;font-size:.85rem;opacity:.7}
+#hud-level{display:inline-block;background:#222;color:#f5f0e6;
+  padding:2px 10px;border-radius:12px;font-size:.8rem;
+  margin-right:10px;letter-spacing:.04em}
+
+/* ── back button ───────────────────────────────────── */
+#btn-back{position:fixed;top:10px;left:10px;z-index:30;
+  font-size:1rem;color:#555;text-decoration:none;
+  background:rgba(255,255,255,.55);padding:4px 10px;
+  border-radius:6px;backdrop-filter:blur(4px)}
+#btn-back:hover{color:#000}
+
+/* ── overlays ──────────────────────────────────────── */
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:rgba(245,240,230,.92);backdrop-filter:blur(6px);
+  z-index:50;gap:14px;padding:24px;text-align:center}
+.ov.hidden{display:none}
+
+.ov-title{font-size:clamp(2rem,6vw,3.4rem);color:#222}
+.ov-sub{font-size:clamp(.95rem,2.6vw,1.2rem);color:#555;
+  max-width:420px;line-height:1.5}
+
+.diff-pick{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+
+/* ── buttons ───────────────────────────────────────── */
+.btn-pill{padding:10px 28px;font-size:1.1rem;border:2px solid #222;
+  border-radius:30px;background:#fff;color:#222;cursor:pointer;
+  font-family:inherit;transition:all .15s}
+.btn-pill:hover{background:#222;color:#fff}
+.btn-ghost{padding:8px 22px;font-size:.95rem;border:none;
+  background:none;color:#888;cursor:pointer;font-family:inherit;
+  text-decoration:underline}
+.btn-ghost:hover{color:#222}

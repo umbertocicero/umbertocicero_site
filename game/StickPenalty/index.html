@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Stick Penalty</title>
+  <link rel="stylesheet" href="stick-penalty.css">
+</head>
+<body>
+
+  <canvas id="c"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <span id="hud-level"></span>
+    <span id="hud-score">0</span> – <span id="hud-saves">0</span>
+    <span id="hud-round"></span>
+  </div>
+
+  <a href="../../app.html" id="btn-back">&larr; Back</a>
+
+  <!-- Intro overlay -->
+  <div class="ov" id="ov-intro" role="dialog" aria-modal="true">
+    <h1 class="ov-title">Stick Penalty</h1>
+    <p class="ov-sub">Disegna il tiro con uno swipe!<br>
+      Più lungo = più potente &middot; Più curvo = più effetto</p>
+    <div class="diff-pick">
+      <button class="btn-pill" data-diff="0">Facile</button>
+      <button class="btn-pill" data-diff="1">Medio</button>
+      <button class="btn-pill" data-diff="2">Difficile</button>
+    </div>
+  </div>
+
+  <!-- Result overlay -->
+  <div class="ov hidden" id="ov-result" role="dialog" aria-modal="true">
+    <h2 class="ov-title" id="res-title"></h2>
+    <p class="ov-sub" id="res-sub"></p>
+    <button class="btn-pill" id="btn-next">Prossimo tiro</button>
+    <button class="btn-ghost" id="btn-restart">Ricomincia</button>
+  </div>
+
+  <!-- Game-over overlay -->
+  <div class="ov hidden" id="ov-gameover" role="dialog" aria-modal="true">
+    <h2 class="ov-title">Fine partita!</h2>
+    <p class="ov-sub" id="go-sub"></p>
+    <button class="btn-pill" id="btn-replay">Gioca ancora</button>
+  </div>
+
+  <script src="stick-penalty.js"></script>
+</body>
+</html>
