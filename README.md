@@ -36,9 +36,21 @@ Se li salvi come **Environment secrets**, il job deve puntare allo stesso enviro
 
 ### Parametri FTP usati dal workflow
 
-- `server`: `ftp.umbertocicero.com`
-- `protocol`: `ftps`
-- `port`: `21`
+- `server`: da variabile `FTP_SERVER` (default `ftp.umbertocicero.com`)
+- `protocol`: da variabile `FTP_PROTOCOL` (default `ftp`, valori ammessi: `ftp` o `ftps`)
+- `port`: da variabile `FTP_PORT` (default `21`)
 - `server-dir`: `/public_html/`
 
-Se il tuo hosting non supporta FTPS, cambia `protocol: ftps` in `protocol: ftp`.
+### Variabili opzionali (Repository Variables)
+
+- `FTP_SERVER`
+- `FTP_PROTOCOL`
+- `FTP_PORT`
+
+### Errore `530 Login authentication failed`
+
+Di solito indica:
+
+- utente FTP non corretto (su alcuni hosting va usato username completo, es. `utente@dominio`);
+- password FTP errata;
+- protocollo errato (`ftp` vs `ftps`) rispetto a quello abilitato sul piano hosting.

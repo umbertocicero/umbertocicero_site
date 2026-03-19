@@ -45,14 +45,34 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve FTP settings
+        id: ftp
+        env:
+          FTP_SERVER_VAR: ${{ vars.FTP_SERVER }}
+          FTP_PROTOCOL_VAR: ${{ vars.FTP_PROTOCOL }}
+          FTP_PORT_VAR: ${{ vars.FTP_PORT }}
+        run: |
+          SERVER="${FTP_SERVER_VAR:-ftp.umbertocicero.com}"
+          PROTOCOL="${FTP_PROTOCOL_VAR:-ftp}"
+          PORT="${FTP_PORT_VAR:-21}"
+
+          if [ "$PROTOCOL" != "ftp" ] && [ "$PROTOCOL" != "ftps" ]; then
+            echo "FTP_PROTOCOL must be 'ftp' or 'ftps'. Current: $PROTOCOL"
+            exit 1
+          fi
+
+          echo "server=$SERVER" >> "$GITHUB_OUTPUT"
+          echo "protocol=$PROTOCOL" >> "$GITHUB_OUTPUT"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
+
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
-          server: ftp.umbertocicero.com
+          server: ${{ steps.ftp.outputs.server }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
-          protocol: ftps
-          port: 21
+          protocol: ${{ steps.ftp.outputs.protocol }}
+          port: ${{ steps.ftp.outputs.port }}
           local-dir: ./
           server-dir: /public_html/
           exclude: |
