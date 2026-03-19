@@ -74,7 +74,7 @@ jobs:
           protocol: ${{ steps.ftp.outputs.protocol }}
           port: ${{ steps.ftp.outputs.port }}
           local-dir: ./
-          server-dir: /public_html/
+          server-dir: /
           exclude: |
             **/.git*
             **/.github*
