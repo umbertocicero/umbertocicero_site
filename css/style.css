@@ -316,6 +316,17 @@ span.through { text-decoration: line-through; opacity: 0.5; }
 .list-icons { font-size: 3rem; }
 .list-icons .list-inline-item i:hover { color: var(--primary-color); }
 
+.blank-section {
+  border: 1px solid var(--card-border);
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+  padding-top: 4rem !important;
+  padding-bottom: 4rem !important;
+  transform-origin: center center;
+  transition: box-shadow 0.3s ease;
+}
+
 /* ==============================
    Resume Section — Light Card
    Clean white cards on lavender bg
