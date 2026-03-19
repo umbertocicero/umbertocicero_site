@@ -25,7 +25,7 @@ Questa repo include:
 
 ### Trigger
 
-Il workflow parte al push di un tag versione (`git tag v1.0.0 && git push origin v1.0.0`) e deploya solo se il commit del tag appartiene a `main`.
+Il workflow parte al push di un tag versione (`git tag v1.0.0 && git push origin v1.0.0`) e deploya solo se il commit del tag appartiene al branch di default del repository (es. `main` o `master`).
 
 ### Secrets da configurare in GitHub (`Settings -> Secrets and variables -> Actions`)
 
