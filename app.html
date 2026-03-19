@@ -15,9 +15,26 @@
   <meta name="author" content="Umberto Antonio Cicero">
   <meta name="robots" content="index, follow">
 
+  <!-- Favicon -->
+  <link rel="icon" href="img/favicon.png">
+  <link rel="shortcut icon" href="img/favicon.png" type="image/x-icon">
+  <link rel="apple-touch-icon" href="img/favicon.png">
+
   <title>Apps – Umberto Antonio Cicero</title>
 
-  <!-- Fonts & CSS -->
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-2MDW3NJ2DD"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-2MDW3NJ2DD');
+  </script>
+
+  <!-- Three.js scene -->
+  <script type="module" src="js/scene.js"></script>
+
+  <!-- Fonts & CSS (same as index.html) -->
   <link href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,400;1,600;1,700;1,800&display=swap" rel="stylesheet">
   <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -25,43 +42,56 @@
   <link href="vendor/devicons/css/devicons.min.css" rel="stylesheet">
   <link href="vendor/simple-line-icons/css/simple-line-icons.css" rel="stylesheet">
   <link href="css/style.css" rel="stylesheet">
-  <!-- Three.js scene (cube + liquid background) -->
-  <script type="module" src="js/scene.js"></script>
 </head>
 
-<body id="apps-page">
+<body id="page-top">
   <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NTT2GR2H" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
-  <div class="liquid-bg"></div>
-  <div id="webgl-container"></div>
 
   <div class="container-fluid p-0">
+
+    <!-- Hero section — same structure as index.html -->
     <section class="p-3 p-lg-5 d-flex d-column empty-section" style="background-color: transparent; border-bottom: none;">
       <div class="my-auto">
         <h1 class="mb-0">MY
           <span class="text-primary">APPS</span>
         </h1>
         <div class="subheading mb-3">Mobile apps developed by Umberto Antonio Cicero</div>
-        <a href="index.html" class="btn btn-outline-light btn-sm"><i class="fas fa-arrow-left"></i> Back to Home</a>
+        <a href="index.html" class="btn btn-sm" style="border: 1px solid var(--card-border); color: var(--text-color); background: var(--card-bg); border-radius: 50px; padding: 0.4rem 1.4rem; font-weight: 600; text-decoration: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: box-shadow 0.25s ease, transform 0.25s ease;">
+          <i class="fas fa-arrow-left"></i> Back to Home
+        </a>
       </div>
     </section>
 
-    <!-- Cocktail ITA Card -->
+    <!-- Interactive 3D showcase -->
+    <div class="hero-3d-card" id="webgl-container"></div>
+
+    <!-- Scroll separator -->
+    <div class="scroll-separator">
+      <span class="scroll-separator__cross">+</span>
+      <span class="scroll-separator__cross">+</span>
+      <span class="scroll-separator__cross">+</span>
+      <span class="scroll-separator__cross">+</span>
+      <span class="scroll-separator__cross">+</span>
+    </div>
+
+    <!-- Cocktail ITA -->
+    <h2 class="section-title">Cocktail ITA</h2>
     <section class="resume-section glass p-3 p-lg-5 d-flex flex-column" id="cocktail-ita">
       <div class="my-auto">
         <div class="row align-items-center g-4">
           <div class="col-12 col-lg-5">
             <div class="d-flex align-items-center mb-3">
-              <img src="assets/cocktail_ita/logo.png" alt="Cocktail ITA logo" width="72" height="72" class="me-3" style="border-radius: 16px; background: rgba(255,255,255,0.35); padding: 6px;">
+              <img src="assets/cocktail_ita/logo.png" alt="Cocktail ITA logo" width="72" height="72" class="me-3" style="border-radius: 16px; background: var(--secondary-bg); padding: 6px;">
               <div>
-                <h2 class="mb-1">Cocktail ITA</h2>
+                <h3 class="mb-1">Cocktail ITA</h3>
                 <div class="subheading">Ricettario di cocktail in italiano</div>
               </div>
             </div>
             <p>
               Scopri, salva e prepara cocktail con un ricco ricettario in italiano. Cerca per nome o ingredienti,
-              esplora categorie e crea i tuoi preferiti per un accesso rapido. Interfaccia semplice e pensata per l’uso quotidiano.
+              esplora categorie e crea i tuoi preferiti per un accesso rapido. Interfaccia semplice e pensata per l'uso quotidiano.
             </p>
             <ul>
               <li>Ricette in italiano con ingredienti e dosi</li>
@@ -110,15 +140,16 @@
       </div>
     </section>
 
-    <!-- Run Run 8-bit Card -->
+    <!-- Run Run 8-bit -->
+    <h2 class="section-title">Run Run 8‑bit</h2>
     <section class="resume-section glass p-3 p-lg-5 d-flex flex-column" id="runrun">
       <div class="my-auto">
         <div class="row align-items-center g-4">
           <div class="col-12 col-lg-5">
             <div class="d-flex align-items-center mb-3">
-              <img src="assets/runrun/logo_512.png" alt="Run Run 8-bit logo" width="72" height="72" class="me-3" style="border-radius: 16px; background: rgba(255,255,255,0.35); padding: 6px;">
+              <img src="assets/runrun/logo_512.png" alt="Run Run 8-bit logo" width="72" height="72" class="me-3" style="border-radius: 16px; background: var(--secondary-bg); padding: 6px;">
               <div>
-                <h2 class="mb-1">Run Run 8‑bit</h2>
+                <h3 class="mb-1">Run Run 8‑bit</h3>
                 <div class="subheading">Arcade platform in stile retro</div>
               </div>
             </div>
@@ -135,7 +166,7 @@
               <a class="btn btn-primary" href="https://play.google.com/store/apps/details?id=it.uac.runrun2" target="_blank" rel="noopener">
                 <i class="fab fa-google-play"></i> Vai su Play Store
               </a>
-              <a class="btn btn-outline-light" href="runrun-privacy-policy.html" target="_blank" rel="noopener">
+              <a class="btn btn-sm" href="runrun-privacy-policy.html" target="_blank" rel="noopener" style="border: 1px solid var(--card-border); color: var(--text-color); background: var(--card-bg); border-radius: 50px; padding: 0.4rem 1.4rem; font-weight: 600; text-decoration: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
                 <i class="fas fa-user-shield"></i> Privacy Policy
               </a>
             </div>
@@ -175,23 +206,22 @@
     <div id="footer"></div>
   </div>
 
-  <!-- Vendor JS -->
+  <!-- Bootstrap core JavaScript -->
   <script src="vendor/jquery/jquery.min.js"></script>
   <script src="vendor/popper/popper.min.js"></script>
   <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
 
-  <!-- Custom scripts for this template -->
-  <script src="js/main.js"></script>
-
-  <script>
-    fetch('footer.html')
-      .then(response => response.text())
-      .then(html => { document.getElementById('footer').innerHTML = html; });
-  </script> 
   <!-- typewriter -->
   <script src="vendor/typewriter/typewriter.js"></script>
-   <!-- Custom scripts for this template -->
+  <!-- Mouse Trail Effect -->
+  <script src="js/mouse-trail.js"></script>
+  <!-- Scroll reveal for cards -->
+  <script src="js/section-reveal.js"></script>
+  <!-- Title reveal — per-character stagger animation -->
+  <script src="js/title-reveal.js"></script>
+  <!-- Custom scripts -->
+  <script src="js/main.js"></script>
   <script src="js/footer.js"></script>
 </body>
 </html>

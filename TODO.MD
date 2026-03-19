@@ -1,7 +1,8 @@
-
-
+TODO
 
 aggiornare cv, semplificarlo
+
+la linea deve iniziare a comparire un po prima
 
 pipeline di deploy github al tag
 
@@ -12,5 +13,7 @@ migliorare effetto liquid rendendolo trasparente invece che grigio e accentuando
 refactoring pagine correlate
 
 creare gioco webapp
+
+refactoring per mobile
 
 

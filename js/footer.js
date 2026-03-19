@@ -1,5 +1,5 @@
 function initTypewriter() {
-    var txt = ['Coding', 'Java', 'Gym', 'Wine & Beer', 'Arduino', 'Tennis', 'Soccer'];
+    var txt = ['Coding', 'AI', 'Design', 'Wine & Beer', 'Arduino', 'Tennis', 'Soccer'];
     var app = document.getElementById('typewriter');
     if (!app) return;
 
