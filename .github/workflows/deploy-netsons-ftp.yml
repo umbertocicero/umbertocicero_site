@@ -12,6 +12,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: umbertocicero_site
 
     steps:
       - name: Checkout
@@ -31,6 +32,16 @@ jobs:
           git fetch origin "$DEFAULT_BRANCH" --depth=1
           if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
             echo "Tag $GITHUB_REF_NAME is not on $DEFAULT_BRANCH. Deployment skipped."
+            exit 1
+          fi
+
+      - name: Validate FTP secrets
+        env:
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+        run: |
+          if [ -z "$FTP_USER" ] || [ -z "$FTP_PASS" ]; then
+            echo "Missing FTP_USER or FTP_PASS in environment secrets."
             exit 1
           fi
 

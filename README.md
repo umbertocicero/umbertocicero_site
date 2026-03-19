@@ -32,6 +32,8 @@ Il workflow parte al push di un tag versione (`git tag v1.0.0 && git push origin
 - `FTP_USER`: utente FTP Netsons.
 - `FTP_PASS`: password FTP Netsons.
 
+Se li salvi come **Environment secrets**, il job deve puntare allo stesso environment (`umbertocicero_site`).
+
 ### Parametri FTP usati dal workflow
 
 - `server`: `ftp.umbertocicero.com`
