@@ -17,12 +17,14 @@ import * as JackShape   from './jack.js';
 import * as SpiralShape from './spiral.js';
 
 /* =================================================================
-   SHAPE SELECTOR  -  change this to 'jack' or 'spiral'
+   SHAPE SELECTOR
+   Reads data-shape attribute from #webgl-container element.
+   <div id="webgl-container" data-shape="jack">  → jack shapes
+   <div id="webgl-container">                     → spiral (default)
+   Resolved at init() time when the DOM is ready.
    ================================================================= */
-const SHAPE = 'spiral';
-
-/* --- Resolve active shape ------------------------------------------ */
-const shapeModule = SHAPE === 'jack' ? JackShape : SpiralShape;
+let SHAPE = 'spiral';
+let shapeModule = SpiralShape;
 
 /* --- State --------------------------------------------------------- */
 let scene, camera, renderer, composer;
@@ -42,7 +44,7 @@ const PUSH_RADIUS   = 4.0;
 const PUSH_STRENGTH = 3.0;
 const DAMPING       = 0.965;
 const BOUNDS        = { x: 8.0, y: 5.0, z: 2.8 };
-const COLLISION_R   = shapeModule.COLLISION_R;
+let   COLLISION_R   = SpiralShape.COLLISION_R;
 const COLLISION_K   = 5.0;
 const GRAVITY_K     = 0.015;
 
@@ -99,6 +101,11 @@ function updateMouseWorld(e) {
 function init() {
     container = document.getElementById('webgl-container');
     if (!container) return;
+
+    /* -- Resolve shape from data attribute -------------------------- */
+    SHAPE = (container.dataset.shape === 'jack') ? 'jack' : 'spiral';
+    shapeModule = SHAPE === 'jack' ? JackShape : SpiralShape;
+    COLLISION_R = shapeModule.COLLISION_R;
 
     const w = container.clientWidth;
     const h = container.clientHeight;
