@@ -15,16 +15,16 @@
   var STRING_COUNT    = 100;
   var SEGMENTS        = 20;
   var UNIFORM_RATIO   = 0.70;
-  var GRAVITY         = 0.45;
+  var GRAVITY         = -0.45;
   var FRICTION        = 0.97;
   var CONSTRAINT_ITER = 5;
   var MOUSE_RADIUS    = 90;
   var MOUSE_STRENGTH  = 2.4;
-  var SHAPE_SIZE      = 6;        // base half-size of pendant shapes
+  var SHAPE_SIZE      = 7;        // base half-size of pendant shapes
   var LINE_COLOR      = 'rgba(50,50,50,0.5)';
 
-  /* Shape fill: white like in the reference image */
-  var SHAPE_FILL = '#ffffff';
+  /* Shape fill: blue */
+  var SHAPE_FILL = '#3a5cff';
 
   /* Available shape types */
   var SHAPE_TYPES = ['triangle', 'circle', 'square', 'diamond', 'cross', 'plus'];
@@ -41,10 +41,11 @@
   }
 
   /* ── Build one string ───────────────────────────── */
-  function makeString(anchorX, totalLen, segLen, shapeType, rotation, shapeSize) {
+  function makeString(anchorX, anchorY, totalLen, segLen, shapeType, rotation, shapeSize) {
     var pts = [];
     for (var i = 0; i <= SEGMENTS; i++) {
-      pts.push(new Pt(anchorX, i * segLen, i === 0));
+      // Particle 0 is at the bottom (pinned), rest go upward
+      pts.push(new Pt(anchorX, anchorY - i * segLen, i === 0));
     }
     return {
       pts: pts,
@@ -61,24 +62,36 @@
     strings = [];
     var w = canvas.width;
     var h = canvas.height;
-    var uniformH = h * UNIFORM_RATIO;
+    var minH = h * 0.25;
+    var maxH = h * 0.88;   // keep tips well inside the box
 
     for (var i = 0; i < STRING_COUNT; i++) {
       var x = (w / (STRING_COUNT + 1)) * (i + 1);
 
+      /* More organic distribution: mix of short, medium, and tall */
+      var r = Math.random();
       var len;
-      if (Math.random() < 0.55) {
-        len = uniformH;
+      if (r < 0.20) {
+        /* short  15-35% */
+        len = minH + Math.random() * h * 0.20;
+      } else if (r < 0.55) {
+        /* medium 35-60% */
+        len = h * 0.35 + Math.random() * h * 0.25;
+      } else if (r < 0.85) {
+        /* tall   55-78% */
+        len = h * 0.55 + Math.random() * h * 0.23;
       } else {
-        len = uniformH + Math.random() * h * 0.28;
+        /* very tall 70-88% */
+        len = h * 0.70 + Math.random() * h * 0.18;
       }
+      len = Math.max(minH, Math.min(len, maxH));
 
       var segLen    = len / SEGMENTS;
       var shapeType = SHAPE_TYPES[Math.floor(Math.random() * SHAPE_TYPES.length)];
       var rotation  = Math.random() * Math.PI * 2;                // random rotation
-      var size      = SHAPE_SIZE + (Math.random() - 0.5) * 3;     // slight size variation 4.5 – 7.5
+      var size      = SHAPE_SIZE + (Math.random() - 0.5) * 5;     // size variation 4.5 – 9.5
 
-      strings.push(makeString(x, len, segLen, shapeType, rotation, size));
+      strings.push(makeString(x, h, len, segLen, shapeType, rotation, size));
     }
   }
 
@@ -98,6 +111,11 @@
 
         p.x += vx;
         p.y += vy + GRAVITY;
+
+        /* Clamp inside canvas bounds */
+        if (p.y < 0) { p.y = 0; p.oy = 0; }
+        if (p.x < 0) p.x = 0;
+        if (p.x > canvas.width) p.x = canvas.width;
 
         var dx = p.x - mouse.x;
         var dy = p.y - mouse.y;
@@ -281,30 +299,30 @@
 
     canvas = document.createElement('canvas');
     canvas.id = 'string-art-canvas';
-    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:auto;z-index:1;border:none;outline:none;';
+    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;border:none;outline:none;';
     section.appendChild(canvas);
 
     ctx = canvas.getContext('2d');
     resize();
 
-    /* Mouse */
-    canvas.addEventListener('mousemove', function (e) {
+    /* Mouse — listen on section so the pill button stays clickable */
+    section.addEventListener('mousemove', function (e) {
       var r = canvas.getBoundingClientRect();
       mouse.x = e.clientX - r.left;
       mouse.y = e.clientY - r.top;
     });
-    canvas.addEventListener('mouseleave', function () {
+    section.addEventListener('mouseleave', function () {
       mouse.x = -9999; mouse.y = -9999;
     });
 
     /* Touch */
-    canvas.addEventListener('touchmove', function (e) {
+    section.addEventListener('touchmove', function (e) {
       var r = canvas.getBoundingClientRect();
       var t = e.touches[0];
       mouse.x = t.clientX - r.left;
       mouse.y = t.clientY - r.top;
     }, { passive: true });
-    canvas.addEventListener('touchend', function () {
+    section.addEventListener('touchend', function () {
       mouse.x = -9999; mouse.y = -9999;
     });
 

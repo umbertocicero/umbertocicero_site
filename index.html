@@ -451,7 +451,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </section>
     <section class="blank-section p-3 p-lg-5 d-flex flex-column" id="before-footer">
 
-      
+      <!-- Scroll-to-top pill -->
+      <a href="#page-top" class="scroll-top-pill" id="scroll-top-pill">
+        <span class="scroll-top-pill__arrow"><i class="fas fa-arrow-up"></i></span>
+        <span class="scroll-top-pill__text">GO TO TOP</span>
+        <span class="scroll-top-pill__arrow"><i class="fas fa-arrow-up"></i></span>
+      </a>
+
     </section>
 
     <div id="footer"></div>
@@ -475,6 +481,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- Custom scripts -->
   <script src="js/main.js"></script>
   <script src="js/footer.js"></script>
+  <script>
+    /* Smooth scroll for go-to-top pill */
+    document.addEventListener('DOMContentLoaded', function () {
+      var pill = document.getElementById('scroll-top-pill');
+      if (pill) {
+        pill.addEventListener('click', function (e) {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
+    });
+  </script>
   <script data-ad-client="ca-pub-9274119154173608" async
     src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
 </body>

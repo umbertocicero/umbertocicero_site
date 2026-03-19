@@ -317,7 +317,7 @@ span.through { text-decoration: line-through; opacity: 0.5; }
 .list-icons .list-inline-item i:hover { color: var(--primary-color); }
 
 .blank-section {
-  border: 1px solid var(--card-border);
+  border: none;
   position: relative;
   overflow: hidden;
   z-index: 1;
@@ -325,6 +325,63 @@ span.through { text-decoration: line-through; opacity: 0.5; }
   padding-bottom: 4rem !important;
   transform-origin: center center;
   transition: box-shadow 0.3s ease;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ── Scroll-to-top pill ────────── */
+.scroll-top-pill {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.6rem;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--card-border, rgba(0,0,0,0.08));
+  border-radius: 50px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+  text-decoration: none;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.scroll-top-pill:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+  transform: translateX(-50%) translateY(-2px);
+}
+.scroll-top-pill:active {
+  transform: translateX(-50%) translateY(0);
+}
+.scroll-top-pill__text {
+  font-family: 'Saira Extra Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  color: var(--text-color, #1a1a2e);
+  white-space: nowrap;
+}
+.scroll-top-pill__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--text-color, #1a1a2e);
+  opacity: 0.7;
+}
+
+@media (max-width: 600px) {
+  .scroll-top-pill {
+    padding: 0.5rem 1.2rem;
+    gap: 0.5rem;
+  }
+  .scroll-top-pill__text {
+    font-size: 0.72rem;
+  }
 }
 
 /* ==============================
