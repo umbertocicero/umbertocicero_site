@@ -1,186 +1,146 @@
 /**
- * Scroll-driven decorative line — Lusion-style
- *
- * Thick blue curved SVG line that draws itself with scroll.
- * Parallax effect: the line scrolls with the page but slower (like a background element).
- * Fades out as the user continues scrolling down.
+ * Scroll-driven decorative line — Lusion reel-inspired port
  */
 (function () {
   'use strict';
 
-  var LINE_COLOR   = '#4747ff';
-  var CYAN_COLOR   = '#35e6ff';
+  var LINE_BUF_URL = 'lusion/line_reel.buf';
+  var LINE_COLOR_START = '#2a38ee';
+  var LINE_COLOR_END   = '#35e6ff';
   var STROKE_WIDTH = 22;
-  var PARALLAX_FACTOR = 0.35;  // 0 = fixed, 1 = scrolls with page
+  var SHOW_FACTOR_START = 0.4;
+  var SHOW_FACTOR_RANGE = 1.3;
+  var HIDE_FACTOR_START = 2.2;
+  var HIDE_FACTOR_RANGE = 0.8;
 
   var container;
-  var svg, mainPath;
+  var svg, mainPath, endDot;
   var pathLength = 0;
-  var currentDraw = 0;    // smoothed draw ratio
-  var currentFade = 1;    // smoothed opacity
+  var currentDraw = 0;
+  var currentOpacity = 0;
+  var linePoints = null;
 
-  /* ================================================================
-   *  BUILD SVG
-   * ================================================================ */
-  function buildSVG() {
-    container = document.getElementById('scroll-line-container');
-    if (!container) return false;
-
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
-
-    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '100%');
-    svg.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.style.position = 'absolute';
-    svg.style.top = '0';
-    svg.style.left = '0';
-
-    var w = vw, h = vh;
-
-        /*  Path:
-         *  - più morbido (meno angoli/kink)
-         *  - più alto in escursione verticale dall'ingresso all'uscita
-         *  - loop ovale più pulito
-         *  - onda finale con discesa, risalita alta, uscita a destra
-         */
-
-        // Loop ovale schiacciato (più morbido)
-        var lx = w * 0.27;   // center X
-        var ly = h * 0.69;   // center Y
-        var rx = w * 0.12;   // radius X
-        var ry = h * 0.16;   // radius Y (schiacciato)
-
-        // Punto di ingresso/uscita del loop
-        var crossX = lx + rx * 0.28;
-        var crossY = ly - ry * 0.88;
-
-        var d = 'M ' + (-w * 0.05) + ' ' + (h * 0.40)
-
-          // 1) Ingresso quasi orizzontale da sinistra
-          + ' C ' + (w * 0.06) + ' ' + (h * 0.39) + ', '
-            + (w * 0.16) + ' ' + (h * 0.39) + ', '
-            + crossX + ' ' + crossY
-
-          // 2) Loop ovale morbido (clockwise) con tangenti più continue
-          + ' C ' + (crossX + w * 0.14) + ' ' + (crossY + h * 0.16) + ', '
-            + (lx + rx * 1.02) + ' ' + (ly + ry * 0.18) + ', '
-            + (lx + rx * 0.76) + ' ' + (ly + ry * 0.66)
-          + ' C ' + (lx + rx * 0.50) + ' ' + (ly + ry * 1.08) + ', '
-            + (lx - rx * 0.35) + ' ' + (ly + ry * 1.00) + ', '
-            + (lx - rx * 0.66) + ' ' + (ly + ry * 0.34)
-          + ' C ' + (lx - rx * 0.97) + ' ' + (ly - ry * 0.32) + ', '
-            + (crossX - w * 0.06) + ' ' + (crossY - h * 0.03) + ', '
-            + crossX + ' ' + crossY
-
-          // 3) Verso destra: prima scende (più altezza totale), più morbido nel raccordo
-          + ' C ' + (crossX + w * 0.06) + ' ' + (crossY + h * 0.03) + ', '
-            + (w * 0.52) + ' ' + (h * 0.78) + ', '
-            + (w * 0.66) + ' ' + (h * 0.88)
-
-          // 4) Onda alta: risale e poi ridiscende dolcemente
-          + ' C ' + (w * 0.76) + ' ' + (h * 0.95) + ', '
-            + (w * 0.86) + ' ' + (h * 0.86) + ', '
-            + (w * 0.95) + ' ' + (h * 0.90)
-
-          // 5) Uscita a destra leggermente in diagonale arrotondata
-          + ' C ' + (w * 1.02) + ' ' + (h * 0.93) + ', '
-            + (w * 1.07) + ' ' + (h * 0.97) + ', '
-            + (w * 1.14) + ' ' + (h * 0.95);
-
-    // No glow/halo: intentionally keep only the main stroke
-
-    // Main line
-    mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    mainPath.setAttribute('d', d);
-    mainPath.setAttribute('fill', 'none');
-    mainPath.setAttribute('stroke', LINE_COLOR);
-    mainPath.setAttribute('stroke-width', String(STROKE_WIDTH));
-    mainPath.setAttribute('stroke-linecap', 'round');
-    mainPath.setAttribute('stroke-linejoin', 'round');
-    svg.appendChild(mainPath);
-
-    // Dash setup
-    pathLength = mainPath.getTotalLength();
-    mainPath.style.strokeDasharray  = String(pathLength);
-    mainPath.style.strokeDashoffset = String(pathLength);
-    // no secondary glow path
-
-    container.appendChild(svg);
-    return true;
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
   }
 
-  /* ================================================================
-   *  SCROLL COMPUTATIONS — all live, no caching
-   * ================================================================
-   *
-   *  drawRatio:  0 → 1  line draws in progressively
-   *    Starts when #init-line bottom reaches viewport bottom
-   *    Completes when first .resume-section bottom reaches viewport center
-   *
-   *  fadeRatio:  1 → 0  line fades out as user keeps scrolling
-   *    Starts fading after line is fully drawn
-   *    Fully gone about 1 viewport-height later
-   *
-   *  parallaxY:  vertical offset for parallax (px)
-   *    The line shifts upward slower than the page scroll
-   * ================================================================ */
-  function getScrollState() {
-    var initLine = document.getElementById('init-line');
-    var sect     = document.querySelector('.resume-section');
-    if (!initLine || !sect) return { draw: 0, fade: 1, parallaxY: 0 };
-
-    var vh = window.innerHeight;
-    var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-
-    // --- DRAW ratio ---
-    var initTop = initLine.getBoundingClientRect().top;
-    var sectBottom = sect.getBoundingClientRect().bottom;
-
-    // Absolute positions
-    var absInitTop = initTop + scrollY;
-    var absSectBottom = sectBottom + scrollY;
-
-    // Draw starts lower in the viewport (around 78% height)
-    var drawStart = absInitTop - vh + vh * 0.22;
-    // Draw ends when section bottom reaches viewport center
-    var drawEnd = absSectBottom - vh * 0.5;
-
-    if (scrollY < drawStart) {
-      return { draw: 0, fade: 1, parallaxY: 0 };
-    }
-
-    var drawRange = drawEnd - drawStart;
-    var draw = 0;
-    if (drawRange > 0) {
-      draw = (scrollY - drawStart) / drawRange;
-      draw = Math.max(0, Math.min(1, draw));
-    }
-
-    // --- FADE ratio ---
-    // Fade starts when line is ~80% drawn, fully gone 1.5 viewports after drawEnd
-    var fadeStart = drawEnd;
-    var fadeEnd   = drawEnd + vh * 1.5;
-    var fade = 1;
-    if (scrollY > fadeStart) {
-      fade = 1 - (scrollY - fadeStart) / (fadeEnd - fadeStart);
-      fade = Math.max(0, Math.min(1, fade));
-    }
-
-    // --- PARALLAX ---
-    // How far we've scrolled past the init-line
-    var scrollPastInit = Math.max(0, scrollY - drawStart);
-    var parallaxY = -scrollPastInit * PARALLAX_FACTOR;
-
-    return { draw: draw, fade: fade, parallaxY: parallaxY };
+  function easeQuadInOut(value) {
+    var t = clamp01(value);
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   }
 
-  /* ================================================================
-   *  UPDATE VISUALS
-   * ================================================================ */
-  function blendHexColor(hexA, hexB, t) {
+  function unpackValue(storageType, rawValue, from, delta) {
+    var ratio;
+
+    if (storageType === 'Int16Array') {
+      ratio = (rawValue + 32768) / 65535;
+    } else if (storageType === 'Uint16Array') {
+      ratio = rawValue / 65535;
+    } else if (storageType === 'Uint8Array') {
+      ratio = rawValue / 255;
+    } else {
+      ratio = rawValue;
+    }
+
+    return from + delta * ratio;
+  }
+
+  function getTypeSize(storageType) {
+    if (storageType === 'Int16Array' || storageType === 'Uint16Array') return 2;
+    if (storageType === 'Uint8Array') return 1;
+    return 4;
+  }
+
+  function readTypedRaw(dataView, offset, storageType) {
+    if (storageType === 'Int16Array') return dataView.getInt16(offset, true);
+    if (storageType === 'Uint16Array') return dataView.getUint16(offset, true);
+    if (storageType === 'Uint8Array') return dataView.getUint8(offset);
+    return dataView.getFloat32(offset, true);
+  }
+
+  function parseLineBuffer(arrayBuffer) {
+    var view = new DataView(arrayBuffer);
+    var headerLength = view.getInt32(0, true);
+    var headerBytes = new Uint8Array(arrayBuffer, 4, headerLength);
+    var headerText = new TextDecoder().decode(headerBytes);
+    var header = JSON.parse(headerText);
+    var offset = 4 + headerLength;
+    var attributes = {};
+
+    for (var attrIndex = 0; attrIndex < header.attributes.length; attrIndex++) {
+      var attr = header.attributes[attrIndex];
+      var count = (attr.id === 'indices' ? header.indexCount : header.vertexCount) * attr.componentSize;
+      var values = new Float32Array(count);
+      var typeSize = getTypeSize(attr.storageType);
+
+      for (var i = 0; i < count; i++) {
+        var raw = readTypedRaw(view, offset + i * typeSize, attr.storageType);
+        if (attr.needsPack && attr.packedComponents) {
+          var packed = attr.packedComponents[i % attr.componentSize];
+          values[i] = unpackValue(attr.storageType, raw, packed.from, packed.delta);
+        } else {
+          values[i] = raw;
+        }
+      }
+
+      offset += count * typeSize;
+      attributes[attr.id] = values;
+    }
+
+    var cp = attributes.CP;
+    var position = attributes.position;
+    var result = [];
+
+    for (var vertex = 0; vertex < header.vertexCount; vertex += 2) {
+      var cpIndex = vertex * 3;
+      var posIndex = vertex * 3 + 2;
+      result.push({
+        x: cp[cpIndex],
+        y: cp[cpIndex + 1],
+        ratio: clamp01(position[posIndex])
+      });
+    }
+
+    return result;
+  }
+
+  function buildPathFromPoints(points, viewportWidth, viewportHeight) {
+    if (!points || !points.length) return '';
+    var minX = Infinity;
+    var maxX = -Infinity;
+    var minY = Infinity;
+    var maxY = -Infinity;
+
+    for (var k = 0; k < points.length; k++) {
+      if (points[k].x < minX) minX = points[k].x;
+      if (points[k].x > maxX) maxX = points[k].x;
+      if (points[k].y < minY) minY = points[k].y;
+      if (points[k].y > maxY) maxY = points[k].y;
+    }
+
+    var xRange = Math.max(1e-6, maxX - minX);
+    var yRange = Math.max(1e-6, maxY - minY);
+
+    var xFrom = -viewportWidth * 0.06;
+    var xTo = viewportWidth * 1.14;
+    var yFrom = viewportHeight * 0.36;
+    var yTo = viewportHeight * 0.94;
+    var d = '';
+
+    for (var i = 0; i < points.length; i++) {
+      var xNorm = (points[i].x - minX) / xRange;
+      var yNorm = (points[i].y - minY) / yRange;
+
+      var px = xFrom + (xTo - xFrom) * xNorm;
+      var py = yFrom + (yTo - yFrom) * (1 - yNorm);
+      d += (i === 0 ? 'M ' : ' L ') + px + ' ' + py;
+    }
+
+    return d;
+  }
+
+  function blendHexColor(hexA, hexB, ratio) {
+    var t = clamp01(ratio);
     var a = hexA.replace('#', '');
     var b = hexB.replace('#', '');
     var ar = parseInt(a.substring(0, 2), 16);
@@ -194,63 +154,151 @@
     var g = Math.round(ag + (bg - ag) * t);
     var bl = Math.round(ab + (bb - ab) * t);
 
-    var rr = r.toString(16).padStart(2, '0');
-    var gg = g.toString(16).padStart(2, '0');
-    var bbHex = bl.toString(16).padStart(2, '0');
+    var rr = ('0' + r.toString(16)).slice(-2);
+    var gg = ('0' + g.toString(16)).slice(-2);
+    var bbHex = ('0' + bl.toString(16)).slice(-2);
     return '#' + rr + gg + bbHex;
   }
 
-  function updateLine(drawRatio, fadeRatio, parallaxY) {
-    if (!mainPath || pathLength <= 0 || !container) return;
+  function buildSVG() {
+    container = document.getElementById('scroll-line-container');
+    if (!container || !linePoints || !linePoints.length) return false;
 
-    // Dash offset for progressive reveal
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    svg.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+
+    var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    var gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    gradient.setAttribute('id', 'scroll-line-gradient');
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y2', '0%');
+
+    var stopA = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stopA.setAttribute('offset', '0%');
+    stopA.setAttribute('stop-color', LINE_COLOR_START);
+    gradient.appendChild(stopA);
+
+    var stopB = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stopB.setAttribute('offset', '100%');
+    stopB.setAttribute('stop-color', LINE_COLOR_END);
+    gradient.appendChild(stopB);
+
+    defs.appendChild(gradient);
+    svg.appendChild(defs);
+
+    var d = buildPathFromPoints(linePoints, vw, vh);
+    if (!d) return false;
+
+    mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    mainPath.setAttribute('d', d);
+    mainPath.setAttribute('fill', 'none');
+    mainPath.setAttribute('stroke', 'url(#scroll-line-gradient)');
+    mainPath.setAttribute('stroke-width', String(STROKE_WIDTH));
+    mainPath.setAttribute('stroke-linecap', 'round');
+    mainPath.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(mainPath);
+
+    endDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    endDot.setAttribute('r', String(STROKE_WIDTH * 0.52));
+    endDot.setAttribute('fill', LINE_COLOR_START);
+    endDot.style.opacity = '0';
+    svg.appendChild(endDot);
+
+    pathLength = mainPath.getTotalLength();
+    mainPath.style.strokeDasharray  = String(pathLength);
+    mainPath.style.strokeDashoffset = String(pathLength);
+
+    container.appendChild(svg);
+    return true;
+  }
+
+  function getScrollState() {
+    var initLine = document.getElementById('init-line');
+    if (!initLine) return { draw: 0, opacity: 0 };
+
+    var vh = window.innerHeight;
+    var screenY = initLine.getBoundingClientRect().top;
+
+    var rawShow = (-(screenY - SHOW_FACTOR_START * vh)) / (SHOW_FACTOR_RANGE * vh);
+    var draw = easeQuadInOut(clamp01(rawShow));
+
+    var hideStart = -HIDE_FACTOR_START * vh;
+    var hideRaw = (screenY - hideStart) / (HIDE_FACTOR_RANGE * vh);
+    var hideRatio = clamp01(hideRaw);
+
+    return { draw: draw, opacity: hideRatio };
+  }
+
+  function updateLine(drawRatio, opacityRatio) {
+    if (!mainPath || !endDot || pathLength <= 0 || !container) return;
+
     var offset = pathLength * (1 - drawRatio);
     mainPath.style.strokeDashoffset = String(offset);
 
-    // Color transition: blue -> cyan as line advances
-    var colorMix = Math.max(0, Math.min(1, drawRatio));
-    mainPath.setAttribute('stroke', blendHexColor(LINE_COLOR, CYAN_COLOR, colorMix));
+    if (drawRatio > 0.001) {
+      var drawLen = Math.min(pathLength, drawRatio * pathLength);
+      var tip = mainPath.getPointAtLength(drawLen);
+      endDot.setAttribute('cx', String(tip.x));
+      endDot.setAttribute('cy', String(tip.y));
+      endDot.setAttribute('fill', blendHexColor(LINE_COLOR_START, LINE_COLOR_END, drawRatio));
+      endDot.style.opacity = String(opacityRatio);
+    } else {
+      endDot.style.opacity = '0';
+    }
 
-    // Opacity fade
-    container.style.opacity = String(fadeRatio);
-
-    // Parallax transform
-    container.style.transform = 'translateY(' + parallaxY + 'px)';
+    container.style.opacity = String(opacityRatio);
+    container.style.transform = 'translate3d(0,0,0)';
   }
 
-  /* ================================================================
-   *  ANIMATION LOOP
-   * ================================================================ */
   function tick() {
     requestAnimationFrame(tick);
     var state = getScrollState();
 
-    // Smooth interpolation
     currentDraw += (state.draw - currentDraw) * 0.12;
-    currentFade += (state.fade - currentFade) * 0.10;
+    currentOpacity += (state.opacity - currentOpacity) * 0.14;
 
-    var easedDraw = Math.sqrt(currentDraw);
-    updateLine(easedDraw, currentFade, state.parallaxY);
+    updateLine(currentDraw, currentOpacity);
   }
 
-  /* ================================================================
-   *  RESIZE
-   * ================================================================ */
   function onResize() {
     if (!container) return;
     container.innerHTML = '';
     currentDraw = 0;
-    currentFade = 1;
+    currentOpacity = 0;
     buildSVG();
   }
 
-  /* ================================================================
-   *  INIT
-   * ================================================================ */
+  function loadLinePoints() {
+    return fetch(LINE_BUF_URL)
+      .then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.arrayBuffer();
+      })
+      .then(function (buffer) {
+        linePoints = parseLineBuffer(buffer);
+      });
+  }
+
   function init() {
-    if (!buildSVG()) return;
-    window.addEventListener('resize', onResize);
-    tick();
+    loadLinePoints()
+      .then(function () {
+        if (!buildSVG()) return;
+        window.addEventListener('resize', onResize);
+        tick();
+      })
+      .catch(function () {
+      });
   }
 
   window.addEventListener('load', init);
