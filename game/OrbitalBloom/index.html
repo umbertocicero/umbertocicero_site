@@ -1,173 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Orbital Bloom</title>
-<style>
-*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:   #060a1c;
-  --text: rgba(255,255,255,.86);
-  --dim:  rgba(255,255,255,.32);
-  --ui:   rgba(255,255,255,.08);
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  overflow: hidden;
-  width: 100vw;
-  height: 100vh;
-}
-
-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: crosshair;
-  touch-action: none;
-}
-
-/* ── controls ────────────────────────────────────────── */
-#btn-pause {
-  position: absolute; top: 1.2rem; right: 2rem;
-  background: var(--ui);
-  border: 1px solid rgba(255,255,255,.1);
-  color: var(--dim);
-  border-radius: 50%;
-  width: 2.3rem; height: 2.3rem;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: .85rem;
-  z-index: 20;
-  transition: color .2s, border-color .2s;
-}
-#btn-pause:hover { color: var(--text); border-color: rgba(255,255,255,.3); }
-
-#btn-back {
-  position: absolute; bottom: 1.3rem; left: 2rem;
-  font-size: .56rem; letter-spacing: .18em;
-  color: var(--dim); text-decoration: none;
-  text-transform: uppercase;
-  z-index: 20;
-  transition: color .2s;
-}
-#btn-back:hover { color: var(--text); }
-
-/* ── hint ─────────────────────────────────────────────── */
-#hint {
-  position: absolute;
-  bottom: 2rem; left: 50%;
-  transform: translateX(-50%);
-  font-size: .6rem; letter-spacing: .18em;
-  color: var(--dim); text-transform: uppercase;
-  pointer-events: none; z-index: 10;
-  white-space: nowrap;
-  transition: opacity 1.2s;
-}
-#hint.hidden { opacity: 0; }
-
-/* ── size indicator ───────────────────────────────────── */
-#size-ind {
-  position: absolute;
-  bottom: 4.5rem; left: 50%;
-  transform: translateX(-50%);
-  display: flex; align-items: center; gap: .7rem;
-  pointer-events: none; z-index: 10;
-  transition: opacity .3s;
-}
-#size-ind.hidden { opacity: 0; }
-#size-lbl  { font-size: .55rem; letter-spacing: .18em; color: var(--dim); text-transform: uppercase; }
-#size-wrap { width: 120px; height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
-#size-fill { height: 100%; width: 0%; background: linear-gradient(90deg,#3b6bff,#c5a1ff); border-radius: 2px; transition: width .1s; }
-
-/* ── overlays ─────────────────────────────────────────── */
-.ov {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  z-index: 30;
-  background: rgba(6,10,28,.90);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  transition: opacity .4s;
-}
-.ov.hidden { opacity: 0; pointer-events: none; }
-
-.ov-title {
-  font-size: clamp(1.8rem, 5vw, 3.2rem);
-  font-weight: 200;
-  letter-spacing: .15em;
-  text-transform: uppercase;
-  margin-bottom: .35rem;
-}
-.ov-sub {
-  font-size: .74rem;
-  letter-spacing: .18em;
-  color: var(--dim);
-  text-transform: uppercase;
-  margin-bottom: 1.6rem;
-}
-
-.btn-pill {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,.35);
-  color: var(--text);
-  padding: .7rem 2.4rem;
-  border-radius: 100px;
-  font-size: .72rem;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  cursor: pointer;
-  margin-bottom: .5rem;
-  transition: background .25s, border-color .25s;
-}
-.btn-pill:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.6); }
-
-.btn-ghost {
-  background: transparent; border: none;
-  color: var(--dim);
-  font-size: .66rem; letter-spacing: .14em;
-  text-transform: uppercase;
-  cursor: pointer; padding: .4rem 1rem;
-  transition: color .2s;
-}
-.btn-ghost:hover { color: var(--text); }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Orbital Bloom</title>
+  <link rel="stylesheet" href="orbital-bloom.css">
 </head>
 <body>
 
-<canvas id="c"></canvas>
+  <canvas id="c"></canvas>
 
+  <button id="btn-pause" aria-label="Pause">&#9208;</button>
+  <a href="../../app.html" id="btn-back">&larr; Back</a>
 
-<button id="btn-pause">&#9208;</button>
-<a href="../../app.html" id="btn-back">&larr; Back</a>
+  <p id="hint">Click &amp; hold to spawn a planet &nbsp;&middot;&nbsp; longer hold = bigger planet</p>
 
-<div id="hint">Click &amp; hold to spawn a planet &nbsp;·&nbsp; longer hold = bigger planet</div>
+  <div id="size-ind" class="hidden" aria-hidden="true">
+    <span id="size-lbl">Size</span>
+    <div id="size-wrap"><div id="size-fill"></div></div>
+  </div>
 
-<div id="size-ind" class="hidden">
-  <span id="size-lbl">Size</span>
-  <div id="size-wrap"><div id="size-fill"></div></div>
-</div>
+  <!-- Intro overlay -->
+  <div class="ov" id="ov-intro" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+    <h1 class="ov-title" id="intro-title">Orbital Bloom</h1>
+    <p class="ov-sub">Click &amp; hold to spawn a planet &nbsp;&middot;&nbsp; longer hold = bigger</p>
+    <button class="btn-pill" id="btn-start">Begin</button>
+  </div>
 
-<!-- INTRO -->
-<div class="ov" id="ov-intro">
-  <div class="ov-title">Orbital Bloom</div>
-  <div class="ov-sub">Click &amp; hold to spawn a planet &nbsp;·&nbsp; longer hold = bigger</div>
-  <button class="btn-pill" id="btn-start">Begin</button>
-</div>
+  <!-- Pause overlay -->
+  <div class="ov hidden" id="ov-pause" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <h2 class="ov-title" id="pause-title">Paused</h2>
+    <p class="ov-sub">The universe waits.</p>
+    <button class="btn-pill" id="btn-resume">Resume</button>
+    <button class="btn-ghost" id="btn-rp">Restart</button>
+  </div>
 
-<!-- PAUSE -->
-<div class="ov hidden" id="ov-pause">
-  <div class="ov-title">Paused</div>
-  <div class="ov-sub">The universe waits.</div>
-  <button class="btn-pill" id="btn-resume">Resume</button>
-  <button class="btn-ghost" id="btn-rp">Restart</button>
-</div>
-
-<script src="orbital-bloom.js"></script>
+  <script src="orbital-bloom.js"></script>
 </body>
 </html>
