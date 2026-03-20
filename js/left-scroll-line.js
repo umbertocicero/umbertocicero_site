@@ -124,8 +124,8 @@
        (roughly the About → Domains region of the page) */
     var xFrom = -containerWidth * 0.06;
     var xTo = containerWidth * 1.14;
-    var yFrom = containerHeight * 0.12;
-    var yTo   = containerHeight * 0.52;
+    var yFrom = containerHeight * 0.10;
+    var yTo   = containerHeight * 0.42;
     var d = '';
 
     for (var i = 0; i < points.length; i++) {
@@ -166,7 +166,7 @@
   }
 
   function buildSVG() {
-    container = document.getElementById('scroll-line-container');
+    container = document.getElementById('left-scroll-line-container');
     if (!container || !linePoints || !linePoints.length) return false;
 
     /* Use the parent (container-fluid) dimensions, not viewport */
@@ -185,7 +185,7 @@
 
     var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     var gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    gradient.setAttribute('id', 'scroll-line-gradient');
+    gradient.setAttribute('id', 'left-scroll-line-gradient');
     gradient.setAttribute('x1', '0%');
     gradient.setAttribute('y1', '0%');
     gradient.setAttribute('x2', '100%');
@@ -210,7 +210,7 @@
     mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     mainPath.setAttribute('d', d);
     mainPath.setAttribute('fill', 'none');
-    mainPath.setAttribute('stroke', 'url(#scroll-line-gradient)');
+    mainPath.setAttribute('stroke', 'url(#left-scroll-line-gradient)');
     mainPath.setAttribute('stroke-width', String(STROKE_WIDTH));
     mainPath.setAttribute('stroke-linecap', 'round');
     mainPath.setAttribute('stroke-linejoin', 'round');

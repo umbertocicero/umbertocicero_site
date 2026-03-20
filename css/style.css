@@ -174,7 +174,7 @@ body {
 /* ==============================
    Scroll Line — decorative reveal line
    ============================== */
-#scroll-line-container {
+#left-scroll-line-container {
   position: absolute;
   top: 0;
   left: 0;
@@ -185,7 +185,7 @@ body {
   overflow: visible;
   will-change: opacity;
 }
-#scroll-line-container svg {
+#left-scroll-line-container svg {
   display: block;
   overflow: visible;
 }

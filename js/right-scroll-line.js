@@ -1,12 +1,12 @@
 /**
- * Projects-reel — scroll-driven decorative cyan line
- * Same architecture as scroll-line.js, mirrored (enters from right),
+ * right-scroll-line — scroll-driven decorative cyan line
+ * Same architecture as left-scroll-line.js, mirrored (enters from right),
  * with cyan colour palette that gets lighter as it progresses.
  */
 (function () {
   'use strict';
 
-  /* ── Same .buf file as scroll-line ─────────────────── */
+  /* ── Same .buf file as left-scroll-line ─────────────────── */
   var LINE_BUF_URL = 'js/buf/line_reel.buf';
 
   /* ── Colours: cyan start → lighter cyan end ────────── */
@@ -26,7 +26,7 @@
   var currentOpacity = 0;
   var linePoints = null;
 
-  /* ── Utility functions (identical to scroll-line.js) ── */
+  /* ── Utility functions (identical to left-scroll-line.js) ── */
   function clamp01(value) {
     return Math.max(0, Math.min(1, value));
   }
@@ -110,7 +110,7 @@
   }
 
   /**
-   * Build the SVG path — MIRRORED horizontally compared to scroll-line.js
+   * Build the SVG path — MIRRORED horizontally compared to left-scroll-line.js
    * so the curve enters from the RIGHT side.
    */
   function buildPathFromPoints(points, containerWidth, containerHeight) {

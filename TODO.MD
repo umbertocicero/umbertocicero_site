@@ -19,7 +19,7 @@ emoji coerenti con me
 style: 
 movimento alle inner card
 
-mettere a comune scroll-line.js e projects-reel.js
+mettere a comune left-scroll-line.js e right-scroll-line.js
 
 animazione della scritta: Let's work together!
 
