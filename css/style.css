@@ -610,22 +610,26 @@ section.resume-section .resume-item .resume-date {
    About — Location Badge
    ============================== */
 .about-location-badge {
-  text-align: center;
-  padding: 2rem;
-  border-radius: var(--card-radius);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
   background: var(--secondary-bg);
   border: 1px solid var(--card-border);
 }
 .about-location-badge i {
-  font-size: 2rem;
+  font-size: 1.1rem;
   color: var(--primary-color);
-  margin-bottom: 0.5rem;
-  display: block;
 }
 .about-location-badge span {
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--text-color);
+}
+.about-location-badge__sep {
+  color: var(--card-border);
+  font-weight: 300;
 }
 
 /* ==============================
