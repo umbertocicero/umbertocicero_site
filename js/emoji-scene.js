@@ -21,13 +21,34 @@
 
   /* Emoji glyphs — all rendered at the same size */
   var GLYPHS = [
-    '\uD83D\uDE00','\uD83D\uDE80','\uD83D\uDC8E','\u2764\uFE0F','\uD83C\uDFAE',
-    '\u2B50','\uD83D\uDD25','\uD83C\uDFAF','\uD83D\uDCA1','\uD83C\uDFA8',
-    '\uD83C\uDFC6','\uD83D\uDC7E','\uD83C\uDF1F','\uD83C\uDF55','\uD83C\uDFB5',
-    '\uD83D\uDE0E','\uD83E\uDD16','\uD83C\uDF08','\uD83C\uDFB2','\uD83D\uDCBB',
-    '\uD83E\uDDE0','\u2615','\uD83C\uDF0D','\uD83D\uDCF1','\uD83D\uDD27',
-    '\uD83C\uDFB8','\u26BD','\uD83C\uDFC0','\uD83D\uDCA5','\u2728',
-    '\uD83E\uDDBE','\uD83D\uDEF8','\uD83E\uDDE9'
+    '\uD83E\uDD4E',  // 🥎 pallina da softball
+    '\u26BD',         // ⚽ soccer ball
+    '\uD83C\uDFC0',  // 🏀 basketball
+    '\uD83D\uDCBB',  // 💻 laptop
+    '\uD83D\uDCF1',  // 📱 mobile phone
+    '\uD83D\uDE0E',  // 😎 cool face
+    '\uD83D\uDE80',  // 🚀 rocket
+    '\uD83E\uDD16',  // 🤖 robot
+    '\uD83E\uDDE0',  // 🧠 brain
+    '\uD83D\uDCA1',  // 💡 lightbulb
+    '\uD83D\uDD27',  // 🔧 wrench
+    '\u2699\uFE0F',  // ⚙️ gear
+    '\uD83D\uDCBE',  // 💾 floppy disk
+    '\uD83D\uDDA5\uFE0F', // 🖥️ desktop computer
+    '\uD83C\uDFAE',  // 🎮 game controller
+    '\uD83D\uDC7E',  // 👾 alien monster
+    '\uD83C\uDFC6',  // 🏆 trophy
+    '\u2615',         // ☕ coffee
+    '\uD83C\uDF0D',  // 🌍 globe
+    '\u2B50',         // ⭐ star
+    '\u2728',         // ✨ sparkles
+    '\uD83D\uDD25',  // 🔥 fire
+    '\uD83C\uDFAF',  // 🎯 dart
+    '\uD83C\uDFCB\uFE0F', // 🏋️ weight lifter (gym)
+    '\uD83C\uDFA8',  // 🎨 palette
+    '\uD83E\uDDBE',  // 🦾 mechanical arm
+    '\uD83D\uDEF8',  // 🛸 ufo
+    '\uD83C\uDF55'  // 🍕 pizza (Italian!)
   ];
 
   /* Responsive particle count: double on desktop, normal on mobile */
@@ -40,9 +61,9 @@
   var BOUNCE_WALL     = 0.25;
   var SEPARATION_DIST = 1.05;      // factor of (rA + rB) for separation push
   var SEP_ITERS       = 3;
-  var MOUSE_RADIUS    = 120;       // px
-  var MOUSE_PUSH      = 0.35;      // position push strength
-  var MOUSE_VEL_MULT  = 1.2;       // velocity transfer multiplier
+  var MOUSE_RADIUS    = 90;       // px
+  var MOUSE_PUSH      = 1.2;       // position push strength
+  var MOUSE_VEL_MULT  = 3.0;       // velocity transfer multiplier
   var MAX_SPEED       = 600;       // hard velocity cap (px/s) — prevents missiles
 
   /* Gravity — responsive: stronger on mobile, softer on desktop */
@@ -156,6 +177,9 @@
     container.addEventListener('mouseleave', onLeave);
     container.addEventListener('touchmove',  onTouch, { passive: true });
     container.addEventListener('touchend',   onLeave);
+    container.addEventListener('touchcancel', onLeave);
+    document.addEventListener('touchend',    onLeave);
+    document.addEventListener('touchcancel', onLeave);
 
     lastT = performance.now();
     raf   = requestAnimationFrame(tick);
@@ -249,8 +273,8 @@
         px[i] += dx * push;
         py[i] += dy * push;
         // Blend mouse velocity in (not overwrite) to avoid sudden jumps
-        vx[i] += (mouseVX * MOUSE_VEL_MULT - vx[i]) * 0.3;
-        vy[i] += (mouseVY * MOUSE_VEL_MULT - vy[i]) * 0.3;
+        vx[i] += (mouseVX * MOUSE_VEL_MULT - vx[i]) * 0.5;
+        vy[i] += (mouseVY * MOUSE_VEL_MULT - vy[i]) * 0.5;
       }
 
       // Damping
@@ -410,6 +434,8 @@
       var r = container.getBoundingClientRect();
       mouseX = e.touches[0].clientX - r.left;
       mouseY = e.touches[0].clientY - r.top;
+    } else {
+      onLeave();
     }
   }
   function onLeave() { mouseX = mouseY = prevMouseX = prevMouseY = -9999; }

@@ -171,6 +171,9 @@
     section.addEventListener('mouseleave', onLeave);
     section.addEventListener('touchmove',  onTouch, { passive: true });
     section.addEventListener('touchend',   onLeave);
+    section.addEventListener('touchcancel', onLeave);
+    document.addEventListener('touchend',    onLeave);
+    document.addEventListener('touchcancel', onLeave);
     section.addEventListener('click',      onClick);
 
     lastT = performance.now();
@@ -461,6 +464,8 @@
       var r = container.getBoundingClientRect();
       mouseX = e.touches[0].clientX - r.left;
       mouseY = e.touches[0].clientY - r.top;
+    } else {
+      onLeave();
     }
   }
   function onLeave() { mouseX = mouseY = prevMouseX = prevMouseY = -9999; }
