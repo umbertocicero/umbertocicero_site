@@ -640,11 +640,29 @@ section.resume-section .resume-item .resume-date {
   z-index: 2;
   margin: 3rem 2rem 1.5rem;
   padding: 4rem 0;
+  overflow: visible;
+}
+.projects-editorial__line-reel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  will-change: opacity;
+  z-index: 0;
+}
+.projects-editorial__line-reel svg {
+  display: block;
+  overflow: visible;
 }
 .projects-editorial__inner {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 .projects-editorial__text {
   max-width: 55%;
