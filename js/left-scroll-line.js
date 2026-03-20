@@ -11,12 +11,10 @@
   var STROKE_WIDTH = 22;
   var SHOW_FACTOR_START = 0.4;
   var SHOW_FACTOR_RANGE = 1.3;
+  var TARGET_SELECTOR = '[data-left-line]';
 
-  var container;
-  var svg, mainPath, gradientStopEnd;
-  var pathLength = 0;
-  var currentDraw = 0;
-  var currentOpacity = 0;
+  var instances = [];
+  var gradientCounter = 0;
   var linePoints = null;
 
   function clamp01(value) {
@@ -165,16 +163,16 @@
     return clamp01(Math.pow(clamp01(drawRatio), COLOR_TRANSITION_POWER));
   }
 
-  function buildSVG() {
-    container = document.getElementById('left-scroll-line-container');
-    if (!container || !linePoints || !linePoints.length) return false;
+  function buildSVG(instance) {
+    if (!instance.container || !linePoints || !linePoints.length) return false;
 
-    /* Use the parent (container-fluid) dimensions, not viewport */
-    var parent = container.parentElement;
+    /* Use the track element dimensions when available, otherwise parent */
+    var parent = instance.trackElement || instance.container.parentElement;
     var cw = parent ? parent.offsetWidth  : window.innerWidth;
     var ch = parent ? parent.offsetHeight : window.innerHeight;
+    if (cw <= 0 || ch <= 0) return false;
 
-    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '100%');
     svg.setAttribute('height', '100%');
     svg.setAttribute('viewBox', '0 0 ' + cw + ' ' + ch);
@@ -185,7 +183,8 @@
 
     var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     var gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    gradient.setAttribute('id', 'left-scroll-line-gradient');
+    var gradientId = 'left-scroll-line-gradient-' + (++gradientCounter);
+    gradient.setAttribute('id', gradientId);
     gradient.setAttribute('x1', '0%');
     gradient.setAttribute('y1', '0%');
     gradient.setAttribute('x2', '100%');
@@ -196,7 +195,7 @@
     stopA.setAttribute('stop-color', LINE_COLOR_START);
     gradient.appendChild(stopA);
 
-    gradientStopEnd = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    var gradientStopEnd = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
     gradientStopEnd.setAttribute('offset', '100%');
     gradientStopEnd.setAttribute('stop-color', LINE_COLOR_START);
     gradient.appendChild(gradientStopEnd);
@@ -207,29 +206,33 @@
     var d = buildPathFromPoints(linePoints, cw, ch);
     if (!d) return false;
 
-    mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    var mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     mainPath.setAttribute('d', d);
     mainPath.setAttribute('fill', 'none');
-    mainPath.setAttribute('stroke', 'url(#left-scroll-line-gradient)');
+    mainPath.setAttribute('stroke', 'url(#' + gradientId + ')');
     mainPath.setAttribute('stroke-width', String(STROKE_WIDTH));
     mainPath.setAttribute('stroke-linecap', 'round');
     mainPath.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(mainPath);
 
-    pathLength = mainPath.getTotalLength();
+    var pathLength = mainPath.getTotalLength();
     mainPath.style.strokeDasharray  = String(pathLength);
     mainPath.style.strokeDashoffset = String(pathLength);
 
-    container.appendChild(svg);
+    instance.container.innerHTML = '';
+    instance.container.appendChild(svg);
+    instance.svg = svg;
+    instance.mainPath = mainPath;
+    instance.gradientStopEnd = gradientStopEnd;
+    instance.pathLength = pathLength;
     return true;
   }
 
-  function getScrollState() {
-    var initLine = document.getElementById('init-line');
-    if (!initLine) return { draw: 0, opacity: 1 };
+  function getScrollState(instance) {
+    if (!instance.scrollTarget) return { draw: 0, opacity: 1 };
 
     var vh = window.innerHeight;
-    var screenY = initLine.getBoundingClientRect().top;
+    var screenY = instance.scrollTarget.getBoundingClientRect().top;
 
     var rawShow = (-(screenY - SHOW_FACTOR_START * vh)) / (SHOW_FACTOR_RANGE * vh);
     var draw = easeQuadInOut(clamp01(rawShow));
@@ -238,35 +241,77 @@
     return { draw: draw, opacity: 1 };
   }
 
-  function updateLine(drawRatio, opacityRatio) {
-    if (!mainPath || !gradientStopEnd || pathLength <= 0 || !container) return;
+  function updateLine(instance, drawRatio, opacityRatio) {
+    if (!instance.mainPath || !instance.gradientStopEnd || instance.pathLength <= 0 || !instance.container) return;
 
     var colorMix = getColorMixRatio(drawRatio);
     var dynamicEndColor = blendHexColor(LINE_COLOR_START, LINE_COLOR_END, colorMix);
-    gradientStopEnd.setAttribute('stop-color', dynamicEndColor);
+    instance.gradientStopEnd.setAttribute('stop-color', dynamicEndColor);
 
-    var offset = pathLength * (1 - drawRatio);
-    mainPath.style.strokeDashoffset = String(offset);
+    var offset = instance.pathLength * (1 - drawRatio);
+    instance.mainPath.style.strokeDashoffset = String(offset);
 
-    container.style.opacity = String(opacityRatio);
+    instance.container.style.opacity = String(opacityRatio);
   }
 
   function tick() {
     requestAnimationFrame(tick);
-    var state = getScrollState();
-
-    currentDraw += (state.draw - currentDraw) * 0.12;
-    currentOpacity += (state.opacity - currentOpacity) * 0.14;
-
-    updateLine(currentDraw, currentOpacity);
+    for (var i = 0; i < instances.length; i++) {
+      var instance = instances[i];
+      var state = getScrollState(instance);
+      instance.currentDraw += (state.draw - instance.currentDraw) * 0.12;
+      instance.currentOpacity += (state.opacity - instance.currentOpacity) * 0.14;
+      updateLine(instance, instance.currentDraw, instance.currentOpacity);
+    }
   }
 
   function onResize() {
-    if (!container) return;
-    container.innerHTML = '';
-    currentDraw = 0;
-    currentOpacity = 0;
-    buildSVG();
+    for (var i = 0; i < instances.length; i++) {
+      var instance = instances[i];
+      if (!instance.container) continue;
+      instance.currentDraw = 0;
+      instance.currentOpacity = 0;
+      buildSVG(instance);
+    }
+  }
+
+  function resolveLegacyTargets() {
+    var legacyContainer = document.getElementById('left-scroll-line-container');
+    if (!legacyContainer) return [];
+    return [legacyContainer];
+  }
+
+  function resolveTargets() {
+    var matches = document.querySelectorAll(TARGET_SELECTOR);
+    if (matches.length) return matches;
+    return resolveLegacyTargets();
+  }
+
+  function buildInstances() {
+    instances = [];
+    var targets = resolveTargets();
+
+    for (var i = 0; i < targets.length; i++) {
+      var container = targets[i];
+      var trackSelector = container.getAttribute('data-left-line-track');
+      var trackElement = trackSelector ? document.querySelector(trackSelector) : (container.parentElement || container);
+      var scrollSelector = container.getAttribute('data-left-line-scroll-target');
+      var scrollTarget = scrollSelector ? document.querySelector(scrollSelector) : document.getElementById('init-line');
+
+      var instance = {
+        container: container,
+        trackElement: trackElement,
+        scrollTarget: scrollTarget,
+        svg: null,
+        mainPath: null,
+        gradientStopEnd: null,
+        pathLength: 0,
+        currentDraw: 0,
+        currentOpacity: 0
+      };
+
+      if (buildSVG(instance)) instances.push(instance);
+    }
   }
 
   function loadLinePoints() {
@@ -283,7 +328,8 @@
   function init() {
     loadLinePoints()
       .then(function () {
-        if (!buildSVG()) return;
+        buildInstances();
+        if (!instances.length) return;
         window.addEventListener('resize', onResize);
         tick();
       })

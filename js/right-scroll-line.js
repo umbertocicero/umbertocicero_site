@@ -18,12 +18,10 @@
   /* ── Scroll factors (tuned for the #projects section) ─ */
   var SHOW_FACTOR_START = 0.65;
   var SHOW_FACTOR_RANGE = 0.8;
+  var TARGET_SELECTOR = '[data-cyan-line]';
 
-  var container;
-  var svg, mainPath, gradientStopEnd;
-  var pathLength = 0;
-  var currentDraw = 0;
-  var currentOpacity = 0;
+  var instances = [];
+  var gradientCounter = 0;
   var linePoints = null;
 
   /* ── Utility functions (identical to left-scroll-line.js) ── */
@@ -172,16 +170,14 @@
     return clamp01(Math.pow(clamp01(drawRatio), COLOR_TRANSITION_POWER));
   }
 
-  /* ── Build the SVG inside the section container ───── */
-  function buildSVG() {
-    container = document.querySelector('#projects .projects-editorial__line-reel');
-    if (!container || !linePoints || !linePoints.length) return false;
+  function buildSVG(instance) {
+    if (!instance.container || !instance.trackElement || !linePoints || !linePoints.length) return false;
 
-    var section = document.getElementById('projects');
-    var cw = section.offsetWidth;
-    var ch = section.offsetHeight;
+    var cw = instance.trackElement.offsetWidth;
+    var ch = instance.trackElement.offsetHeight;
+    if (cw <= 0 || ch <= 0) return false;
 
-    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '100%');
     svg.setAttribute('height', '100%');
     svg.setAttribute('viewBox', '0 0 ' + cw + ' ' + ch);
@@ -192,7 +188,8 @@
 
     var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     var gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    gradient.setAttribute('id', 'projects-line-gradient');
+    var gradientId = 'cyan-line-gradient-' + (++gradientCounter);
+    gradient.setAttribute('id', gradientId);
     gradient.setAttribute('x1', '0%');
     gradient.setAttribute('y1', '0%');
     gradient.setAttribute('x2', '100%');
@@ -203,7 +200,7 @@
     stopA.setAttribute('stop-color', LINE_COLOR_START);
     gradient.appendChild(stopA);
 
-    gradientStopEnd = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    var gradientStopEnd = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
     gradientStopEnd.setAttribute('offset', '100%');
     gradientStopEnd.setAttribute('stop-color', LINE_COLOR_START);
     gradient.appendChild(gradientStopEnd);
@@ -214,31 +211,33 @@
     var d = buildPathFromPoints(linePoints, cw, ch);
     if (!d) return false;
 
-    mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    var mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     mainPath.setAttribute('d', d);
     mainPath.setAttribute('fill', 'none');
-    mainPath.setAttribute('stroke', 'url(#projects-line-gradient)');
+    mainPath.setAttribute('stroke', 'url(#' + gradientId + ')');
     mainPath.setAttribute('stroke-width', String(STROKE_WIDTH));
     mainPath.setAttribute('stroke-linecap', 'round');
     mainPath.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(mainPath);
 
-    pathLength = mainPath.getTotalLength();
+    var pathLength = mainPath.getTotalLength();
     mainPath.style.strokeDasharray  = String(pathLength);
     mainPath.style.strokeDashoffset = String(pathLength);
 
-    container.innerHTML = '';
-    container.appendChild(svg);
+    instance.container.innerHTML = '';
+    instance.container.appendChild(svg);
+    instance.svg = svg;
+    instance.mainPath = mainPath;
+    instance.gradientStopEnd = gradientStopEnd;
+    instance.pathLength = pathLength;
     return true;
   }
 
-  /* ── Scroll state — based on #projects position ───── */
-  function getScrollState() {
-    var section = document.getElementById('projects');
-    if (!section) return { draw: 0, opacity: 1 };
+  function getScrollState(instance) {
+    if (!instance.trackElement) return { draw: 0, opacity: 1 };
 
     var vh = window.innerHeight;
-    var screenY = section.getBoundingClientRect().top;
+    var screenY = instance.trackElement.getBoundingClientRect().top;
 
     var rawShow = (-(screenY - SHOW_FACTOR_START * vh)) / (SHOW_FACTOR_RANGE * vh);
     var draw = easeQuadInOut(clamp01(rawShow));
@@ -248,36 +247,63 @@
   }
 
   /* ── Update line each frame ───────────────────────── */
-  function updateLine(drawRatio, opacityRatio) {
-    if (!mainPath || !gradientStopEnd || pathLength <= 0 || !container) return;
+  function updateLine(instance, drawRatio, opacityRatio) {
+    if (!instance.mainPath || !instance.gradientStopEnd || instance.pathLength <= 0 || !instance.container) return;
 
     var colorMix = getColorMixRatio(drawRatio);
     var dynamicEndColor = blendHexColor(LINE_COLOR_START, LINE_COLOR_END, colorMix);
-    gradientStopEnd.setAttribute('stop-color', dynamicEndColor);
+    instance.gradientStopEnd.setAttribute('stop-color', dynamicEndColor);
 
-    var offset = pathLength * (1 - drawRatio);
-    mainPath.style.strokeDashoffset = String(offset);
+    var offset = instance.pathLength * (1 - drawRatio);
+    instance.mainPath.style.strokeDashoffset = String(offset);
 
-    container.style.opacity = String(opacityRatio);
-    container.style.transform = 'translate3d(0,0,0)';
+    instance.container.style.opacity = String(opacityRatio);
+    instance.container.style.transform = 'translate3d(0,0,0)';
   }
 
   function tick() {
     requestAnimationFrame(tick);
-    var state = getScrollState();
-
-    currentDraw    += (state.draw    - currentDraw)    * 0.12;
-    currentOpacity += (state.opacity - currentOpacity) * 0.14;
-
-    updateLine(currentDraw, currentOpacity);
+    for (var i = 0; i < instances.length; i++) {
+      var instance = instances[i];
+      var state = getScrollState(instance);
+      instance.currentDraw += (state.draw - instance.currentDraw) * 0.12;
+      instance.currentOpacity += (state.opacity - instance.currentOpacity) * 0.14;
+      updateLine(instance, instance.currentDraw, instance.currentOpacity);
+    }
   }
 
   function onResize() {
-    if (!container) return;
-    container.innerHTML = '';
-    currentDraw = 0;
-    currentOpacity = 0;
-    buildSVG();
+    for (var i = 0; i < instances.length; i++) {
+      var instance = instances[i];
+      if (!instance.container) continue;
+      instance.container.innerHTML = '';
+      instance.currentDraw = 0;
+      instance.currentOpacity = 0;
+      buildSVG(instance);
+    }
+  }
+
+  function buildInstances() {
+    var containers = document.querySelectorAll(TARGET_SELECTOR);
+    instances = [];
+
+    for (var i = 0; i < containers.length; i++) {
+      var container = containers[i];
+      var selector = container.getAttribute('data-cyan-line-track');
+      var trackElement = selector ? document.querySelector(selector) : (container.parentElement || container);
+      if (!trackElement) continue;
+      var instance = {
+        container: container,
+        trackElement: trackElement,
+        svg: null,
+        mainPath: null,
+        gradientStopEnd: null,
+        pathLength: 0,
+        currentDraw: 0,
+        currentOpacity: 0
+      };
+      if (buildSVG(instance)) instances.push(instance);
+    }
   }
 
   function loadLinePoints() {
@@ -294,7 +320,8 @@
   function init() {
     loadLinePoints()
       .then(function () {
-        if (!buildSVG()) return;
+        buildInstances();
+        if (!instances.length) return;
         window.addEventListener('resize', onResize);
         tick();
       })

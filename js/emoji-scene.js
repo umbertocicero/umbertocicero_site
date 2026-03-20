@@ -53,7 +53,7 @@
 
   /* Responsive particle count: double on desktop, normal on mobile */
   var IS_MOBILE       = (window.innerWidth || 1024) < 768;
-  var PARTICLE_COUNT  = IS_MOBILE ? 120 : 240;
+  var PARTICLE_COUNT  = IS_MOBILE ? 50 : 240;
   var R               = 16;        // uniform collision radius for every particle
   var EMOJI_PX        = 28;        // font-size used to rasterise each glyph
   var EMIT_RATE       = 40;        // particles per second during spawn phase
@@ -91,6 +91,8 @@
   var mouseX = -9999, mouseY = -9999;
   var prevMouseX = -9999, prevMouseY = -9999;
   var mouseVX = 0, mouseVY = 0;
+  var lastTouchTs = 0;
+  var TOUCH_MOUSE_GUARD_MS = 800;
   var lastT = 0, raf = 0;
   var spawnedSoFar = 0;
   var emitting = true;
@@ -425,11 +427,13 @@
      EVENTS
      ══════════════════════════════════════════════════════════ */
   function onMouse(e) {
+    if ((Date.now() - lastTouchTs) < TOUCH_MOUSE_GUARD_MS) return;
     var r = container.getBoundingClientRect();
     mouseX = e.clientX - r.left;
     mouseY = e.clientY - r.top;
   }
   function onTouch(e) {
+    lastTouchTs = Date.now();
     if (e.touches.length) {
       var r = container.getBoundingClientRect();
       mouseX = e.touches[0].clientX - r.left;

@@ -32,6 +32,8 @@
   var canvas, ctx;
   var strings = [];
   var mouse = { x: -9999, y: -9999 };
+  var lastTouchTs = 0;
+  var TOUCH_MOUSE_GUARD_MS = 800;
 
   /* ── Particle ───────────────────────────────────── */
   function Pt(x, y, pinned) {
@@ -307,6 +309,7 @@
 
     /* Mouse — listen on section so the pill button stays clickable */
     section.addEventListener('mousemove', function (e) {
+      if ((Date.now() - lastTouchTs) < TOUCH_MOUSE_GUARD_MS) return;
       var r = canvas.getBoundingClientRect();
       mouse.x = e.clientX - r.left;
       mouse.y = e.clientY - r.top;
@@ -318,6 +321,7 @@
     /* Touch */
     function onTouchLeave() { mouse.x = -9999; mouse.y = -9999; }
     section.addEventListener('touchmove', function (e) {
+      lastTouchTs = Date.now();
       if (e.touches.length) {
         var r = canvas.getBoundingClientRect();
         var t = e.touches[0];
