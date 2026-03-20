@@ -793,71 +793,132 @@ section.resume-section .resume-item .resume-date {
 }
 
 /* ==============================
-   Contact Section
+   Contact — Lusion-inspired 3D Hero Section
    ============================== */
-.contact-links {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.contact-link-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.2rem;
-  border-radius: 1rem;
-  border: 1px solid var(--card-border);
-  background: var(--secondary-bg);
-  text-decoration: none;
-  color: var(--text-color);
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
-}
-.contact-link-item:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  transform: translateX(4px);
-  text-decoration: none;
-  color: var(--text-color);
-}
-.contact-link-item__icon {
-  flex: 0 0 2.6rem;
-  width: 2.6rem;
-  height: 2.6rem;
+.contact-hero {
+  position: relative;
+  width: 100%;
+  min-height: 90vh;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-color), #6a7bff);
-  color: #fff;
-  font-size: 1.1rem;
-  box-shadow: 0 4px 12px rgba(59,59,253,0.18);
+  margin: 2rem 0 0;
+  border-radius: 0;
 }
-.contact-link-item__label {
+.contact-hero__scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.contact-hero__scene canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.contact-hero__overlay {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  pointer-events: none;
+  padding: 2rem;
+}
+.contact-hero__overlay * {
+  pointer-events: auto;
+}
+.contact-hero__kicker {
+  font-family: 'Open Sans', sans-serif;
   font-size: 0.75rem;
   font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 2rem;
 }
-.contact-link-item__value {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-color);
+.contact-hero__title {
+  font-family: 'Saira Extra Condensed', sans-serif;
+  font-size: clamp(3.5rem, 10vw, 8rem);
+  font-weight: 700;
+  line-height: 0.95;
+  color: #fff;
+  text-transform: none;
+  letter-spacing: -0.02em;
+  margin: 0 0 2.5rem;
+  text-shadow: 0 2px 40px rgba(0,0,0,0.3);
+}
+/* Decorative line under title */
+.contact-hero__title::after {
+  content: '';
+  display: block;
+  width: 60%;
+  max-width: 480px;
+  height: 2px;
+  background: rgba(255,255,255,0.25);
+  margin: 0.5rem auto 0;
 }
 
-.contact-cta-box {
-  text-align: center;
-  padding: 2.5rem 2rem;
-  border-radius: var(--card-radius);
-  background: var(--secondary-bg);
-  border: 1px solid var(--card-border);
-  max-width: 360px;
-  width: 100%;
+/* CTA pill — "CONTINUE TO SCROLL" */
+.contact-hero__cta {
+  margin-bottom: 2rem;
 }
-.contact-cta-box__icon {
-  font-size: 2.5rem;
-  color: var(--primary-color);
-  margin-bottom: 1rem;
-  display: block;
+.contact-hero__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1.8rem;
+  background: #fff;
+  border: none;
+  border-radius: 50px;
+  text-decoration: none;
+  color: #1a1a2e;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.contact-hero__pill:hover {
+  box-shadow: 0 6px 30px rgba(0,0,0,0.3);
+  transform: translateY(-2px);
+  text-decoration: none;
+  color: #1a1a2e;
+}
+.contact-hero__pill-arrow {
+  font-size: 0.7em;
+  opacity: 0.5;
+}
+.contact-hero__pill-text {
+  line-height: 1;
+}
+
+/* Social icons row */
+.contact-hero__socials {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+}
+.contact-hero__socials a {
+  color: rgba(255,255,255,0.5);
+  font-size: 1.4rem;
+  transition: color 0.3s ease, transform 0.3s ease;
+  text-decoration: none;
+}
+.contact-hero__socials a:hover {
+  color: #fff;
+  transform: scale(1.15);
+}
+
+@media (max-width: 600px) {
+  .contact-hero {
+    min-height: 70vh;
+  }
+  .contact-hero__overlay {
+    padding: 1.5rem;
+  }
 }
 
 /* ==============================

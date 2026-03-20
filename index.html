@@ -420,64 +420,38 @@ Take a look at some of my side projects.
     <!-- ═══════════════════════════════════════
          7. CONTACT
          ═══════════════════════════════════════ -->
-    <h2 class="section-title">Contact</h2>
-    <section class="resume-section glass p-3 p-lg-5 d-flex flex-column" id="contact">
-      <div class="my-auto">
-        <div class="row align-items-center g-4">
-          <div class="col-12 col-lg-6">
-            <p style="font-size:1.15rem;line-height:1.8;margin-bottom:1.5rem;">
-              Have a project in mind or just want to say hi? I'm always open to new opportunities and collaborations.
-            </p>
-            <div class="contact-links">
-              <ul class="list-inline list-social-icons mb-0 mt-4">
-              <li class="list-inline-item">
-                <a href="https://www.linkedin.com/in/umberto-antonio-cicero/" aria-label="Visit my LinkedIn profile" rel="noopener">
-                  <span class="fa-stack fa-lg">
-                    <i class="fas fa-circle fa-stack-2x"></i>
-                    <i class="fab fa-linkedin fa-stack-1x fa-inverse"></i>
-                  </span>
-                </a>
-              </li>
-              <li class="list-inline-item">
-                <a href="https://github.com/umbertocicero" aria-label="Visit my GitHub profile" rel="noopener">
-                  <span class="fa-stack fa-lg">
-                    <i class="fas fa-circle fa-stack-2x"></i>
-                    <i class="fab fa-github fa-stack-1x fa-inverse"></i>
-                  </span>
-                </a>
-              </li>
-              <li class="list-inline-item">
-                <a href="https://play.google.com/store/apps/dev?id=9118749528347419452" aria-label="Visit my Google Play Store developer page" rel="noopener">
-                  <span class="fa-stack fa-lg">
-                    <i class="fas fa-circle fa-stack-2x"></i>
-                    <i class="fab fa-google-play fa-stack-1x fa-inverse"></i>
-                  </span>
-                </a>
-              </li>
-            </ul>
-            </div>
-          </div>
-          <div class="col-12 col-lg-6 d-flex justify-content-center">
-            <div class="contact-cta-box">
-              <i class="fas fa-paper-plane contact-cta-box__icon"></i>
-              <h3 style="margin-bottom:0.5rem;">Let's Talk</h3>
-              <p style="color:var(--text-secondary);margin-bottom:1.5rem;">I'll get back to you as soon as possible.</p>
-              <a href="mailto:umbertocicero@gmail.com" class="btn btn-primary" style="border-radius:50px;padding:0.6rem 2rem;font-weight:600;">
-                <i class="fas fa-arrow-right"></i> Send an Email
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <section class="contact-hero" id="contact">
+      <!-- 3D Canvas container -->
+      <div class="contact-hero__scene" id="contact-scene"></div>
 
-    <section class="blank-section p-3 p-lg-5 d-flex flex-column" id="before-footer">
-      <!-- Scroll-to-top pill -->
+      <!-- Overlay content -->
+      <div class="contact-hero__overlay">
+        <p class="contact-hero__kicker">IS YOUR BIG IDEA READY TO GO WILD?</p>
+        <h2 class="contact-hero__title">
+          Let's work<br>together!
+        </h2>
+        <div class="contact-hero__cta">
+          
+          
+        </div>
+        <div class="contact-hero__socials">
+          <a href="mailto:umbertocicero@gmail.com" aria-label="Email"><i class="fas fa-envelope"></i></a>
+          <a href="https://www.linkedin.com/in/umberto-antonio-cicero/" aria-label="LinkedIn" rel="noopener" target="_blank"><i class="fab fa-linkedin"></i></a>
+          <a href="https://github.com/umbertocicero" aria-label="GitHub" rel="noopener" target="_blank"><i class="fab fa-github"></i></a>
+          <a href="https://play.google.com/store/apps/dev?id=9118749528347419452" aria-label="Google Play" rel="noopener" target="_blank"><i class="fab fa-google-play"></i></a>
+        </div>
+
+        
+      </div>
+      <div>
+<!-- Scroll-to-top pill -->
       <a href="#page-top" class="scroll-top-pill" id="scroll-top-pill">
         <span class="scroll-top-pill__arrow"><i class="fas fa-arrow-up"></i></span>
         <span class="scroll-top-pill__text">GO TO TOP</span>
         <span class="scroll-top-pill__arrow"><i class="fas fa-arrow-up"></i></span>
       </a>
+
+      </div>
     </section>
 
     <div id="footer"></div>
@@ -498,6 +472,8 @@ Take a look at some of my side projects.
   <script src="js/section-reveal.js"></script>
   <!-- Title reveal — per-character stagger animation -->
   <script src="js/title-reveal.js"></script>
+  <!-- Contact 3D scene -->
+  <script type="module" src="js/contact-scene.js"></script>
   <!-- Custom scripts -->
   <script src="js/main.js"></script>
   <script src="js/footer.js"></script>

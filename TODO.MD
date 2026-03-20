@@ -1,5 +1,8 @@
 TODO
 
+aggiungere ufo 3d
+https://www.turbosquid.com/it/3d-models/ufo-3d-model-1759467
+
 la linea deve iniziare a comparire un po prima
 
 pipeline di deploy github al tag
