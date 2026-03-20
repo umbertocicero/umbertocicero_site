@@ -20,5 +20,3 @@ style:
 movimento alle inner card
 
 mettere a comune scroll-line.js e projects-reel.js
-
-aggiungere un gioco nel footer di cv.html

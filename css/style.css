@@ -685,8 +685,8 @@ section.resume-section .resume-item .resume-date {
 }
 .projects-editorial__cta {
   margin-top: 2.5rem;
-  max-width: 55%;
-  text-align: right;
+  width: 55%;
+  text-align: center;
 }
 @media (max-width: 768px) {
   .projects-editorial__cta {
