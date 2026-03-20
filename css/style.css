@@ -919,6 +919,24 @@ section.resume-section .resume-item .resume-date {
 }
 
 /* ==============================
+   App Badge — small status tag
+   ============================== */
+.app-badge {
+  display: inline-block;
+  background: rgba(167, 192, 255, 0.10);
+  color: rgba(167, 192, 255, 0.85);
+  border: 1px solid rgba(167, 192, 255, 0.18);
+  border-radius: 50px;
+  padding: 0.35rem 1rem;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* ==============================
    Contact — Physics Hero Section
    ============================== */
 .contact-hero {

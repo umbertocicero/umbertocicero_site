@@ -20,3 +20,5 @@ style:
 movimento alle inner card
 
 mettere a comune scroll-line.js e projects-reel.js
+
+animazione della scritta: Let's work together!
