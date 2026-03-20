@@ -54,13 +54,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <!-- String art animation -->
   <script src="js/string-art.js" defer></script>
 
-  <!-- Bootstrap core CSS -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:wght@100;200;300;400;500;600;700;800;900&display=swap"
-    rel="stylesheet">
-  <link
-    href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,400;1,600;1,700;1,800&display=swap"
-    rel="stylesheet">
+  <!-- Preload critical above-the-fold fonts (eliminates FOUT) -->
+  <link rel="preload" href="vendor/fonts/Saira_Extra/SairaExtraCondensed-Bold.woff2"
+        as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fonts/Saira_Extra/SairaExtraCondensed-SemiBold.woff2"
+        as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fonts/Open_Sans/OpenSans-SemiBold.woff2"
+        as="font" type="font/woff2" crossorigin>
+
+  <!-- Local font-face definitions (no Google Fonts round-trip) -->
+  <link href="vendor/fonts/fonts.css" rel="stylesheet">
   <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <!-- Font Awesome -->
   <link href="vendor/fontawesome-free-6.4.2-web/css/all.min.css" rel="stylesheet">
@@ -69,7 +72,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <!-- Simple Line Icons -->
   <link href="vendor/simple-line-icons/css/simple-line-icons.css" rel="stylesheet">
   <!-- Custom styles for this template -->
-<!--  <link href="vendor/fonts/fonts.css" rel="stylesheet"> -->
   <link href="css/style.css" rel="stylesheet">
 
 </head>

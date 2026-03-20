@@ -34,9 +34,16 @@
   <!-- Three.js scene -->
   <script type="module" src="js/scene.js"></script>
 
-  <!-- Fonts & CSS (same as index.html) -->
-  <link href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,400;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  <!-- Preload critical above-the-fold fonts -->
+  <link rel="preload" href="vendor/fonts/Saira_Extra/SairaExtraCondensed-Bold.woff2"
+        as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fonts/Saira_Extra/SairaExtraCondensed-SemiBold.woff2"
+        as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fonts/Open_Sans/OpenSans-SemiBold.woff2"
+        as="font" type="font/woff2" crossorigin>
+
+  <!-- Local font-face definitions (no Google Fonts round-trip) -->
+  <link href="vendor/fonts/fonts.css" rel="stylesheet">
   <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="vendor/fontawesome-free-6.4.2-web/css/all.min.css" rel="stylesheet">
   <link href="vendor/devicons/css/devicons.min.css" rel="stylesheet">
@@ -89,8 +96,6 @@
       <a class="menu-overlay__link" href="/index.html#certifications">Certifications</a>
       <a class="menu-overlay__link" href="/index.html#contact">Contact</a>
       <a class="menu-overlay__link" href="/app.html">My Apps</a>
-      <a class="menu-overlay__link" href="/game/OrbitalBloom/index.html">Orbital Bloom</a>
-      <a class="menu-overlay__link" href="/game/StickPenalty/index.html">Stick Penalty</a>
     </div>
   </nav>
 

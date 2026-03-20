@@ -1,30 +1,54 @@
-/* === Local fonts === */
+/* === Local fonts — eliminates Google Fonts round-trips === */
+
+/* ── Saira Extra Condensed ── */
 @font-face {
   font-family: 'Saira Extra Condensed';
-  src: url('/vendor/fonts/Saira_Extra/SairaExtraCondensed-Regular.woff2') format('woff2');
-  font-weight: 400;
+  src: url('Saira_Extra/SairaExtraCondensed-SemiBold.woff2') format('woff2');
+  font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Saira Extra Condensed';
-  src: url('/vendor/fonts/Saira_Extra/SairaExtraCondensed-Bold.woff2') format('woff2');
+  src: url('Saira_Extra/SairaExtraCondensed-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
+/* ── Open Sans ── */
 @font-face {
   font-family: 'Open Sans';
-  src: url('/vendor/fonts/Open_Sans/OpenSans-Regular.woff2') format('woff2');
+  src: url('Open_Sans/OpenSans-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sans';
+  src: url('Open_Sans/OpenSans-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Open Sans';
-  src: url('/vendor/fonts/Open_Sans/OpenSans-SemiBold.woff2') format('woff2');
+  src: url('Open_Sans/OpenSans-SemiBold.woff2') format('woff2');
   font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sans';
+  src: url('Open_Sans/OpenSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sans';
+  src: url('Open_Sans/OpenSans-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
   font-style: normal;
   font-display: swap;
 }
