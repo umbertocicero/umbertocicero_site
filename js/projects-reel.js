@@ -18,8 +18,6 @@
   /* ── Scroll factors (tuned for the #projects section) ─ */
   var SHOW_FACTOR_START = 0.65;
   var SHOW_FACTOR_RANGE = 0.8;
-  var HIDE_FACTOR_START = 1.6;
-  var HIDE_FACTOR_RANGE = 0.6;
 
   var container;
   var svg, mainPath, gradientStopEnd;
@@ -237,7 +235,7 @@
   /* ── Scroll state — based on #projects position ───── */
   function getScrollState() {
     var section = document.getElementById('projects');
-    if (!section) return { draw: 0, opacity: 0 };
+    if (!section) return { draw: 0, opacity: 1 };
 
     var vh = window.innerHeight;
     var screenY = section.getBoundingClientRect().top;
@@ -245,11 +243,8 @@
     var rawShow = (-(screenY - SHOW_FACTOR_START * vh)) / (SHOW_FACTOR_RANGE * vh);
     var draw = easeQuadInOut(clamp01(rawShow));
 
-    var hideStart = -HIDE_FACTOR_START * vh;
-    var hideRaw = (screenY - hideStart) / (HIDE_FACTOR_RANGE * vh);
-    var hideRatio = clamp01(hideRaw);
-
-    return { draw: draw, opacity: hideRatio };
+    /* Once drawn, stays anchored — no fade-out */
+    return { draw: draw, opacity: 1 };
   }
 
   /* ── Update line each frame ───────────────────────── */

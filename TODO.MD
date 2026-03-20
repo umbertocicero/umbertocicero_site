@@ -24,3 +24,5 @@ emoji coerenti con me
 
 style: 
 movimento alle inner card
+
+mettere a comune scroll-line.js e projects-reel.js

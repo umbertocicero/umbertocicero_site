@@ -11,8 +11,6 @@
   var STROKE_WIDTH = 22;
   var SHOW_FACTOR_START = 0.4;
   var SHOW_FACTOR_RANGE = 1.3;
-  var HIDE_FACTOR_START = 2.2;
-  var HIDE_FACTOR_RANGE = 0.8;
 
   var container;
   var svg, mainPath, gradientStopEnd;
@@ -105,7 +103,7 @@
     return result;
   }
 
-  function buildPathFromPoints(points, viewportWidth, viewportHeight) {
+  function buildPathFromPoints(points, containerWidth, containerHeight) {
     if (!points || !points.length) return '';
     var minX = Infinity;
     var maxX = -Infinity;
@@ -122,10 +120,12 @@
     var xRange = Math.max(1e-6, maxX - minX);
     var yRange = Math.max(1e-6, maxY - minY);
 
-    var xFrom = -viewportWidth * 0.06;
-    var xTo = viewportWidth * 1.14;
-    var yFrom = viewportHeight * 0.36;
-    var yTo = viewportHeight * 0.94;
+    /* Map to the section area where the line should live
+       (roughly the About → Domains region of the page) */
+    var xFrom = -containerWidth * 0.06;
+    var xTo = containerWidth * 1.14;
+    var yFrom = containerHeight * 0.12;
+    var yTo   = containerHeight * 0.52;
     var d = '';
 
     for (var i = 0; i < points.length; i++) {
@@ -169,13 +169,15 @@
     container = document.getElementById('scroll-line-container');
     if (!container || !linePoints || !linePoints.length) return false;
 
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
+    /* Use the parent (container-fluid) dimensions, not viewport */
+    var parent = container.parentElement;
+    var cw = parent ? parent.offsetWidth  : window.innerWidth;
+    var ch = parent ? parent.offsetHeight : window.innerHeight;
 
     svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '100%');
     svg.setAttribute('height', '100%');
-    svg.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+    svg.setAttribute('viewBox', '0 0 ' + cw + ' ' + ch);
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.style.position = 'absolute';
     svg.style.top = '0';
@@ -202,7 +204,7 @@
     defs.appendChild(gradient);
     svg.appendChild(defs);
 
-    var d = buildPathFromPoints(linePoints, vw, vh);
+    var d = buildPathFromPoints(linePoints, cw, ch);
     if (!d) return false;
 
     mainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -224,7 +226,7 @@
 
   function getScrollState() {
     var initLine = document.getElementById('init-line');
-    if (!initLine) return { draw: 0, opacity: 0 };
+    if (!initLine) return { draw: 0, opacity: 1 };
 
     var vh = window.innerHeight;
     var screenY = initLine.getBoundingClientRect().top;
@@ -232,11 +234,8 @@
     var rawShow = (-(screenY - SHOW_FACTOR_START * vh)) / (SHOW_FACTOR_RANGE * vh);
     var draw = easeQuadInOut(clamp01(rawShow));
 
-    var hideStart = -HIDE_FACTOR_START * vh;
-    var hideRaw = (screenY - hideStart) / (HIDE_FACTOR_RANGE * vh);
-    var hideRatio = clamp01(hideRaw);
-
-    return { draw: draw, opacity: hideRatio };
+    /* Once drawn, stays anchored — no fade-out */
+    return { draw: draw, opacity: 1 };
   }
 
   function updateLine(drawRatio, opacityRatio) {
@@ -250,7 +249,6 @@
     mainPath.style.strokeDashoffset = String(offset);
 
     container.style.opacity = String(opacityRatio);
-    container.style.transform = 'translate3d(0,0,0)';
   }
 
   function tick() {

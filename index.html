@@ -122,9 +122,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </nav>
 
-  <!-- Scroll-driven decorative line overlay (OUTSIDE container-fluid for reliable fixed positioning) -->
-  <div id="scroll-line-container"></div>
-
   <div class="container-fluid p-0">
 
     <!-- ═══════════════════════════════════════
@@ -151,6 +148,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span class="scroll-separator__cross">+</span>
       <span class="scroll-separator__cross">+</span>
     </div>
+
+    <!-- Scroll-driven decorative line (anchored inside container-fluid) -->
+    <div id="scroll-line-container" aria-hidden="true"></div>
 
     <!-- ═══════════════════════════════════════
          2. ABOUT / INTRO
@@ -456,7 +456,7 @@ Take a look at some of my side projects.
   <!-- Projects reel — scroll-driven cyan line -->
   <script src="js/projects-reel.js"></script>
   <!-- Contact 2D physics scene -->
-  <script src="js/contact-scene.js"></script>
+  <script src="js/emoji-section.js"></script>
   <!-- Custom scripts -->
   <script src="js/main.js"></script>
   <script src="js/footer.js"></script>

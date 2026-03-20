@@ -128,15 +128,15 @@ body {
    Scroll Line — decorative reveal line
    ============================== */
 #scroll-line-container {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   z-index: 1;
   overflow: visible;
-  will-change: transform, opacity;
+  will-change: opacity;
 }
 #scroll-line-container svg {
   display: block;
