@@ -1,34 +1,25 @@
 /**
- * Contact Section — Lusion-style 2D physics scene (optimised)
+ * Contact Section — Lusion-style 2D physics scene (emoji edition)
  *
- * Pure Canvas 2D.  Emoji characters fall with gravity,
- * pile up at the bottom, and get repelled by the mouse cursor.
+ * Lusion.co-inspired footer animation with emoji characters:
+ *   • Uniform-size emoji glyphs rain from the top with gravity.
+ *   • Mouse cursor displaces nearby particles (position push + velocity).
+ *   • Spatial-hash grid for O(n) particle–particle separation.
+ *   • Particles pile up at the floor, pushed by gravity.
  *
- * Performance notes
- * -----------------
- *  • Every unique emoji is rasterised ONCE to a small offscreen canvas,
- *    then blitted each frame with drawImage (avoids costly fillText).
- *  • Spatial-hash grid turns O(n²) collision checks into ~O(n).
- *  • All emojis share the same radius  →  simpler / branchless maths.
- *  • Structure-of-Arrays (Float64Array) for positions & velocities
- *    →  cache-friendly, zero GC pressure.
+ * Performance:
+ *   • Each unique emoji is pre-rasterised once to an offscreen canvas.
+ *   • Typed arrays (Float64Array) for positions & velocities — zero GC.
+ *   • Spatial hash avoids O(n²) pair checks.
  */
 (function () {
   'use strict';
 
-  /* ── config ─────────────────────────────────────────────── */
-  var COUNT       = 55;
-  var R           = 18;            // uniform collision radius (px)
-  var EMOJI_PX    = 30;            // font-size used to rasterise each glyph
-  var GRAVITY     = 420;           // px / s²
-  var DAMPING     = 0.985;
-  var MOUSE_R     = 140;
-  var MOUSE_R2    = MOUSE_R * MOUSE_R;
-  var MOUSE_STR   = 8000;
-  var BOUNCE_WALL = 0.28;
-  var BOUNCE_COL  = 0.12;
-  var COL_ITERS   = 2;
+  /* ══════════════════════════════════════════════════════════
+     CONFIG
+     ══════════════════════════════════════════════════════════ */
 
+  /* Emoji glyphs — all rendered at the same size */
   var GLYPHS = [
     '\uD83D\uDE00','\uD83D\uDE80','\uD83D\uDC8E','\u2764\uFE0F','\uD83C\uDFAE',
     '\u2B50','\uD83D\uDD25','\uD83C\uDFAF','\uD83D\uDCA1','\uD83C\uDFA8',
@@ -39,75 +30,114 @@
     '\uD83E\uDDBE','\uD83D\uDEF8','\uD83E\uDDE9'
   ];
 
-  /* ── state ──────────────────────────────────────────────── */
+  /* Responsive particle count: double on desktop, normal on mobile */
+  var IS_MOBILE       = (window.innerWidth || 1024) < 768;
+  var PARTICLE_COUNT  = IS_MOBILE ? 120 : 240;
+  var R               = 16;        // uniform collision radius for every particle
+  var EMOJI_PX        = 28;        // font-size used to rasterise each glyph
+  var EMIT_RATE       = 40;        // particles per second during spawn phase
+  var DAMPING         = 0.992;
+  var BOUNCE_WALL     = 0.25;
+  var SEPARATION_DIST = 1.05;      // factor of (rA + rB) for separation push
+  var SEP_ITERS       = 3;
+  var MOUSE_RADIUS    = 120;       // px
+  var MOUSE_PUSH      = 0.35;      // position push strength
+  var MOUSE_VEL_MULT  = 1.2;       // velocity transfer multiplier
+  var MAX_SPEED       = 600;       // hard velocity cap (px/s) — prevents missiles
+
+  /* Gravity — responsive: stronger on mobile, softer on desktop */
+  function calcGravity() {
+    var w = window.innerWidth || 1024;
+    // Map viewport 320→2560 to gravity 650→250
+    var t = Math.max(0, Math.min(1, (w - 320) / (2560 - 320)));
+    return 650 - t * 400;
+  }
+  var GRAVITY = calcGravity();
+
+  /* ══════════════════════════════════════════════════════════
+     STATE
+     ══════════════════════════════════════════════════════════ */
   var canvas, ctx, container;
   var W = 0, H = 0, dpr = 1;
-  var n = 0;                       // body count
+  var n = 0;                        // active particle count
+  var maxN = PARTICLE_COUNT;
 
-  /* Structure-of-Arrays (cache-friendly, no GC) */
-  var px, py, vx, vy;             // Float64Array[n]
-  var ei;                          // Uint8Array[n]  – index into sprites[]
+  /* SoA particle data */
+  var px, py, vx, vy;               // Float64Array
+  var pr;                            // Float64Array — radius
+  var pAlive;                        // Uint8Array — 1 = alive
 
   var mouseX = -9999, mouseY = -9999;
-  var lastT  = 0, raf = 0;
+  var prevMouseX = -9999, prevMouseY = -9999;
+  var mouseVX = 0, mouseVY = 0;
+  var lastT = 0, raf = 0;
+  var spawnedSoFar = 0;
+  var emitting = true;
 
-  /* ── emoji sprite cache ─────────────────────────────────── */
-  var sprites = [];                // array of <canvas> elements
-  var SPRITE_SZ = 0;               // pixel size of each sprite tile
-  var DRAW_SZ  = 0;                // CSS-px size we blit at (= SPRITE_SZ / dpr)
-  var HALF_DRAW = 0;
+  /* ══════════════════════════════════════════════════════════
+     SPRITE CACHE — pre-rasterise each unique emoji once
+     ══════════════════════════════════════════════════════════ */
+  var glyphSprites = [];   // one offscreen canvas per unique glyph
+  var SPRITE_SZ    = 0;    // pixel size of each sprite tile
+  var DRAW_SZ      = 0;    // CSS-px blit size
+  var HALF_DRAW    = 0;
+  var pGlyphIdx;           // Uint8Array[maxN] — which glyph each particle uses
 
-  function buildSprites () {
-    SPRITE_SZ  = Math.ceil(EMOJI_PX * dpr * 1.35);
-    DRAW_SZ    = SPRITE_SZ / dpr;
-    HALF_DRAW  = DRAW_SZ * 0.5;
+  function buildGlyphSprites() {
+    SPRITE_SZ = Math.ceil(EMOJI_PX * dpr * 1.35);
+    DRAW_SZ   = SPRITE_SZ / dpr;
+    HALF_DRAW = DRAW_SZ * 0.5;
 
-    sprites.length = 0;
+    glyphSprites = [];
     for (var i = 0; i < GLYPHS.length; i++) {
-      var c  = document.createElement('canvas');
-      c.width  = SPRITE_SZ;
-      c.height = SPRITE_SZ;
-      var g  = c.getContext('2d');
+      var c = document.createElement('canvas');
+      c.width = c.height = SPRITE_SZ;
+      var g = c.getContext('2d');
       g.textAlign    = 'center';
       g.textBaseline = 'middle';
       g.font = (EMOJI_PX * dpr) + 'px serif';
       g.fillText(GLYPHS[i], SPRITE_SZ * 0.5, SPRITE_SZ * 0.5);
-      sprites.push(c);
+      glyphSprites.push(c);
     }
   }
 
-  /* ── spatial hash ───────────────────────────────────────── */
-  var CELL = 0, COLS = 0, ROWS = 0;
-  var BCAP   = 8;                  // max bodies per cell
-  var STRIDE = BCAP + 1;           // [count, id0, id1, …, id7]
-  var grid;                        // Int16Array
+  /* ══════════════════════════════════════════════════════════
+     SPATIAL HASH
+     ══════════════════════════════════════════════════════════ */
+  var CELL, COLS, ROWS;
+  var BCAP = 10, STRIDE;
+  var grid;
 
-  function resizeGrid () {
-    CELL = (R * 2.2) | 0;
-    if (CELL < 40) CELL = 40;
-    COLS = (W / CELL | 0) + 2;
-    ROWS = (H / CELL | 0) + 2;
+  function resizeGrid() {
+    CELL = (R * 2 * 2.2) | 0;
+    if (CELL < 48) CELL = 48;
+    COLS = ((W / CELL) | 0) + 2;
+    ROWS = ((H / CELL) | 0) + 2;
+    STRIDE = BCAP + 1;
     grid = new Int16Array(COLS * ROWS * STRIDE);
   }
 
-  function clearGrid () {
+  function clearGrid() {
     for (var k = 0, len = COLS * ROWS; k < len; k++) grid[k * STRIDE] = 0;
   }
 
-  function insertAll () {
-    for (var i = 0; i < n; i++) {
+  function insertAll() {
+    for (var i = 0; i < maxN; i++) {
+      if (!pAlive[i]) continue;
       var cx = (px[i] / CELL) | 0;
       var cy = (py[i] / CELL) | 0;
       if (cx < 0) cx = 0; else if (cx >= COLS) cx = COLS - 1;
       if (cy < 0) cy = 0; else if (cy >= ROWS) cy = ROWS - 1;
       var base = (cy * COLS + cx) * STRIDE;
-      var cnt  = grid[base];
+      var cnt = grid[base];
       if (cnt < BCAP) { grid[base + 1 + cnt] = i; grid[base] = cnt + 1; }
     }
   }
 
-  /* ── init ───────────────────────────────────────────────── */
-  function init () {
+  /* ══════════════════════════════════════════════════════════
+     INIT
+     ══════════════════════════════════════════════════════════ */
+  function init() {
     container = document.getElementById('contact-scene');
     if (!container) return;
 
@@ -117,8 +147,8 @@
     ctx = canvas.getContext('2d');
 
     measure();
-    buildSprites();
-    spawn();
+    buildGlyphSprites();
+    allocate();
     resizeGrid();
 
     window.addEventListener('resize', onResize);
@@ -131,15 +161,18 @@
     raf   = requestAnimationFrame(tick);
   }
 
-  var _rtimer = 0;
-  function onResize () {
-    clearTimeout(_rtimer);
-    _rtimer = setTimeout(function () {
-      measure(); buildSprites(); resizeGrid();
-    }, 120);
+  var _rt = 0;
+  function onResize() {
+    clearTimeout(_rt);
+    _rt = setTimeout(function () {
+      measure();
+      GRAVITY = calcGravity();
+      buildGlyphSprites();
+      resizeGrid();
+    }, 150);
   }
 
-  function measure () {
+  function measure() {
     W   = container.clientWidth  || window.innerWidth;
     H   = container.clientHeight || window.innerHeight;
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -148,70 +181,112 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  /* ── spawn bodies ───────────────────────────────────────── */
-  function spawn () {
-    n  = COUNT;
-    px = new Float64Array(n);
-    py = new Float64Array(n);
-    vx = new Float64Array(n);
-    vy = new Float64Array(n);
-    ei = new Uint8Array(n);
+  /* ══════════════════════════════════════════════════════════
+     ALLOCATE PARTICLE ARRAYS
+     ══════════════════════════════════════════════════════════ */
+  function allocate() {
+    px       = new Float64Array(maxN);
+    py       = new Float64Array(maxN);
+    vx       = new Float64Array(maxN);
+    vy       = new Float64Array(maxN);
+    pr       = new Float64Array(maxN);
+    pAlive   = new Uint8Array(maxN);
+    pGlyphIdx = new Uint8Array(maxN);
 
-    for (var i = 0; i < n; i++) {
+    for (var i = 0; i < maxN; i++) {
+      pr[i] = R;
+      pGlyphIdx[i] = i % GLYPHS.length;
+    }
+    // All start dead; emitter brings them to life
+    spawnedSoFar = 0;
+    emitting = true;
+    n = 0;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     EMITTER — spawn particles from top, like Lusion
+     ══════════════════════════════════════════════════════════ */
+  function emit(dt) {
+    if (!emitting) return;
+    var toSpawn = Math.ceil(EMIT_RATE * dt);
+    for (var k = 0; k < toSpawn; k++) {
+      if (spawnedSoFar >= maxN) { emitting = false; return; }
+      var i = spawnedSoFar;
+      pAlive[i] = 1;
       px[i] = Math.random() * W;
-      py[i] = -40 - Math.random() * H * 2;
+      py[i] = -pr[i] - Math.random() * H * 0.3;  // above viewport
+      // Slight random horizontal drift + strong downward
       vx[i] = (Math.random() - 0.5) * 40;
-      vy[i] = Math.random() * 50;
-      ei[i] = i % GLYPHS.length;
+      vy[i] = (30 + Math.random() * 60) * (GRAVITY / 400);
+      n = i + 1;
+      spawnedSoFar++;
     }
   }
 
-  /* ── physics step ───────────────────────────────────────── */
-  var DIA  = R + R;
-  var DIA2 = DIA * DIA;
-  var INV_MR = 1 / MOUSE_R;
+  /* ══════════════════════════════════════════════════════════
+     PHYSICS STEP
+     ══════════════════════════════════════════════════════════ */
+  var MR2 = MOUSE_RADIUS * MOUSE_RADIUS;
 
-  function step (dt) {
-    var i, j, k, dx, dy, d2, d, ov, nx, ny, dot, imp, half;
+  function step(dt) {
+    var i, j, k, dx, dy, d2, d, minD, ov, nx, ny, push;
+    MR2 = MOUSE_RADIUS * MOUSE_RADIUS;
 
-    /* 1 — forces + integrate */
-    for (i = 0; i < n; i++) {
+    /* ─── 1. Forces + integrate ─── */
+    for (i = 0; i < maxN; i++) {
+      if (!pAlive[i]) continue;
+
+      // Gravity
       vy[i] += GRAVITY * dt;
 
-      /* mouse repulsion (squared-distance early-out) */
+      // Mouse repulsion (Lusion style: position displacement + velocity blend)
       dx = px[i] - mouseX;
       dy = py[i] - mouseY;
       d2 = dx * dx + dy * dy;
-      if (d2 < MOUSE_R2 && d2 > 1) {
+      if (d2 < MR2 && d2 > 0.5) {
         d = Math.sqrt(d2);
-        var t = 1 - d * INV_MR;
-        var f = MOUSE_STR * t * t * dt;
-        var id = 1 / d;
-        vx[i] += dx * id * f;
-        vy[i] += dy * id * f;
+        push = (MOUSE_RADIUS - d) / d * MOUSE_PUSH;
+        px[i] += dx * push;
+        py[i] += dy * push;
+        // Blend mouse velocity in (not overwrite) to avoid sudden jumps
+        vx[i] += (mouseVX * MOUSE_VEL_MULT - vx[i]) * 0.3;
+        vy[i] += (mouseVY * MOUSE_VEL_MULT - vy[i]) * 0.3;
       }
 
+      // Damping
       vx[i] *= DAMPING;
       vy[i] *= DAMPING;
+
+      // Euler integration
       px[i] += vx[i] * dt;
       py[i] += vy[i] * dt;
+
+      // Hard velocity cap — prevent missiles
+      var spd2 = vx[i] * vx[i] + vy[i] * vy[i];
+      if (spd2 > MAX_SPEED * MAX_SPEED) {
+        var sc = MAX_SPEED / Math.sqrt(spd2);
+        vx[i] *= sc;
+        vy[i] *= sc;
+      }
     }
 
-    /* 2 — collisions (spatial hash, uniform radius) */
-    clearGrid();
-    insertAll();
+    /* ─── 2. Particle separation (spatial hash) ─── */
+    for (var iter = 0; iter < SEP_ITERS; iter++) {
+      clearGrid();
+      insertAll();
 
-    for (var it = 0; it < COL_ITERS; it++) {
-      for (i = 0; i < n; i++) {
-        var cx = (px[i] / CELL) | 0;
-        var cy = (py[i] / CELL) | 0;
-        if (cx < 0) cx = 0; else if (cx >= COLS) cx = COLS - 1;
-        if (cy < 0) cy = 0; else if (cy >= ROWS) cy = ROWS - 1;
+      for (i = 0; i < maxN; i++) {
+        if (!pAlive[i]) continue;
 
-        var r0 = cy > 0        ? cy - 1 : 0;
-        var r1 = cy < ROWS - 1 ? cy + 1 : ROWS - 1;
-        var c0 = cx > 0        ? cx - 1 : 0;
-        var c1 = cx < COLS - 1 ? cx + 1 : COLS - 1;
+        var cx0 = (px[i] / CELL) | 0;
+        var cy0 = (py[i] / CELL) | 0;
+        if (cx0 < 0) cx0 = 0; else if (cx0 >= COLS) cx0 = COLS - 1;
+        if (cy0 < 0) cy0 = 0; else if (cy0 >= ROWS) cy0 = ROWS - 1;
+
+        var r0 = cy0 > 0        ? cy0 - 1 : 0;
+        var r1 = cy0 < ROWS - 1 ? cy0 + 1 : ROWS - 1;
+        var c0 = cx0 > 0        ? cx0 - 1 : 0;
+        var c1 = cx0 < COLS - 1 ? cx0 + 1 : COLS - 1;
 
         for (var ry = r0; ry <= r1; ry++) {
           for (var rx = c0; rx <= c1; rx++) {
@@ -219,29 +294,34 @@
             var cnt  = grid[base];
             for (k = 0; k < cnt; k++) {
               j = grid[base + 1 + k];
-              if (j <= i) continue;
+              if (j <= i || !pAlive[j]) continue;
 
               dx = px[j] - px[i];
               dy = py[j] - py[i];
               d2 = dx * dx + dy * dy;
+              minD = (pr[i] + pr[j]) * SEPARATION_DIST;
 
-              if (d2 < DIA2 && d2 > 0.01) {
+              if (d2 < minD * minD && d2 > 0.01) {
                 d  = Math.sqrt(d2);
-                ov = DIA - d;
-                nx = dx / d;
-                ny = dy / d;
+                ov = 0.5 * (minD - d) / d;  // Lusion formula
+                // Cap overlap push to prevent explosive separation
+                if (ov > 0.4) ov = 0.4;
+                nx = dx * ov;
+                ny = dy * ov;
 
-                half = ov * 0.25;
-                px[i] -= nx * half;
-                py[i] -= ny * half;
-                px[j] += nx * half;
-                py[j] += ny * half;
+                px[i] -= nx;
+                py[i] -= ny;
+                px[j] += nx;
+                py[j] += ny;
 
-                dot = (vx[i] - vx[j]) * nx + (vy[i] - vy[j]) * ny;
-                if (dot > 0) {
-                  imp = dot * (1 + BOUNCE_COL) * 0.5;
-                  vx[i] -= imp * nx;  vy[i] -= imp * ny;
-                  vx[j] += imp * nx;  vy[j] += imp * ny;
+                // Small velocity exchange for natural bounce
+                var relDot = (vx[i] - vx[j]) * dx / d + (vy[i] - vy[j]) * dy / d;
+                if (relDot > 0) {
+                  var imp = relDot * 0.15;
+                  vx[i] -= imp * dx / d;
+                  vy[i] -= imp * dy / d;
+                  vx[j] += imp * dx / d;
+                  vy[j] += imp * dy / d;
                 }
               }
             }
@@ -250,57 +330,103 @@
       }
     }
 
-    /* 3 — boundaries */
-    for (i = 0; i < n; i++) {
-      if (py[i] > H - R)  { py[i] = H - R;  if (vy[i] > 0) { vy[i] *= -BOUNCE_WALL; vx[i] *= 0.9; } }
-      if (py[i] < -H)     { py[i] = -H;     if (vy[i] < 0) vy[i] *= -0.1; }
-      if (px[i] < R)      { px[i] = R;       if (vx[i] < 0) vx[i] *= -BOUNCE_WALL; }
-      if (px[i] > W - R)  { px[i] = W - R;   if (vx[i] > 0) vx[i] *= -BOUNCE_WALL; }
+    /* ─── 3. Boundaries ─── */
+    for (i = 0; i < maxN; i++) {
+      if (!pAlive[i]) continue;
+      var ri = pr[i];
+
+      // Floor
+      if (py[i] > H - ri) {
+        py[i] = H - ri;
+        if (vy[i] > 0) { vy[i] *= -BOUNCE_WALL; vx[i] *= 0.92; }
+      }
+      // Ceiling — clamp tightly so particles can't fly away and come back as missiles
+      if (py[i] < -ri * 3) {
+        py[i] = -ri * 3;
+        if (vy[i] < 0) vy[i] = 0;
+      }
+      // Walls
+      if (px[i] < ri)     { px[i] = ri;     if (vx[i] < 0) vx[i] *= -BOUNCE_WALL; }
+      if (px[i] > W - ri) { px[i] = W - ri; if (vx[i] > 0) vx[i] *= -BOUNCE_WALL; }
     }
   }
 
-  /* ── draw (just blit cached sprites) ────────────────────── */
-  function draw () {
+  /* ══════════════════════════════════════════════════════════
+     DRAW
+     ══════════════════════════════════════════════════════════ */
+  function draw() {
     ctx.clearRect(0, 0, W, H);
-    for (var i = 0; i < n; i++) {
-      ctx.drawImage(sprites[ei[i]], px[i] - HALF_DRAW, py[i] - HALF_DRAW, DRAW_SZ, DRAW_SZ);
+
+    for (var i = 0; i < maxN; i++) {
+      if (!pAlive[i]) continue;
+      ctx.drawImage(
+        glyphSprites[pGlyphIdx[i]],
+        px[i] - HALF_DRAW,
+        py[i] - HALF_DRAW,
+        DRAW_SZ,
+        DRAW_SZ
+      );
     }
   }
 
-  /* ── loop ───────────────────────────────────────────────── */
-  function tick (now) {
+  /* ══════════════════════════════════════════════════════════
+     LOOP
+     ══════════════════════════════════════════════════════════ */
+  function tick(now) {
     raf = requestAnimationFrame(tick);
     var dt = (now - lastT) * 0.001;
     lastT = now;
-    if (dt > 0.04) dt = 0.04;
+    if (dt > 0.04) dt = 0.04;  // cap to prevent spiral-of-death
     if (dt < 0.001) return;
+
+    // Mouse velocity (smoothed + clamped)
+    if (prevMouseX > -9000) {
+      mouseVX = (mouseX - prevMouseX) / dt * 0.4;
+      mouseVY = (mouseY - prevMouseY) / dt * 0.4;
+      // Clamp mouse velocity to sane range
+      var mSpd = Math.sqrt(mouseVX * mouseVX + mouseVY * mouseVY);
+      if (mSpd > 800) { var ms = 800 / mSpd; mouseVX *= ms; mouseVY *= ms; }
+    } else {
+      mouseVX = mouseVY = 0;
+    }
+    prevMouseX = mouseX;
+    prevMouseY = mouseY;
+
+    emit(dt);
     step(dt);
     draw();
   }
 
-  /* ── events ─────────────────────────────────────────────── */
-  function onMouse (e) {
+  /* ══════════════════════════════════════════════════════════
+     EVENTS
+     ══════════════════════════════════════════════════════════ */
+  function onMouse(e) {
     var r = container.getBoundingClientRect();
     mouseX = e.clientX - r.left;
     mouseY = e.clientY - r.top;
   }
-  function onTouch (e) {
+  function onTouch(e) {
     if (e.touches.length) {
       var r = container.getBoundingClientRect();
       mouseX = e.touches[0].clientX - r.left;
       mouseY = e.touches[0].clientY - r.top;
     }
   }
-  function onLeave () { mouseX = mouseY = -9999; }
+  function onLeave() { mouseX = mouseY = prevMouseX = prevMouseY = -9999; }
 
-  /* ── lifecycle (lazy via IntersectionObserver) ──────────── */
-  function setup () {
+  /* ══════════════════════════════════════════════════════════
+     LIFECYCLE — lazy init via IntersectionObserver
+     ══════════════════════════════════════════════════════════ */
+  function setup() {
     var el = document.getElementById('contact-scene');
     if (!el) return;
     var done = false;
     new IntersectionObserver(function (entries) {
       for (var i = 0; i < entries.length; i++) {
-        if (entries[i].isIntersecting && !done) { done = true; init(); }
+        if (entries[i].isIntersecting && !done) {
+          done = true;
+          init();
+        }
       }
     }, { threshold: 0.05 }).observe(el);
   }

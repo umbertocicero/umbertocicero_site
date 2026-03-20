@@ -19,4 +19,5 @@ fabicon
 
 sistemare la descrizione "og:description"
 
-
+Clic nella sezione contatti genera altre emoji
+emoji coerenti con me
