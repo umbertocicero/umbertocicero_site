@@ -22,3 +22,7 @@ movimento alle inner card
 mettere a comune scroll-line.js e projects-reel.js
 
 animazione della scritta: Let's work together!
+
+anni auto calcolati in : Over 14 years of professional 
+
+rendi puù belli i caroselli in app.html
