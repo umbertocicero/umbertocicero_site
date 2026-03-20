@@ -13,8 +13,9 @@ import { RenderPass }      from 'https://esm.sh/three@0.153.0/examples/jsm/postp
 import { UnrealBloomPass } from 'https://esm.sh/three@0.153.0/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 /* --- Shape modules ------------------------------------------------- */
-import * as JackShape   from './jack.js';
-import * as SpiralShape from './spiral.js';
+import * as JackShape       from './jack.js';
+import * as SpiralShape     from './spiral.js';
+import * as HalfSphereShape from './half-sphere.js';
 
 /* =================================================================
    SHAPE SELECTOR
@@ -49,38 +50,74 @@ const COLLISION_K   = 5.0;
 const GRAVITY_K     = 0.015;
 
 /* =================================================================
-   MATERIALS
+   MATERIALS — 4 colour palettes (accent swaps: blue → green → yellow → red)
    ================================================================= */
+const PALETTES = [
+    /* 0 — Original (blue accent) */
+    [
+        { color: 0xd8d8d8, metalness: 0.0,  roughness: 0.65, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0xf0f0f0, metalness: 0.05, roughness: 0.05, clearcoat: 1.0,  clearcoatRoughness: 0.04 },
+        { color: 0x2020e0, metalness: 0.0,  roughness: 0.55, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0x1818ff, metalness: 0.05, roughness: 0.04, clearcoat: 1.0,  clearcoatRoughness: 0.02 },
+        { color: 0x0e0e0e, metalness: 0.0,  roughness: 0.7,  clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0x141414, metalness: 0.05, roughness: 0.25, clearcoat: 0.5,  clearcoatRoughness: 0.15 },
+    ],
+    /* 1 — Acid-green accent */
+    [
+        { color: 0xd8d8d8, metalness: 0.0,  roughness: 0.65, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0xf0f0f0, metalness: 0.05, roughness: 0.05, clearcoat: 1.0,  clearcoatRoughness: 0.04 },
+        { color: 0x76e020, metalness: 0.0,  roughness: 0.55, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0x80ff18, metalness: 0.05, roughness: 0.04, clearcoat: 1.0,  clearcoatRoughness: 0.02 },
+        { color: 0x0e0e0e, metalness: 0.0,  roughness: 0.7,  clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0x141414, metalness: 0.05, roughness: 0.25, clearcoat: 0.5,  clearcoatRoughness: 0.15 },
+    ],
+    /* 2 — Yellow accent */
+    [
+        { color: 0xd8d8d8, metalness: 0.0,  roughness: 0.65, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0xf0f0f0, metalness: 0.05, roughness: 0.05, clearcoat: 1.0,  clearcoatRoughness: 0.04 },
+        { color: 0xe0c020, metalness: 0.0,  roughness: 0.55, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0xffd818, metalness: 0.05, roughness: 0.04, clearcoat: 1.0,  clearcoatRoughness: 0.02 },
+        { color: 0x0e0e0e, metalness: 0.0,  roughness: 0.7,  clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0x141414, metalness: 0.05, roughness: 0.25, clearcoat: 0.5,  clearcoatRoughness: 0.15 },
+    ],
+    /* 3 — Red accent */
+    [
+        { color: 0xd8d8d8, metalness: 0.0,  roughness: 0.65, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0xf0f0f0, metalness: 0.05, roughness: 0.05, clearcoat: 1.0,  clearcoatRoughness: 0.04 },
+        { color: 0xe02020, metalness: 0.0,  roughness: 0.55, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0xff1818, metalness: 0.05, roughness: 0.04, clearcoat: 1.0,  clearcoatRoughness: 0.02 },
+        { color: 0x0e0e0e, metalness: 0.0,  roughness: 0.7,  clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0x141414, metalness: 0.05, roughness: 0.25, clearcoat: 0.5,  clearcoatRoughness: 0.15 },
+    ],
+];
+
+let currentPalette = 0;
+let materials = [];          // live MeshPhysicalMaterial instances
+
 function createMaterials() {
-    return [
-        // White matte
-        new THREE.MeshPhysicalMaterial({
-            color: 0xd8d8d8, metalness: 0.0, roughness: 0.65, clearcoat: 0.0,
-        }),
-        // White glossy
-        new THREE.MeshPhysicalMaterial({
-            color: 0xf0f0f0, metalness: 0.05, roughness: 0.05,
-            clearcoat: 1.0, clearcoatRoughness: 0.04,
-        }),
-        // Blue matte
-        new THREE.MeshPhysicalMaterial({
-            color: 0x2020e0, metalness: 0.0, roughness: 0.55, clearcoat: 0.0,
-        }),
-        // Blue glossy
-        new THREE.MeshPhysicalMaterial({
-            color: 0x1818ff, metalness: 0.05, roughness: 0.04,
-            clearcoat: 1.0, clearcoatRoughness: 0.02,
-        }),
-        // Black matte
-        new THREE.MeshPhysicalMaterial({
-            color: 0x0e0e0e, metalness: 0.0, roughness: 0.7, clearcoat: 0.0,
-        }),
-        // Black semi-glossy
-        new THREE.MeshPhysicalMaterial({
-            color: 0x141414, metalness: 0.05, roughness: 0.25,
-            clearcoat: 0.5, clearcoatRoughness: 0.15,
-        }),
-    ];
+    const defs = PALETTES[0];
+    materials = defs.map(d => new THREE.MeshPhysicalMaterial({
+        color: d.color,
+        metalness: d.metalness,
+        roughness: d.roughness,
+        clearcoat: d.clearcoat,
+        clearcoatRoughness: d.clearcoatRoughness,
+    }));
+    return materials;
+}
+
+/** Cycle to the next palette and update every material in-place */
+function cyclePalette() {
+    currentPalette = (currentPalette + 1) % PALETTES.length;
+    const defs = PALETTES[currentPalette];
+    for (let i = 0; i < materials.length; i++) {
+        materials[i].color.setHex(defs[i].color);
+        materials[i].metalness          = defs[i].metalness;
+        materials[i].roughness           = defs[i].roughness;
+        materials[i].clearcoat           = defs[i].clearcoat;
+        materials[i].clearcoatRoughness  = defs[i].clearcoatRoughness;
+        materials[i].needsUpdate = true;
+    }
 }
 
 /* =================================================================
@@ -103,8 +140,10 @@ function init() {
     if (!container) return;
 
     /* -- Resolve shape from data attribute -------------------------- */
-    SHAPE = (container.dataset.shape === 'jack') ? 'jack' : 'spiral';
-    shapeModule = SHAPE === 'jack' ? JackShape : SpiralShape;
+    const ds = (container.dataset.shape || 'spiral').toLowerCase();
+    if (ds === 'jack')             { SHAPE = 'jack';        shapeModule = JackShape; }
+    else if (ds === 'half-sphere') { SHAPE = 'half-sphere';  shapeModule = HalfSphereShape; }
+    else                           { SHAPE = 'spiral';      shapeModule = SpiralShape; }
     COLLISION_R = shapeModule.COLLISION_R;
 
     const w = container.clientWidth;
@@ -205,6 +244,7 @@ function init() {
     /* -- Events ----------------------------------------------------- */
     container.addEventListener('pointermove',  onPointerMove);
     container.addEventListener('pointerleave', onPointerLeave);
+    container.addEventListener('click', onClickCycle);
     window.addEventListener('resize', onResize);
 
     animate();
@@ -217,6 +257,7 @@ function onPointerLeave()  {
     pointer.set(9999, 9999);
     mouseWorld.set(9999, 9999, 9999);
 }
+function onClickCycle() { cyclePalette(); }
 
 /* =================================================================
    ANIMATION LOOP

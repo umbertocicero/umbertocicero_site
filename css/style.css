@@ -282,7 +282,7 @@ section.empty-section {
 }
 @media (max-width: 600px) {
   section.empty-section {
-    padding-top: 3.5rem !important;
+    padding-top: 5.5rem !important;
     padding-bottom: 1.5rem !important;
   }
 }
