@@ -793,7 +793,7 @@ section.resume-section .resume-item .resume-date {
 }
 
 /* ==============================
-   Contact — Lusion-inspired 3D Hero Section
+   Contact — Lusion-inspired Physics Hero Section
    ============================== */
 .contact-hero {
   position: relative;
@@ -801,20 +801,24 @@ section.resume-section .resume-item .resume-date {
   min-height: 90vh;
   overflow: hidden;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   margin: 2rem 0 0;
   border-radius: 0;
+  background: var(--bg-color, #e8e8ee);
 }
 .contact-hero__scene {
   position: absolute;
-  inset: 0;
-  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  overflow: hidden;
 }
 .contact-hero__scene canvas {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
 }
 .contact-hero__overlay {
   position: relative;
@@ -832,7 +836,8 @@ section.resume-section .resume-item .resume-date {
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
+  color: var(--text-color, #1a1a2e);
+  opacity: 0.5;
   margin-bottom: 2rem;
 }
 .contact-hero__title {
@@ -840,11 +845,10 @@ section.resume-section .resume-item .resume-date {
   font-size: clamp(3.5rem, 10vw, 8rem);
   font-weight: 700;
   line-height: 0.95;
-  color: #fff;
+  color: var(--text-color, #1a1a2e);
   text-transform: none;
   letter-spacing: -0.02em;
   margin: 0 0 2.5rem;
-  text-shadow: 0 2px 40px rgba(0,0,0,0.3);
 }
 /* Decorative line under title */
 .contact-hero__title::after {
@@ -853,7 +857,7 @@ section.resume-section .resume-item .resume-date {
   width: 60%;
   max-width: 480px;
   height: 2px;
-  background: rgba(255,255,255,0.25);
+  background: rgba(0,0,0,0.12);
   margin: 0.5rem auto 0;
 }
 
@@ -902,13 +906,15 @@ section.resume-section .resume-item .resume-date {
   margin-top: 1rem;
 }
 .contact-hero__socials a {
-  color: rgba(255,255,255,0.5);
+  color: var(--text-color, #1a1a2e);
+  opacity: 0.4;
   font-size: 1.4rem;
-  transition: color 0.3s ease, transform 0.3s ease;
+  transition: color 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
   text-decoration: none;
 }
 .contact-hero__socials a:hover {
-  color: #fff;
+  color: var(--text-color, #1a1a2e);
+  opacity: 1;
   transform: scale(1.15);
 }
 
