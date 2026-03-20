@@ -67,24 +67,165 @@
 i.fa-heart { color: #ed1515; }
 .white-text .fa-heart { color: #ed1515 !important; }
 
-/* Carousel
+/* Carousel — Phone Mockup
    ============================== */
-#carousel-cocktail .carousel-item img,
-#carousel-runrun .carousel-item img {
-  max-height: 600px;
-  width: auto;
-  max-width: 100%;
-  margin: 0 auto;
-  object-fit: contain;
+
+/* Wrapper centres the whole phone + controls block */
+.app-carousel-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 320px;
 }
-.carousel-inner {
-  background: rgba(0,0,0,0.03);
-  border-radius: 1rem;
+
+/* ── Phone frame ── */
+.phone-mockup {
+  position: relative;
+  width: 100%;
+  border-radius: 2.2rem;
+  background: #111118;
+  padding: 12px 10px 14px;
+  box-shadow:
+    0 4px 30px rgba(0,0,0,0.22),
+    0 0 0 2px rgba(255,255,255,0.06) inset,
+    0 20px 50px -10px rgba(0,0,0,0.35);
+  overflow: hidden;
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
 }
+.phone-mockup:hover {
+  box-shadow:
+    0 8px 44px rgba(0,0,0,0.30),
+    0 0 0 2px rgba(255,255,255,0.09) inset,
+    0 30px 60px -10px rgba(0,0,0,0.40);
+  transform: translateY(-4px);
+}
+
+/* Notch */
+.phone-mockup__notch {
+  width: 100px;
+  height: 6px;
+  background: #222;
+  border-radius: 10px;
+  margin: 0 auto 8px;
+}
+
+/* Home bar indicator */
+.phone-mockup__home-bar {
+  width: 90px;
+  height: 4px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 10px;
+  margin: 10px auto 0;
+}
+
+/* Carousel inside the phone */
+.phone-mockup .carousel-inner {
+  background: #000;
+  border-radius: 1.3rem;
+  overflow: hidden;
+}
+.phone-mockup .carousel-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+/* Fade transition tuning */
+.phone-mockup .carousel-fade .carousel-item {
+  transition: opacity 0.5s ease-in-out;
+}
+
+/* ── External controls bar ── */
+.app-carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+/* Arrow buttons */
+.app-carousel-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.app-carousel-arrow:hover {
+  background: var(--accent-color);
+  color: #fff;
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 16px rgba(59,59,253,0.25);
+  transform: scale(1.1);
+}
+
+/* Dot indicators */
+.app-carousel-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.app-carousel-dots li {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  opacity: 0.3;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.app-carousel-dots li.active {
+  width: 24px;
+  border-radius: 4px;
+  background: var(--accent-color);
+  opacity: 1;
+}
+
+/* ── Responsive ── */
 @media (max-width: 600px) {
-  #carousel-cocktail .carousel-item img,
-  #carousel-runrun .carousel-item img {
-    max-height: 400px;
+  .app-carousel-wrapper {
+    max-width: 260px;
+  }
+  .phone-mockup {
+    border-radius: 1.7rem;
+    padding: 10px 8px 12px;
+  }
+  .phone-mockup__notch {
+    width: 70px;
+    height: 5px;
+    margin-bottom: 6px;
+  }
+  .phone-mockup__home-bar {
+    width: 60px;
+    height: 3px;
+    margin-top: 8px;
+  }
+  .phone-mockup .carousel-inner {
+    border-radius: 1rem;
+  }
+  .app-carousel-arrow {
+    width: 32px;
+    height: 32px;
+    font-size: 0.7rem;
+  }
+}
+@media (min-width: 992px) {
+  .app-carousel-wrapper {
+    max-width: 340px;
   }
 }
 
