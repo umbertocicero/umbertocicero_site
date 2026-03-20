@@ -14,4 +14,6 @@ refactoring per mobile
 
 fabicon
 
+sistemare la descrizione "og:description"
+
 
