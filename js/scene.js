@@ -71,12 +71,12 @@ const PALETTES = [
         { color: 0x0e0e0e, metalness: 0.0,  roughness: 0.7,  clearcoat: 0.0,  clearcoatRoughness: 0    },
         { color: 0x141414, metalness: 0.05, roughness: 0.25, clearcoat: 0.5,  clearcoatRoughness: 0.15 },
     ],
-    /* 2 — Yellow accent */
+    /* 2 — Fuchsia accent */
     [
         { color: 0xd8d8d8, metalness: 0.0,  roughness: 0.65, clearcoat: 0.0,  clearcoatRoughness: 0    },
         { color: 0xf0f0f0, metalness: 0.05, roughness: 0.05, clearcoat: 1.0,  clearcoatRoughness: 0.04 },
-        { color: 0xe0c020, metalness: 0.0,  roughness: 0.55, clearcoat: 0.0,  clearcoatRoughness: 0    },
-        { color: 0xffd818, metalness: 0.05, roughness: 0.04, clearcoat: 1.0,  clearcoatRoughness: 0.02 },
+        { color: 0xc020a0, metalness: 0.0,  roughness: 0.55, clearcoat: 0.0,  clearcoatRoughness: 0    },
+        { color: 0xff18d0, metalness: 0.05, roughness: 0.04, clearcoat: 1.0,  clearcoatRoughness: 0.02 },
         { color: 0x0e0e0e, metalness: 0.0,  roughness: 0.7,  clearcoat: 0.0,  clearcoatRoughness: 0    },
         { color: 0x141414, metalness: 0.05, roughness: 0.25, clearcoat: 0.5,  clearcoatRoughness: 0.15 },
     ],

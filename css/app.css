@@ -1,0 +1,68 @@
+/* ==============================
+   App page dedicated styles
+   ============================== */
+
+.app-hero-section {
+  background-color: transparent;
+  border-bottom: none;
+}
+
+.app-store-logo {
+  border-radius: 16px;
+  background: var(--secondary-bg);
+  padding: 6px;
+}
+
+.app-game-icon-orbital {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #fff7d0, #ffb347, #e05a00);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.app-game-icon-stick {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #f5f0e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1rem;
+  flex-shrink: 0;
+  border: 2px solid #222;
+}
+
+.app-game-icon-stick-ball {
+  font-size: 2rem;
+}
+
+.app-preview-link {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 16px;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.app-preview-link--orbital {
+  border: 1px solid rgba(255, 160, 70, 0.18);
+  box-shadow: 0 0 60px rgba(255, 100, 0, 0.12);
+}
+
+.app-preview-link--stick {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.06);
+}
+
+.app-preview-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
