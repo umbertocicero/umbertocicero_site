@@ -5,7 +5,7 @@
 }
 
 body {
-    background: #0a0a12;
+    background: #020205;
     overflow: hidden;
     font-family: 'Courier New', monospace;
 }
@@ -20,9 +20,9 @@ body {
 }
 
 #gameCanvas {
-    border: 3px solid #2a2a4a;
+    border: 2px solid #151520;
     border-radius: 8px;
-    box-shadow: 0 0 30px rgba(255, 200, 100, 0.1);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.3);
     image-rendering: pixelated;
 }
 
@@ -31,17 +31,17 @@ body {
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    color: #666;
+    color: #444;
     font-size: 14px;
     text-align: center;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.85);
     padding: 10px 20px;
     border-radius: 20px;
-    border: 1px solid #333;
+    border: 1px solid #1a1a1a;
 }
 
 #instructions strong {
-    color: #ffc864;
+    color: #997744;
 }
 
 /* Scanline effect overlay */
@@ -54,8 +54,8 @@ body {
     height: 100%;
     background: repeating-linear-gradient(
         0deg,
-        rgba(0, 0, 0, 0.03),
-        rgba(0, 0, 0, 0.03) 1px,
+        rgba(0, 0, 0, 0.08),
+        rgba(0, 0, 0, 0.08) 1px,
         transparent 1px,
         transparent 2px
     );

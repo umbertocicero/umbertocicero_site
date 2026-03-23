@@ -179,7 +179,7 @@ class Enemy {
         ctx.save();
         ctx.translate(3, this.height/2 - 5);
         ctx.rotate(this.tailWag + (this.state === 'chase' ? Math.sin(CONFIG.time * 0.3) * 0.5 : 0));
-        ctx.fillStyle = '#5a3a2a';
+        ctx.fillStyle = '#3a2218';
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.quadraticCurveTo(-10, -15, -5, -25);
@@ -189,39 +189,36 @@ class Enemy {
         ctx.restore();
 
         // Corpo
-        ctx.fillStyle = '#5a3a2a';
+        ctx.fillStyle = '#3a2218';
         ctx.beginPath();
         ctx.ellipse(this.width/2, this.height/2 + 3, 22, 13, 0, 0, Math.PI * 2);
         ctx.fill();
         
         // Pancia
-        ctx.fillStyle = '#6a4a3a';
+        ctx.fillStyle = '#4a3228';
         ctx.beginPath();
         ctx.ellipse(this.width/2, this.height/2 + 8, 16, 8, 0, 0, Math.PI);
         ctx.fill();
 
         // Zampe
         const legOffset = this.vx !== 0 ? Math.sin(this.animFrame * Math.PI / 2) * 4 : 0;
-        ctx.fillStyle = '#4a2a1a';
-        ctx.fillRect(8, this.height - 8 + legOffset, 7, 12);
+        ctx.fillStyle = '#2a1810';
         ctx.fillRect(16, this.height - 8 - legOffset, 7, 12);
         ctx.fillRect(this.width - 22, this.height - 8 - legOffset, 7, 12);
         ctx.fillRect(this.width - 14, this.height - 8 + legOffset, 7, 12);
 
         // Testa
-        ctx.fillStyle = '#5a3a2a';
-        ctx.beginPath();
-        ctx.ellipse(this.width - 6, this.height/2 - 3, 16, 13, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#3a2218';
         ctx.fill();
         
         // Muso
-        ctx.fillStyle = '#6a4a3a';
+        ctx.fillStyle = '#4a3228';
         ctx.beginPath();
         ctx.ellipse(this.width + 6, this.height/2 + 2, 10, 8, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Orecchie (pendenti)
-        ctx.fillStyle = '#4a2a1a';
+        ctx.fillStyle = '#2a1810';
         ctx.beginPath();
         ctx.moveTo(this.width - 16, this.height/2 - 12);
         ctx.quadraticCurveTo(this.width - 24, this.height/2 - 6 + this.earBob, this.width - 20, this.height/2 + 5);
@@ -236,10 +233,7 @@ class Enemy {
         
         // Alert: orecchie dritte
         if (this.state === 'alert') {
-            ctx.fillStyle = '#5a3a2a';
-            ctx.beginPath();
-            ctx.moveTo(this.width - 16, this.height/2 - 12);
-            ctx.lineTo(this.width - 22, this.height/2 - 28);
+            ctx.fillStyle = '#3a2218';
             ctx.lineTo(this.width - 10, this.height/2 - 12);
             ctx.fill();
             
@@ -252,9 +246,7 @@ class Enemy {
 
         // Occhi
         const eyeSize = this.state === 'chase' ? 4 : 3;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.ellipse(this.width - 2, this.height/2 - 5, eyeSize, eyeSize + 1, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#cccccc';
         ctx.fill();
         
         // Pupilla
@@ -290,26 +282,25 @@ class Enemy {
         
         // Bocca aperta se insegue (abbaia)
         if (this.state === 'chase' && this.barkTimer % 30 < 10) {
-            ctx.fillStyle = '#8a2a1a';
+            ctx.fillStyle = '#5a1a10';
             ctx.beginPath();
             ctx.ellipse(this.width + 10, this.height/2 + 7, 7, 5, 0, 0, Math.PI * 2);
             ctx.fill();
             
             // Lingua
-            ctx.fillStyle = '#cc5555';
+            ctx.fillStyle = '#883333';
             ctx.beginPath();
             ctx.ellipse(this.width + 12, this.height/2 + 10, 3, 4, 0.2, 0, Math.PI * 2);
             ctx.fill();
             
             // Denti
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(this.width + 6, this.height/2 + 3, 3, 3);
+            ctx.fillStyle = '#aaa';
             ctx.fillRect(this.width + 12, this.height/2 + 3, 3, 3);
         }
         
         // Esclamativo quando alert
         if (this.state === 'alert') {
-            ctx.fillStyle = '#ff4444';
+            ctx.fillStyle = '#cc2222';
             ctx.font = 'bold 20px Arial';
             ctx.fillText('!', this.width/2 - 4, -10);
         }

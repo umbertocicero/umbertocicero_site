@@ -7,7 +7,7 @@ class Lamp {
         this.x = x;
         this.y = y;
         this.flicker = 0;
-        this.intensity = 0.8 + Math.random() * 0.2;
+        this.intensity = 0.5 + Math.random() * 0.15;
     }
 
     update() {
@@ -26,9 +26,9 @@ class Lamp {
         const coneBottomWidth = 140;
         
         const gradient = ctx.createLinearGradient(this.x, this.y + 25, this.x, this.y + 25 + coneHeight);
-        gradient.addColorStop(0, `rgba(255, 220, 150, ${brightness * 0.6})`);
-        gradient.addColorStop(0.2, `rgba(255, 200, 120, ${brightness * 0.4})`);
-        gradient.addColorStop(0.5, `rgba(255, 180, 100, ${brightness * 0.2})`);
+        gradient.addColorStop(0, `rgba(200, 160, 100, ${brightness * 0.4})`);
+        gradient.addColorStop(0.2, `rgba(180, 140, 80, ${brightness * 0.25})`);
+        gradient.addColorStop(0.5, `rgba(160, 120, 60, ${brightness * 0.12})`);
         gradient.addColorStop(1, 'transparent');
         
         ctx.fillStyle = gradient;
@@ -45,9 +45,9 @@ class Lamp {
             this.x, this.y + 25 + coneHeight - 30, 0, 
             this.x, this.y + 25 + coneHeight - 30, coneBottomWidth + 20
         );
-        groundGlow.addColorStop(0, `rgba(255, 210, 130, ${brightness * 0.25})`);
-        groundGlow.addColorStop(0.4, `rgba(255, 190, 100, ${brightness * 0.15})`);
-        groundGlow.addColorStop(0.7, `rgba(255, 170, 80, ${brightness * 0.05})`);
+        groundGlow.addColorStop(0, `rgba(180, 150, 90, ${brightness * 0.15})`);
+        groundGlow.addColorStop(0.4, `rgba(160, 130, 70, ${brightness * 0.08})`);
+        groundGlow.addColorStop(0.7, `rgba(140, 110, 50, ${brightness * 0.03})`);
         groundGlow.addColorStop(1, 'transparent');
         ctx.fillStyle = groundGlow;
         ctx.beginPath();
@@ -62,10 +62,10 @@ class Lamp {
         
         // Base
         const baseGradient = ctx.createLinearGradient(this.x - 15, this.y + 95, this.x + 15, this.y + 95);
-        baseGradient.addColorStop(0, '#2a2a2a');
-        baseGradient.addColorStop(0.3, '#4a4a4a');
-        baseGradient.addColorStop(0.7, '#3a3a3a');
-        baseGradient.addColorStop(1, '#1a1a1a');
+        baseGradient.addColorStop(0, '#151515');
+        baseGradient.addColorStop(0.3, '#282828');
+        baseGradient.addColorStop(0.7, '#202020');
+        baseGradient.addColorStop(1, '#0a0a0a');
         ctx.fillStyle = baseGradient;
         
         ctx.fillRect(this.x - 14, this.y + 100, 28, 8);
@@ -74,26 +74,24 @@ class Lamp {
         
         // Palo
         const poleGradient = ctx.createLinearGradient(this.x - 5, this.y, this.x + 5, this.y);
-        poleGradient.addColorStop(0, '#1a1a1a');
-        poleGradient.addColorStop(0.2, '#3a3a3a');
-        poleGradient.addColorStop(0.5, '#4a4a4a');
-        poleGradient.addColorStop(0.8, '#3a3a3a');
-        poleGradient.addColorStop(1, '#1a1a1a');
+        poleGradient.addColorStop(0, '#0a0a0a');
+        poleGradient.addColorStop(0.2, '#1e1e1e');
+        poleGradient.addColorStop(0.5, '#282828');
+        poleGradient.addColorStop(0.8, '#1e1e1e');
+        poleGradient.addColorStop(1, '#0a0a0a');
         ctx.fillStyle = poleGradient;
         ctx.fillRect(this.x - 4, this.y + 30, 8, 60);
         
         // Anelli
-        ctx.fillStyle = '#3a3a3a';
+        ctx.fillStyle = '#1e1e1e';
         ctx.fillRect(this.x - 6, this.y + 35, 12, 3);
         ctx.fillRect(this.x - 6, this.y + 75, 12, 3);
-        ctx.fillStyle = '#5a5a5a';
+        ctx.fillStyle = '#333333';
         ctx.fillRect(this.x - 6, this.y + 36, 12, 1);
         ctx.fillRect(this.x - 6, this.y + 76, 12, 1);
         
         // Braccio
-        ctx.fillStyle = '#2a2a2a';
-        ctx.beginPath();
-        ctx.moveTo(this.x - 3, this.y + 30);
+        ctx.fillStyle = '#141414';
         ctx.lineTo(this.x + 3, this.y + 30);
         ctx.lineTo(this.x + 3, this.y + 5);
         ctx.quadraticCurveTo(this.x + 3, this.y, this.x, this.y);
@@ -101,7 +99,7 @@ class Lamp {
         ctx.closePath();
         ctx.fill();
         
-        ctx.strokeStyle = '#3a3a3a';
+        ctx.strokeStyle = '#1e1e1e';
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(this.x, this.y + 5, 8, Math.PI, 0);
@@ -109,11 +107,11 @@ class Lamp {
         
         // Lanterna
         const lanternGradient = ctx.createLinearGradient(this.x - 18, this.y, this.x + 18, this.y);
-        lanternGradient.addColorStop(0, '#1a1a1a');
-        lanternGradient.addColorStop(0.2, '#3a3a3a');
-        lanternGradient.addColorStop(0.5, '#4a4a4a');
-        lanternGradient.addColorStop(0.8, '#3a3a3a');
-        lanternGradient.addColorStop(1, '#1a1a1a');
+        lanternGradient.addColorStop(0, '#0a0a0a');
+        lanternGradient.addColorStop(0.2, '#1e1e1e');
+        lanternGradient.addColorStop(0.5, '#282828');
+        lanternGradient.addColorStop(0.8, '#1e1e1e');
+        lanternGradient.addColorStop(1, '#0a0a0a');
         ctx.fillStyle = lanternGradient;
         
         // Cappello
@@ -132,12 +130,7 @@ class Lamp {
         ctx.lineTo(this.x + 20, this.y + 3);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = '#5a5a5a';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Pinnacolo
-        ctx.fillStyle = '#4a4a4a';
+        ctx.strokeStyle = '#333333';
         ctx.beginPath();
         ctx.moveTo(this.x - 2, this.y - 5);
         ctx.lineTo(this.x + 2, this.y - 5);
@@ -146,23 +139,23 @@ class Lamp {
         ctx.fill();
         
         // Corpo lanterna
-        ctx.fillStyle = '#2a2a2a';
+        ctx.fillStyle = '#141414';
         ctx.fillRect(this.x - 16, this.y + 8, 32, 18);
         
         // Vetro illuminato
         if (this.flicker <= 0) {
             const glassGlow = ctx.createRadialGradient(this.x, this.y + 17, 0, this.x, this.y + 17, 20);
-            glassGlow.addColorStop(0, `rgba(255, 240, 200, ${brightness})`);
-            glassGlow.addColorStop(0.5, `rgba(255, 220, 150, ${brightness * 0.7})`);
-            glassGlow.addColorStop(1, `rgba(255, 200, 100, ${brightness * 0.3})`);
+            glassGlow.addColorStop(0, `rgba(200, 180, 140, ${brightness * 0.8})`);
+            glassGlow.addColorStop(0.5, `rgba(180, 160, 110, ${brightness * 0.5})`);
+            glassGlow.addColorStop(1, `rgba(160, 140, 80, ${brightness * 0.2})`);
             ctx.fillStyle = glassGlow;
         } else {
-            ctx.fillStyle = 'rgba(255, 180, 100, 0.3)';
+            ctx.fillStyle = 'rgba(180, 130, 70, 0.2)';
         }
         ctx.fillRect(this.x - 14, this.y + 10, 28, 14);
         
         // Divisori vetro
-        ctx.strokeStyle = '#2a2a2a';
+        ctx.strokeStyle = '#141414';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(this.x - 5, this.y + 8);
@@ -174,13 +167,13 @@ class Lamp {
         ctx.stroke();
         
         // Base lanterna
-        ctx.fillStyle = '#3a3a3a';
+        ctx.fillStyle = '#1e1e1e';
         ctx.fillRect(this.x - 18, this.y + 26, 36, 4);
-        ctx.fillStyle = '#4a4a4a';
+        ctx.fillStyle = '#282828';
         ctx.fillRect(this.x - 18, this.y + 26, 36, 1);
         
         // Decorazione sotto
-        ctx.fillStyle = '#2a2a2a';
+        ctx.fillStyle = '#141414';
         ctx.beginPath();
         ctx.moveTo(this.x - 8, this.y + 30);
         ctx.lineTo(this.x + 8, this.y + 30);
@@ -189,7 +182,7 @@ class Lamp {
         ctx.fill();
         
         // Riflesso
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
         ctx.fillRect(this.x - 13, this.y + 11, 4, 12);
     }
 }

@@ -16,8 +16,8 @@ class Star {
     }
 
     draw(ctx) {
-        const alpha = 0.3 + Math.sin(this.twinkle) * 0.3;
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        const alpha = 0.15 + Math.sin(this.twinkle) * 0.15;
+        ctx.fillStyle = `rgba(180, 180, 200, ${alpha})`;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
@@ -34,8 +34,8 @@ class Moon {
     draw(ctx) {
         // Glow
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 150);
-        gradient.addColorStop(0, 'rgba(200, 200, 255, 0.3)');
-        gradient.addColorStop(0.5, 'rgba(150, 150, 200, 0.1)');
+        gradient.addColorStop(0, 'rgba(120, 120, 160, 0.15)');
+        gradient.addColorStop(0.5, 'rgba(80, 80, 120, 0.05)');
         gradient.addColorStop(1, 'transparent');
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -43,13 +43,13 @@ class Moon {
         ctx.fill();
 
         // Luna
-        ctx.fillStyle = '#eeeeff';
+        ctx.fillStyle = '#9999aa';
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
 
         // Crateri
-        ctx.fillStyle = '#ccccdd';
+        ctx.fillStyle = '#777788';
         ctx.beginPath();
         ctx.arc(this.x - 15, this.y - 10, 8, 0, Math.PI * 2);
         ctx.arc(this.x + 20, this.y + 5, 12, 0, Math.PI * 2);
@@ -70,7 +70,7 @@ class Particle {
         this.vx = (Math.random() - 0.5) * 0.5;
         this.vy = Math.random() * 0.5 + 0.2;
         this.size = Math.random() * 2 + 1;
-        this.alpha = Math.random() * 0.3 + 0.1;
+        this.alpha = Math.random() * 0.12 + 0.03;
     }
 
     update() {
@@ -84,7 +84,7 @@ class Particle {
     }
 
     draw(ctx) {
-        ctx.fillStyle = `rgba(200, 200, 220, ${this.alpha})`;
+        ctx.fillStyle = `rgba(120, 120, 140, ${this.alpha})`;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();

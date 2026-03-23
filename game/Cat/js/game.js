@@ -168,9 +168,9 @@ function updateCamera() {
 // ============================================
 function drawBackground() {
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#0a0a1a');
-    gradient.addColorStop(0.5, '#1a1a2a');
-    gradient.addColorStop(1, '#2a2a3a');
+    gradient.addColorStop(0, '#030308');
+    gradient.addColorStop(0.5, '#080812');
+    gradient.addColorStop(1, '#0e0e18');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -190,11 +190,11 @@ function drawBackground() {
 // ============================================
 function drawUI() {
     // Panel sfondo
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.beginPath();
     ctx.roundRect(10, 10, 200, 55, 10);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     ctx.stroke();
     
@@ -202,22 +202,22 @@ function drawUI() {
     ctx.font = '18px Arial';
     for (let i = 0; i < 9; i++) {
         if (i < cat.lives) {
-            ctx.fillStyle = '#ff6b6b';
+            ctx.fillStyle = '#aa3333';
             ctx.fillText('❤', 18 + i * 21, 32);
         } else {
-            ctx.fillStyle = '#333';
+            ctx.fillStyle = '#1a1a1a';
             ctx.fillText('❤', 18 + i * 21, 32);
         }
     }
     
     // Score
-    ctx.fillStyle = '#ffcc44';
+    ctx.fillStyle = '#997722';
     ctx.font = 'bold 16px Arial';
     ctx.fillText('🐟 ' + CONFIG.score, 18, 55);
     
     // Food count
     const remainingFood = foods.filter(f => !f.collected).length;
-    ctx.fillStyle = '#888';
+    ctx.fillStyle = '#555';
     ctx.font = '12px Arial';
     ctx.fillText('Rimanenti: ' + remainingFood, 100, 55);
 }
@@ -226,19 +226,19 @@ function drawUI() {
 // DRAW GAME OVER
 // ============================================
 function drawGameOver() {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    ctx.fillStyle = '#ff4444';
+    ctx.fillStyle = '#aa2222';
     ctx.font = 'bold 60px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 40);
     
-    ctx.fillStyle = '#ffcc44';
+    ctx.fillStyle = '#997722';
     ctx.font = '24px Arial';
     ctx.fillText('Punteggio: ' + CONFIG.score, canvas.width/2, canvas.height/2 + 20);
     
-    ctx.fillStyle = '#888';
+    ctx.fillStyle = '#555';
     ctx.font = '18px Arial';
     ctx.fillText('Premi SPAZIO per ricominciare', canvas.width/2, canvas.height/2 + 60);
     
@@ -373,11 +373,12 @@ function gameLoop() {
 
     // Vignette
     const vignette = ctx.createRadialGradient(
-        canvas.width/2, canvas.height/2, canvas.height/3,
+        canvas.width/2, canvas.height/2, canvas.height/4,
         canvas.width/2, canvas.height/2, canvas.height
     );
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
+    vignette.addColorStop(0.6, 'rgba(0, 0, 0, 0.3)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     

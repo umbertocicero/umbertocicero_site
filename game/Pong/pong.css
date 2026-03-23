@@ -1,0 +1,162 @@
+/* ═══════════════════════════════════════════════════════
+   Abyssal Pong — Dark Fantasy Stylesheet
+   Inspired by Hollow Knight · Inside · Limbo
+   Deep abyss, bioluminescence, silhouettes, fog
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Reset ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --abyss:     #040810;
+  --deep:      #0a1420;
+  --fog:       rgba(60, 90, 110, .12);
+  --soul:      #6eeaff;
+  --soul-dim:  rgba(110, 234, 255, .35);
+  --phantom:   #c44dff;
+  --phantom-dim: rgba(196, 77, 255, .30);
+  --bone:      rgba(220, 230, 235, .75);
+  --bone-dim:  rgba(220, 230, 235, .25);
+  --ember:     #ff6a3a;
+  --gold:      #ffe066;
+  --text:      rgba(200, 215, 225, .85);
+  --dim:       rgba(160, 180, 195, .35);
+}
+
+/* ── Base ─────────────────────────────────────────────── */
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--abyss);
+  color: var(--text);
+  font-family: 'Segoe UI', 'Helvetica Neue', system-ui, sans-serif;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* ── Canvas ───────────────────────────────────────────── */
+#c {
+  display: block; position: absolute; inset: 0;
+  width: 100%; height: 100%; cursor: none;
+}
+
+/* ── HUD ──────────────────────────────────────────────── */
+#hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px 24px;
+  z-index: 20; pointer-events: none;
+  gap: 28px;
+}
+#hud-left, #hud-right {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+#hud-p1-name, #hud-p2-name {
+  font-size: .55rem; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--dim);
+}
+#hud-center {
+  display: flex; align-items: center; gap: 12px;
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: 200; letter-spacing: .2em;
+}
+#hud-p1 { color: var(--soul); text-shadow: 0 0 18px rgba(110,234,255,.4); }
+#hud-sep { color: var(--dim); font-size: .8em; }
+#hud-p2 { color: var(--phantom); text-shadow: 0 0 18px rgba(196,77,255,.4); }
+#hud-p1-souls, #hud-p2-souls {
+  display: flex; gap: 3px;
+}
+
+/* ── Power-up HUD ─────────────────────────────────────── */
+#powerup-hud {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 20px;
+  background: rgba(10, 20, 35, .7);
+  border: 1px solid rgba(110, 234, 255, .15);
+  border-radius: 24px;
+  font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold);
+  z-index: 20; pointer-events: none;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 30px rgba(110, 234, 255, .06), inset 0 0 20px rgba(110, 234, 255, .03);
+  transition: opacity .5s;
+}
+#powerup-hud.hidden { opacity: 0; }
+#powerup-icon { font-size: 1.2rem; }
+
+/* ── Back button ──────────────────────────────────────── */
+#btn-back {
+  position: fixed; bottom: 14px; left: 18px; z-index: 30;
+  font-size: .5rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--dim); text-decoration: none; transition: color .3s;
+}
+#btn-back:hover { color: var(--soul); text-shadow: 0 0 8px rgba(110,234,255,.3); }
+
+/* ── Overlays ─────────────────────────────────────────── */
+.ov {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 60%, rgba(10,20,40,.95) 0%, rgba(4,8,16,.98) 100%);
+  backdrop-filter: blur(16px);
+  z-index: 50; gap: 14px; padding: 24px; text-align: center;
+}
+.ov.hidden { display: none; }
+
+.ov-sigil {
+  font-size: 2.5rem; color: var(--soul); opacity: .6;
+  text-shadow: 0 0 30px rgba(110,234,255,.5);
+  animation: sigil-pulse 3s ease-in-out infinite;
+  margin-bottom: -4px;
+}
+@keyframes sigil-pulse {
+  0%, 100% { opacity: .4; transform: scale(1); }
+  50% { opacity: .8; transform: scale(1.1); }
+}
+
+.ov-title {
+  font-size: clamp(2rem, 6vw, 3.6rem);
+  font-weight: 200; letter-spacing: .14em;
+  color: var(--bone);
+  text-shadow: 0 0 50px rgba(110,234,255,.2), 0 2px 20px rgba(0,0,0,.6);
+}
+
+.ov-sub {
+  font-size: clamp(.8rem, 2vw, 1rem);
+  color: var(--dim); max-width: 440px; line-height: 1.7;
+}
+.ov-sub em { color: var(--soul-dim); font-style: normal; }
+.ov-sub kbd {
+  display: inline-block; padding: 2px 9px;
+  border: 1px solid rgba(110,234,255,.18); border-radius: 4px;
+  font-family: inherit; font-size: .85em;
+  background: rgba(110,234,255,.05); color: var(--soul-dim);
+}
+
+.diff-pick {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  justify-content: center; margin-top: 12px;
+}
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn-pill {
+  padding: 11px 32px; font-size: .95rem; font-family: inherit;
+  border: 1px solid rgba(110,234,255,.18); border-radius: 28px;
+  background: rgba(110,234,255,.04); color: var(--bone);
+  cursor: pointer; letter-spacing: .1em; transition: all .25s;
+}
+.btn-pill:hover {
+  background: rgba(110,234,255,.15); color: #fff;
+  border-color: var(--soul);
+  box-shadow: 0 0 25px rgba(110,234,255,.25), inset 0 0 15px rgba(110,234,255,.06);
+  text-shadow: 0 0 10px rgba(110,234,255,.5);
+}
+
+.btn-ghost {
+  padding: 8px 22px; font-size: .85rem; border: none;
+  background: none; color: var(--dim); cursor: pointer;
+  font-family: inherit; text-decoration: underline; transition: color .2s;
+}
+.btn-ghost:hover { color: var(--text); }

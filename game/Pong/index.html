@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Abyssal Pong</title>
+  <link rel="stylesheet" href="pong.css">
+</head>
+<body>
+
+  <canvas id="c"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hud-left">
+      <span id="hud-p1-name">Cavaliere</span>
+      <div id="hud-p1-souls"></div>
+    </div>
+    <div id="hud-center">
+      <span id="hud-p1">0</span>
+      <span id="hud-sep">⟡</span>
+      <span id="hud-p2">0</span>
+    </div>
+    <div id="hud-right">
+      <span id="hud-p2-name">Spettro</span>
+      <div id="hud-p2-souls"></div>
+    </div>
+  </div>
+
+  <!-- Power-up indicator -->
+  <div id="powerup-hud" class="hidden">
+    <span id="powerup-icon"></span>
+    <span id="powerup-label"></span>
+  </div>
+
+  <a href="../../app.html" id="btn-back">&larr; Back</a>
+
+  <!-- Intro overlay -->
+  <div class="ov" id="ov-intro" role="dialog" aria-modal="true">
+    <div class="ov-sigil">◆</div>
+    <h1 class="ov-title">Abyssal Pong</h1>
+    <p class="ov-sub">Nell'abisso, un Cavaliere di Luce affronta uno Spettro per le anime perdute.<br>
+      Usa <kbd>↑</kbd> <kbd>↓</kbd> per difendere il tuo portale.<br>
+      <em>Primo a 7 anime vince.</em></p>
+    <div class="diff-pick">
+      <button class="btn-pill" data-diff="0">Apprendista</button>
+      <button class="btn-pill" data-diff="1">Cavaliere</button>
+      <button class="btn-pill" data-diff="2">Abissale</button>
+    </div>
+  </div>
+
+  <!-- Pause overlay -->
+  <div class="ov hidden" id="ov-pause" role="dialog" aria-modal="true">
+    <div class="ov-sigil">⏸</div>
+    <h2 class="ov-title">Il tempo si ferma…</h2>
+    <p class="ov-sub">L'abisso attende il tuo ritorno</p>
+    <button class="btn-pill" id="btn-resume">Riprendi</button>
+  </div>
+
+  <!-- Game-over overlay -->
+  <div class="ov hidden" id="ov-gameover" role="dialog" aria-modal="true">
+    <div class="ov-sigil" id="go-sigil">◆</div>
+    <h2 class="ov-title" id="go-title"></h2>
+    <p class="ov-sub" id="go-sub"></p>
+    <button class="btn-pill" id="btn-replay">Affronta l'abisso</button>
+  </div>
+
+  <script src="pong.js"></script>
+</body>
+</html>

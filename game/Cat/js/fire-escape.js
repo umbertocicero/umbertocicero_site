@@ -60,39 +60,39 @@ class FireEscapeStructure {
     
     drawPillar(ctx, x, y, height) {
         const gradient = ctx.createLinearGradient(x, y, x + 6, y);
-        gradient.addColorStop(0, '#5a5a5a');
-        gradient.addColorStop(0.3, '#707070');
-        gradient.addColorStop(0.7, '#606060');
-        gradient.addColorStop(1, '#4a4a4a');
+        gradient.addColorStop(0, '#2a2a2a');
+        gradient.addColorStop(0.3, '#383838');
+        gradient.addColorStop(0.7, '#303030');
+        gradient.addColorStop(1, '#222222');
         
         ctx.fillStyle = gradient;
         ctx.fillRect(x, y, 6, height);
         
-        ctx.strokeStyle = '#3a3a3a';
+        ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, 6, height);
         
-        ctx.fillStyle = '#4a4a4a';
+        ctx.fillStyle = '#222222';
         for (let by = y + 40; by < y + height - 20; by += 80) {
             ctx.beginPath();
             ctx.arc(x + 3, by, 3, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = '#5a5a5a';
+            ctx.strokeStyle = '#2a2a2a';
             ctx.stroke();
         }
     }
     
     drawPlatform(ctx, x, y, width, height) {
         const gradient = ctx.createLinearGradient(x, y, x, y + height);
-        gradient.addColorStop(0, '#6a6a6a');
-        gradient.addColorStop(0.3, '#5a5a5a');
-        gradient.addColorStop(1, '#4a4a4a');
+        gradient.addColorStop(0, '#353535');
+        gradient.addColorStop(0.3, '#2a2a2a');
+        gradient.addColorStop(1, '#222222');
         
         ctx.fillStyle = gradient;
         ctx.fillRect(x, y, width, height);
         
         // Griglia
-        ctx.strokeStyle = '#7a7a7a';
+        ctx.strokeStyle = '#3a3a3a';
         ctx.lineWidth = 1;
         
         for (let gy = y + 3; gy < y + height; gy += 3) {
@@ -109,11 +109,11 @@ class FireEscapeStructure {
             ctx.stroke();
         }
         
-        ctx.strokeStyle = '#8a8a8a';
+        ctx.strokeStyle = '#444444';
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, width, height);
         
-        ctx.strokeStyle = '#9a9a9a';
+        ctx.strokeStyle = '#4a4a4a';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x + 1, y + 1);
@@ -121,11 +121,11 @@ class FireEscapeStructure {
         ctx.stroke();
         
         // Supporti
-        ctx.fillStyle = '#4a4a4a';
+        ctx.fillStyle = '#222222';
         ctx.fillRect(x + 15, y + height, 4, 8);
         ctx.fillRect(x + width - 19, y + height, 4, 8);
         
-        ctx.strokeStyle = '#5a5a5a';
+        ctx.strokeStyle = '#2a2a2a';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(x + 2, y + height);
@@ -143,23 +143,23 @@ class FireEscapeStructure {
             const px = x + i * postSpacing;
             if (px > x + width - 5) break;
             
-            ctx.fillStyle = '#5a5a5a';
+            ctx.fillStyle = '#2a2a2a';
             ctx.fillRect(px, y, 3, height);
             
-            ctx.fillStyle = '#7a7a7a';
+            ctx.fillStyle = '#3a3a3a';
             ctx.fillRect(px, y, 1, height);
         }
         
-        ctx.fillStyle = '#6a6a6a';
+        ctx.fillStyle = '#333333';
         ctx.fillRect(x - 2, y - 3, width + 4, 5);
-        ctx.strokeStyle = '#8a8a8a';
+        ctx.strokeStyle = '#444444';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x - 2, y - 2);
         ctx.lineTo(x + width + 2, y - 2);
         ctx.stroke();
         
-        ctx.fillStyle = '#5a5a5a';
+        ctx.fillStyle = '#2a2a2a';
         ctx.fillRect(x, y + height/2, width, 2);
         ctx.fillRect(x, y + height - 3, width, 2);
     }
@@ -175,7 +175,7 @@ class FireEscapeStructure {
         const direction = goingRight ? 1 : -1;
         
         // Stringhe
-        ctx.strokeStyle = '#5a5a5a';
+        ctx.strokeStyle = '#2a2a2a';
         ctx.lineWidth = 4;
         
         ctx.beginPath();
@@ -188,7 +188,7 @@ class FireEscapeStructure {
         ctx.lineTo(startX + direction * (stairWidth + 15), toY + this.platformHeight);
         ctx.stroke();
         
-        ctx.strokeStyle = '#7a7a7a';
+        ctx.strokeStyle = '#3a3a3a';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(startX + 1, fromY);
@@ -201,17 +201,15 @@ class FireEscapeStructure {
             const stepY = fromY - (i + 1) * stepHeight;
             
             const gradient = ctx.createLinearGradient(stepX, stepY, stepX, stepY + 4);
-            gradient.addColorStop(0, '#6a6a6a');
-            gradient.addColorStop(1, '#4a4a4a');
+            gradient.addColorStop(0, '#353535');
+            gradient.addColorStop(1, '#222222');
             ctx.fillStyle = gradient;
             
             const sw = 18;
             const actualX = goingRight ? stepX : stepX - sw;
             ctx.fillRect(actualX, stepY, sw, 4);
             
-            ctx.strokeStyle = '#7a7a7a';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(actualX, stepY, sw, 4);
+            ctx.strokeStyle = '#3a3a3a';
         }
     }
     
@@ -219,19 +217,19 @@ class FireEscapeStructure {
         const ladderWidth = 20;
         const rungSpacing = 20;
         
-        ctx.fillStyle = '#5a5a5a';
+        ctx.fillStyle = '#2a2a2a';
         ctx.fillRect(x, fromY, 3, toY - fromY);
         ctx.fillRect(x + ladderWidth - 3, fromY, 3, toY - fromY);
         
-        ctx.fillStyle = '#6a6a6a';
+        ctx.fillStyle = '#333333';
         ctx.fillRect(x, fromY, 1, toY - fromY);
         ctx.fillRect(x + ladderWidth - 3, fromY, 1, toY - fromY);
         
         for (let ry = fromY + 15; ry < toY - 10; ry += rungSpacing) {
-            ctx.fillStyle = '#5a5a5a';
+            ctx.fillStyle = '#2a2a2a';
             ctx.fillRect(x + 2, ry, ladderWidth - 4, 3);
             
-            ctx.fillStyle = '#6a6a6a';
+            ctx.fillStyle = '#333333';
             ctx.fillRect(x + 2, ry, ladderWidth - 4, 1);
         }
     }

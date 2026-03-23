@@ -247,7 +247,7 @@ class Cat {
         ctx.lineTo(this.width + 2, this.height/2 - 12);
         ctx.fill();
 
-        ctx.fillStyle = '#3a2a2a';
+        ctx.fillStyle = '#1e1515';
         ctx.beginPath();
         ctx.moveTo(this.width - 17, this.height/2 - 11);
         ctx.lineTo(this.width - 20, this.height/2 - 20 - earOffset);
@@ -256,7 +256,7 @@ class Cat {
 
         // Occhi
         if (this.eyeBlink < 3) {
-            ctx.fillStyle = '#ffdd00';
+            ctx.fillStyle = '#bb9900';
             ctx.beginPath();
             ctx.ellipse(this.width - 4, this.height/2 - 3, 4, 5, 0, 0, Math.PI * 2);
             ctx.fill();
@@ -266,12 +266,12 @@ class Cat {
             ctx.ellipse(this.width - 3, this.height/2 - 3, 2, 4, 0, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.fillStyle = '#fff';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
             ctx.beginPath();
             ctx.arc(this.width - 5, this.height/2 - 5, 1.5, 0, Math.PI * 2);
             ctx.fill();
         } else {
-            ctx.strokeStyle = '#ffdd00';
+            ctx.strokeStyle = '#bb9900';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(this.width - 8, this.height/2 - 3);
@@ -280,7 +280,7 @@ class Cat {
         }
 
         // Naso
-        ctx.fillStyle = '#ff6b6b';
+        ctx.fillStyle = '#aa4444';
         ctx.beginPath();
         ctx.moveTo(this.width + 4, this.height/2);
         ctx.lineTo(this.width + 1, this.height/2 + 3);
@@ -288,7 +288,7 @@ class Cat {
         ctx.fill();
 
         // Baffi
-        ctx.strokeStyle = '#444';
+        ctx.strokeStyle = '#2a2a2a';
         ctx.lineWidth = 1;
         for (let i = 0; i < 3; i++) {
             const y = this.height/2 + 2 + i * 3;

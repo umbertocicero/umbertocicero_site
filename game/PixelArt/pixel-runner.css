@@ -1,0 +1,150 @@
+/* ── Reset & Base ─────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  width:100%; height:100%;
+  overflow:hidden;
+  background:#1a1a2e;
+  font-family:'Press Start 2P', 'Courier New', monospace;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+canvas {
+  display:block;
+  width:100%; height:100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* ── HUD ─────────────────────────────────────── */
+#hud {
+  position:fixed; top:0; left:0; right:0;
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 20px;
+  color:#fff;
+  font-size:14px;
+  text-shadow: 2px 2px 0 #000;
+  pointer-events:none;
+  z-index:10;
+}
+
+#hud-score { color:#ffd700; }
+#hud-dist  { color:#87ceeb; }
+#hud-power {
+  color:#ff69b4;
+  animation: pulse 0.5s infinite alternate;
+}
+
+@keyframes pulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.2); }
+}
+
+/* ── Back button ─────────────────────────────── */
+#btn-back {
+  position:fixed; bottom:12px; left:12px;
+  color:#888; text-decoration:none;
+  font-size:12px;
+  font-family:'Courier New', monospace;
+  z-index:20;
+  transition: color .2s;
+}
+#btn-back:hover { color:#fff; }
+
+/* ── Overlays ────────────────────────────────── */
+.ov {
+  position:fixed; inset:0;
+  display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  background:rgba(10,10,30,0.92);
+  color:#fff;
+  z-index:100;
+  padding:20px;
+  text-align:center;
+}
+
+.ov.hidden { display:none; }
+
+.ov-title {
+  font-size: clamp(24px, 6vw, 48px);
+  margin-bottom:16px;
+  text-shadow: 3px 3px 0 #ff6b6b, 6px 6px 0 rgba(0,0,0,0.3);
+  letter-spacing: 2px;
+}
+
+.ov-sub {
+  font-size: clamp(11px, 2.5vw, 16px);
+  color:#ccc;
+  margin-bottom:20px;
+  line-height:1.8;
+}
+
+.controls-info {
+  background: rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px 24px;
+  margin-bottom: 20px;
+  font-size: clamp(10px, 2vw, 13px);
+  line-height: 2;
+  color: #ddd;
+}
+
+/* ── Character pick ──────────────────────────── */
+.char-pick {
+  display:flex; gap:10px;
+  margin-bottom:20px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+
+.btn-char {
+  padding:10px 16px;
+  font-size: clamp(11px, 2.5vw, 14px);
+  font-family:inherit;
+  background: rgba(255,255,255,0.1);
+  color:#fff;
+  border:2px solid rgba(255,255,255,0.2);
+  border-radius:8px;
+  cursor:pointer;
+  transition: all .2s;
+}
+
+.btn-char:hover { background:rgba(255,255,255,0.2); }
+
+.btn-char.selected {
+  background: rgba(255,200,50,0.3);
+  border-color: #ffd700;
+  box-shadow: 0 0 12px rgba(255,215,0,0.4);
+}
+
+/* ── Buttons ─────────────────────────────────── */
+.btn-pill {
+  padding:14px 36px;
+  font-size:clamp(14px, 3vw, 18px);
+  font-family:inherit;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color:#fff;
+  border:none;
+  border-radius:30px;
+  cursor:pointer;
+  box-shadow: 0 4px 15px rgba(238,90,36,0.4);
+  transition: transform .15s, box-shadow .15s;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+}
+
+.btn-pill:hover {
+  transform:scale(1.05);
+  box-shadow: 0 6px 20px rgba(238,90,36,0.6);
+}
+
+.btn-pill:active {
+  transform:scale(0.97);
+}
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width:500px) {
+  #hud { font-size:11px; padding:6px 10px; }
+  .controls-info { padding:8px 12px; }
+}

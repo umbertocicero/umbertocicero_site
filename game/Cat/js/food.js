@@ -54,8 +54,8 @@ class Food {
             drawX + this.width/2, drawY + this.height/2, 0,
             drawX + this.width/2, drawY + this.height/2, 35
         );
-        glow.addColorStop(0, `rgba(255, 220, 100, ${this.glowIntensity})`);
-        glow.addColorStop(0.5, `rgba(255, 200, 50, ${this.glowIntensity * 0.5})`);
+        glow.addColorStop(0, `rgba(180, 150, 60, ${this.glowIntensity * 0.5})`);
+        glow.addColorStop(0.5, `rgba(150, 130, 30, ${this.glowIntensity * 0.25})`);
         glow.addColorStop(1, 'transparent');
         ctx.fillStyle = glow;
         ctx.beginPath();
@@ -82,8 +82,8 @@ class Food {
         ctx.fillStyle = '#fff';
         for (const sparkle of this.sparkles) {
             if (sparkle.life > 0) {
-                const alpha = Math.min(1, sparkle.life / 15);
-                ctx.fillStyle = `rgba(255, 255, 200, ${alpha})`;
+                const alpha = Math.min(0.5, sparkle.life / 15);
+                ctx.fillStyle = `rgba(180, 180, 120, ${alpha})`;
                 ctx.beginPath();
                 ctx.arc(drawX + sparkle.x, drawY + sparkle.y, 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -93,7 +93,7 @@ class Food {
     
     drawFish(ctx, x, y) {
         // Pesce argentato
-        ctx.fillStyle = '#8899aa';
+        ctx.fillStyle = '#556672';
         
         // Corpo
         ctx.beginPath();
@@ -109,7 +109,7 @@ class Food {
         ctx.fill();
         
         // Pinna
-        ctx.fillStyle = '#7788aa';
+        ctx.fillStyle = '#4a5a6e';
         ctx.beginPath();
         ctx.moveTo(x + 12, y + 5);
         ctx.lineTo(x + 15, y - 2);
@@ -124,7 +124,7 @@ class Food {
         ctx.fill();
         
         // Riflesso
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillStyle = 'rgba(200, 200, 220, 0.2)';
         ctx.beginPath();
         ctx.ellipse(x + 15, y + 7, 6, 3, -0.3, 0, Math.PI * 2);
         ctx.fill();
@@ -132,10 +132,7 @@ class Food {
     
     drawFishbone(ctx, x, y) {
         // Lisca di pesce
-        ctx.strokeStyle = '#ddddcc';
-        ctx.lineWidth = 2;
-        
-        // Spina dorsale
+        ctx.strokeStyle = '#888877';
         ctx.beginPath();
         ctx.moveTo(x, y + 10);
         ctx.lineTo(x + 30, y + 10);
@@ -152,7 +149,7 @@ class Food {
         }
         
         // Testa (cerchio)
-        ctx.fillStyle = '#ddddcc';
+        ctx.fillStyle = '#888877';
         ctx.beginPath();
         ctx.arc(x + 28, y + 10, 4, 0, Math.PI * 2);
         ctx.fill();
@@ -164,10 +161,7 @@ class Food {
         ctx.fill();
         
         // Coda
-        ctx.strokeStyle = '#ddddcc';
-        ctx.beginPath();
-        ctx.moveTo(x, y + 10);
-        ctx.lineTo(x - 5, y + 4);
+        ctx.strokeStyle = '#888877';
         ctx.moveTo(x, y + 10);
         ctx.lineTo(x - 5, y + 16);
         ctx.stroke();
@@ -176,10 +170,10 @@ class Food {
     drawCan(ctx, x, y) {
         // Scatoletta di tonno
         const gradient = ctx.createLinearGradient(x, y, x + 30, y);
-        gradient.addColorStop(0, '#4a6a8a');
-        gradient.addColorStop(0.3, '#6a8aaa');
-        gradient.addColorStop(0.7, '#5a7a9a');
-        gradient.addColorStop(1, '#3a5a7a');
+        gradient.addColorStop(0, '#2a3a4a');
+        gradient.addColorStop(0.3, '#3a4a5a');
+        gradient.addColorStop(0.7, '#304050');
+        gradient.addColorStop(1, '#1a2a3a');
         
         // Corpo
         ctx.fillStyle = gradient;
@@ -188,49 +182,47 @@ class Food {
         ctx.fill();
         
         // Top
-        ctx.fillStyle = '#7a9aba';
+        ctx.fillStyle = '#4a5a6a';
         ctx.beginPath();
         ctx.ellipse(x + 14, y + 3, 14, 4, 0, 0, Math.PI * 2);
         ctx.fill();
         
         // Linguetta
-        ctx.fillStyle = '#8aaa8a';
+        ctx.fillStyle = '#4a6a4a';
         ctx.beginPath();
         ctx.ellipse(x + 14, y + 3, 5, 2, 0, 0, Math.PI * 2);
         ctx.fill();
         
         // Etichetta
-        ctx.fillStyle = '#ffcc44';
+        ctx.fillStyle = '#997722';
         ctx.fillRect(x + 4, y + 8, 20, 6);
         
         // Scritta etichetta
-        ctx.fillStyle = '#884422';
+        ctx.fillStyle = '#553311';
         ctx.font = '5px Arial';
         ctx.fillText('TUNA', x + 6, y + 13);
     }
     
     drawMilk(ctx, x, y) {
         // Ciotola di latte
-        ctx.fillStyle = '#8888aa';
-        
-        // Ciotola
+        ctx.fillStyle = '#4a4a5a';
         ctx.beginPath();
         ctx.ellipse(x + 15, y + 16, 14, 6, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        ctx.fillStyle = '#666688';
+        ctx.fillStyle = '#333348';
         ctx.beginPath();
         ctx.ellipse(x + 15, y + 14, 12, 4, 0, Math.PI, Math.PI * 2);
         ctx.fill();
         
         // Latte
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = '#bbbbcc';
         ctx.beginPath();
         ctx.ellipse(x + 15, y + 12, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
         
         // Riflesso latte
-        ctx.fillStyle = 'rgba(200, 220, 255, 0.5)';
+        ctx.fillStyle = 'rgba(140, 160, 200, 0.3)';
         ctx.beginPath();
         ctx.ellipse(x + 12, y + 11, 4, 2, -0.3, 0, Math.PI * 2);
         ctx.fill();

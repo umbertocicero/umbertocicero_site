@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pixel Runner</title>
+  <link rel="stylesheet" href="pixel-runner.css">
+</head>
+<body>
+
+  <canvas id="c"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hud-left">
+      <span id="hud-score">🌟 0</span>
+    </div>
+    <div id="hud-center">
+      <span id="hud-dist">0 m</span>
+    </div>
+    <div id="hud-right">
+      <span id="hud-power"></span>
+    </div>
+  </div>
+
+  <a href="../../app.html" id="btn-back">&larr; Back</a>
+
+  <!-- Intro overlay -->
+  <div class="ov" id="ov-intro" role="dialog" aria-modal="true">
+    <h1 class="ov-title">🏃 Pixel Runner</h1>
+    <p class="ov-sub">Corri, salta e scivola!<br>
+      Raccogli le stelle e schiva gli ostacoli!</p>
+    <div class="controls-info">
+      <p>🎮 <strong>Controlli:</strong></p>
+      <p>⬆️ Freccia Su / Spazio / Tap alto → <strong>Salta</strong></p>
+      <p>⬇️ Freccia Giù / Tap basso → <strong>Scivola</strong></p>
+    </div>
+    <div class="char-pick">
+      <button class="btn-char selected" data-char="0">🐱 Gatto</button>
+      <button class="btn-char" data-char="1">🐶 Cane</button>
+      <button class="btn-char" data-char="2">🐰 Coniglio</button>
+    </div>
+    <button class="btn-pill btn-play" id="btn-start">▶ Gioca!</button>
+  </div>
+
+  <!-- Game Over overlay -->
+  <div class="ov hidden" id="ov-gameover" role="dialog" aria-modal="true">
+    <h1 class="ov-title">💥 Game Over!</h1>
+    <p class="ov-sub">
+      Distanza: <span id="go-dist">0</span> m<br>
+      Stelle: <span id="go-score">0</span> 🌟<br>
+      Record: <span id="go-best">0</span> m
+    </p>
+    <button class="btn-pill btn-play" id="btn-retry">🔄 Riprova!</button>
+  </div>
+
+  <!-- Pause overlay -->
+  <div class="ov hidden" id="ov-pause" role="dialog" aria-modal="true">
+    <h1 class="ov-title">⏸ Pausa</h1>
+    <button class="btn-pill btn-play" id="btn-resume">▶ Continua</button>
+  </div>
+
+  <script src="pixel-runner.js"></script>
+</body>
+</html>
