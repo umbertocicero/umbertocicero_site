@@ -15,8 +15,9 @@ class Star {
         this.twinkle += this.speed;
     }
 
-    draw(ctx) {
-        const alpha = 0.15 + Math.sin(this.twinkle) * 0.15;
+    draw(ctx, theme) {
+        const baseAlpha = (theme && theme.starAlpha) || 0.15;
+        const alpha = baseAlpha + Math.sin(this.twinkle) * baseAlpha;
         ctx.fillStyle = `rgba(180, 180, 200, ${alpha})`;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -31,7 +32,9 @@ class Moon {
         this.radius = 50;
     }
 
-    draw(ctx) {
+    draw(ctx, theme) {
+        const moonColor = (theme && theme.moonColor) || '#9999aa';
+        
         // Glow
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 150);
         gradient.addColorStop(0, 'rgba(120, 120, 160, 0.15)');
@@ -43,7 +46,7 @@ class Moon {
         ctx.fill();
 
         // Luna
-        ctx.fillStyle = '#9999aa';
+        ctx.fillStyle = moonColor;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();

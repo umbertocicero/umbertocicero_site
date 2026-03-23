@@ -1,13 +1,13 @@
 // ============================================
-// ENEMY - Cani randagi che inseguono il gatto
+// ENEMY - Doberman cattivi
 // ============================================
 
 class Enemy {
     constructor(x, y, patrolRange = 200) {
         this.x = x;
         this.y = y;
-        this.width = 50;
-        this.height = 32;
+        this.width = 55;
+        this.height = 36;
         this.vx = 0;
         this.vy = 0;
         this.speed = 2;
@@ -15,27 +15,23 @@ class Enemy {
         this.facing = 1;
         this.animFrame = 0;
         this.animTimer = 0;
-        this.state = 'patrol'; // patrol, chase, alert
+        this.state = 'patrol';
         
-        // Patrol
         this.patrolStartX = x;
         this.patrolRange = patrolRange;
         this.patrolDirection = 1;
         this.pauseTimer = 0;
         
-        // Detection
         this.detectionRange = 250;
         this.detectionRangeY = 100;
         this.loseRange = 400;
         
-        // Alert
         this.alertTimer = 0;
         this.alertDuration = 40;
         
-        // Animazione
         this.tailWag = 0;
-        this.earBob = 0;
         this.barkTimer = 0;
+        this.growlPhase = 0;
     }
     
     update(cat, platforms) {
@@ -43,12 +39,11 @@ class Enemy {
         const dy = cat.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        // State machine
+        this.growlPhase += 0.1;
+        
         switch(this.state) {
             case 'patrol':
                 this.patrol();
-                
-                // Detecta il gatto
                 if (dist < this.detectionRange && Math.abs(dy) < this.detectionRangeY && !cat.invincible) {
                     this.state = 'alert';
                     this.alertTimer = this.alertDuration;
@@ -57,11 +52,9 @@ class Enemy {
                 break;
                 
             case 'alert':
-                // Si ferma, drizza le orecchie, poi insegue
                 this.vx = 0;
                 this.alertTimer--;
                 this.facing = dx > 0 ? 1 : -1;
-                
                 if (this.alertTimer <= 0) {
                     this.state = 'chase';
                 }
@@ -69,14 +62,10 @@ class Enemy {
                 
             case 'chase':
                 this.chase(cat);
-                
-                // Perde il gatto
                 if (dist > this.loseRange || cat.invincible) {
                     this.state = 'patrol';
                     this.pauseTimer = 60;
                 }
-                
-                // Bark timer
                 this.barkTimer++;
                 break;
         }
@@ -85,11 +74,10 @@ class Enemy {
         this.vy += CONFIG.gravity;
         if (this.vy > 15) this.vy = 15;
         
-        // Move
         this.x += this.vx;
         this.y += this.vy;
         
-        // Collisioni con piattaforme
+        // Collisioni
         this.onGround = false;
         for (const platform of platforms) {
             if (platform.isOneWay || platform.roofOnly) {
@@ -113,7 +101,6 @@ class Enemy {
             }
         }
         
-        // Bounds
         this.x = Math.max(0, Math.min(this.x, CONFIG.worldWidth - this.width));
         
         // Animation
@@ -125,7 +112,6 @@ class Enemy {
         }
         
         this.tailWag = Math.sin(CONFIG.time * 0.15) * 0.4;
-        this.earBob = Math.sin(CONFIG.time * 0.2) * 2;
     }
     
     patrol() {
@@ -134,11 +120,8 @@ class Enemy {
             this.vx = 0;
             return;
         }
-        
         this.vx = this.patrolDirection * this.speed;
         this.facing = this.patrolDirection;
-        
-        // Inverti direzione ai limiti
         if (this.x > this.patrolStartX + this.patrolRange) {
             this.patrolDirection = -1;
             this.pauseTimer = 30 + Math.random() * 60;
@@ -156,7 +139,6 @@ class Enemy {
     
     checkCollisionWithCat(cat) {
         if (cat.invincible) return false;
-        
         return this.x < cat.x + cat.width &&
                this.x + this.width > cat.x &&
                this.y < cat.y + cat.height &&
@@ -169,140 +151,411 @@ class Enemy {
         ctx.scale(this.facing, 1);
         ctx.translate(-this.width/2, -this.height/2);
         
+        const isChasing = this.state === 'chase';
+        const isAlert = this.state === 'alert';
+        const isAggro = isChasing || isAlert;
+        
+        // Colori Doberman: nero con focature ruggine/tan - più visibili
+        const black = '#1a1410';
+        const blackLight = '#2a2018';
+        const blackDark = '#0a0804';
+        const tan = '#a05828';       // focature muso/sopracciglia
+        const tanLight = '#bb6a30';   // focature chiare
+        const tanDark = '#6a3815';    // focature scure
+        const chest = '#8a4820';      // petto
+        
+        // Glow rosso quando aggressivo
+        if (isAggro) {
+            const aggroGlow = ctx.createRadialGradient(this.width/2, this.height/2, 5, this.width/2, this.height/2, 50);
+            aggroGlow.addColorStop(0, 'rgba(200, 50, 30, 0.15)');
+            aggroGlow.addColorStop(1, 'transparent');
+            ctx.fillStyle = aggroGlow;
+            ctx.beginPath();
+            ctx.arc(this.width/2, this.height/2, 50, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
         // Ombra
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.beginPath();
-        ctx.ellipse(this.width/2, this.height + 2, 18, 5, 0, 0, Math.PI * 2);
+        ctx.ellipse(this.width/2, this.height + 3, 22, 5, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Coda
+        // === CODA (corta, docked - tipica doberman) ===
         ctx.save();
-        ctx.translate(3, this.height/2 - 5);
-        ctx.rotate(this.tailWag + (this.state === 'chase' ? Math.sin(CONFIG.time * 0.3) * 0.5 : 0));
-        ctx.fillStyle = '#3a2218';
+        ctx.translate(2, this.height/2 - 6);
+        const tailAngle = isAggro ? 0.8 + Math.sin(CONFIG.time * 0.4) * 0.1 : 0.3;
+        ctx.rotate(tailAngle);
+        ctx.fillStyle = black;
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(-10, -15, -5, -25);
-        ctx.quadraticCurveTo(-3, -28, -1, -25);
-        ctx.quadraticCurveTo(-5, -10, 0, 3);
+        ctx.quadraticCurveTo(-5, -8, -3, -14);
+        ctx.quadraticCurveTo(-1, -16, 1, -14);
+        ctx.quadraticCurveTo(0, -6, 2, 2);
         ctx.fill();
         ctx.restore();
 
-        // Corpo
-        ctx.fillStyle = '#3a2218';
+        // === CORPO - snello e muscoloso ===
+        // Corpo principale
+        ctx.fillStyle = black;
         ctx.beginPath();
-        ctx.ellipse(this.width/2, this.height/2 + 3, 22, 13, 0, 0, Math.PI * 2);
+        ctx.ellipse(this.width/2 - 2, this.height/2 + 2, 24, 13, -0.05, 0, Math.PI * 2);
         ctx.fill();
         
-        // Pancia
-        ctx.fillStyle = '#4a3228';
+        // Muscolatura dorso
+        ctx.fillStyle = blackLight;
         ctx.beginPath();
-        ctx.ellipse(this.width/2, this.height/2 + 8, 16, 8, 0, 0, Math.PI);
+        ctx.ellipse(this.width/2 - 5, this.height/2 - 3, 18, 6, -0.1, Math.PI, Math.PI * 2);
+        ctx.fill();
+        
+        // Pelo rizzato se aggressivo
+        if (isAggro) {
+            ctx.fillStyle = blackDark;
+            for (let i = 0; i < 6; i++) {
+                const sx = 8 + i * 7;
+                const spH = 3 + Math.sin(CONFIG.time * 0.25 + i) * 1;
+                ctx.beginPath();
+                ctx.moveTo(sx, this.height/2 - 9);
+                ctx.lineTo(sx + 1.5, this.height/2 - 9 - spH);
+                ctx.lineTo(sx + 3, this.height/2 - 9);
+                ctx.fill();
+            }
+        }
+        
+        // Petto - focatura tan
+        ctx.fillStyle = chest;
+        ctx.beginPath();
+        ctx.ellipse(this.width - 10, this.height/2 + 6, 10, 7, 0, 0, Math.PI);
         ctx.fill();
 
-        // Zampe
-        const legOffset = this.vx !== 0 ? Math.sin(this.animFrame * Math.PI / 2) * 4 : 0;
-        ctx.fillStyle = '#2a1810';
-        ctx.fillRect(16, this.height - 8 - legOffset, 7, 12);
-        ctx.fillRect(this.width - 22, this.height - 8 - legOffset, 7, 12);
-        ctx.fillRect(this.width - 14, this.height - 8 + legOffset, 7, 12);
-
-        // Testa
-        ctx.fillStyle = '#3a2218';
-        ctx.fill();
+        // === ZAMPE - lunghe e sottili (Doberman) ===
+        const legOffset = this.vx !== 0 ? Math.sin(this.animFrame * Math.PI / 2) * 5 : 0;
         
-        // Muso
-        ctx.fillStyle = '#4a3228';
-        ctx.beginPath();
-        ctx.ellipse(this.width + 6, this.height/2 + 2, 10, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Orecchie (pendenti)
-        ctx.fillStyle = '#2a1810';
-        ctx.beginPath();
-        ctx.moveTo(this.width - 16, this.height/2 - 12);
-        ctx.quadraticCurveTo(this.width - 24, this.height/2 - 6 + this.earBob, this.width - 20, this.height/2 + 5);
-        ctx.quadraticCurveTo(this.width - 16, this.height/2 - 4, this.width - 12, this.height/2 - 10);
-        ctx.fill();
+        // Zampe posteriori
+        ctx.fillStyle = black;
+        ctx.fillRect(6, this.height - 6 + legOffset, 6, 14);
+        ctx.fillRect(14, this.height - 6 - legOffset, 6, 14);
+        // Focature tan sulle zampe posteriori
+        ctx.fillStyle = tanDark;
+        ctx.fillRect(6, this.height + 2 + legOffset, 6, 5);
+        ctx.fillRect(14, this.height + 2 - legOffset, 6, 5);
         
-        ctx.beginPath();
-        ctx.moveTo(this.width - 2, this.height/2 - 14);
-        ctx.quadraticCurveTo(this.width + 8, this.height/2 - 8 + this.earBob, this.width + 4, this.height/2 + 3);
-        ctx.quadraticCurveTo(this.width, this.height/2 - 6, this.width - 4, this.height/2 - 12);
-        ctx.fill();
+        // Zampe anteriori
+        ctx.fillStyle = black;
+        ctx.fillRect(this.width - 22, this.height - 6 - legOffset, 6, 14);
+        ctx.fillRect(this.width - 14, this.height - 6 + legOffset, 6, 14);
+        // Focature tan sulle zampe anteriori
+        ctx.fillStyle = tanDark;
+        ctx.fillRect(this.width - 22, this.height + 2 - legOffset, 6, 5);
+        ctx.fillRect(this.width - 14, this.height + 2 + legOffset, 6, 5);
         
-        // Alert: orecchie dritte
-        if (this.state === 'alert') {
-            ctx.fillStyle = '#3a2218';
-            ctx.lineTo(this.width - 10, this.height/2 - 12);
-            ctx.fill();
-            
-            ctx.beginPath();
-            ctx.moveTo(this.width - 2, this.height/2 - 14);
-            ctx.lineTo(this.width + 4, this.height/2 - 30);
-            ctx.lineTo(this.width + 2, this.height/2 - 12);
-            ctx.fill();
+        // Piedi
+        ctx.fillStyle = blackDark;
+        const pawPos = [[6, legOffset], [14, -legOffset], [this.width-22, -legOffset], [this.width-14, legOffset]];
+        for (const [px, po] of pawPos) {
+            ctx.fillRect(px - 1, this.height + 7 + po, 8, 3);
         }
 
-        // Occhi
-        const eyeSize = this.state === 'chase' ? 4 : 3;
-        ctx.fillStyle = '#cccccc';
-        ctx.fill();
-        
-        // Pupilla
-        ctx.fillStyle = '#2a1a0a';
-        const pupilOffset = this.state === 'chase' ? 1 : 0;
+        // === TESTA - lunga e appuntita (Doberman) ===
+        // Cranio
+        ctx.fillStyle = black;
         ctx.beginPath();
-        ctx.arc(this.width - 1 + pupilOffset, this.height/2 - 5, 2, 0, Math.PI * 2);
+        ctx.ellipse(this.width - 2, this.height/2 - 4, 16, 13, -0.1, 0, Math.PI * 2);
         ctx.fill();
         
-        // Occhio arrabbiato in chase
-        if (this.state === 'chase') {
-            ctx.strokeStyle = '#3a2a1a';
+        // Focatura sopracciglia (macchie tan sopra gli occhi) 
+        ctx.fillStyle = tan;
+        ctx.beginPath();
+        ctx.ellipse(this.width - 6, this.height/2 - 10, 5, 3, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(this.width + 2, this.height/2 - 10, 4, 2.5, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Muso lungo e stretto (tipico Doberman)
+        ctx.fillStyle = black;
+        ctx.beginPath();
+        ctx.moveTo(this.width + 5, this.height/2 - 6);
+        ctx.lineTo(this.width + 22, this.height/2);
+        ctx.lineTo(this.width + 22, this.height/2 + 4);
+        ctx.lineTo(this.width + 5, this.height/2 + 6);
+        ctx.quadraticCurveTo(this.width + 2, this.height/2, this.width + 5, this.height/2 - 6);
+        ctx.fill();
+        
+        // Focatura muso - striscia tan sui lati
+        ctx.fillStyle = tan;
+        ctx.beginPath();
+        ctx.moveTo(this.width + 6, this.height/2 + 2);
+        ctx.lineTo(this.width + 18, this.height/2 + 3);
+        ctx.lineTo(this.width + 18, this.height/2 + 5);
+        ctx.lineTo(this.width + 6, this.height/2 + 5);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Focatura sotto il muso
+        ctx.fillStyle = tanLight;
+        ctx.beginPath();
+        ctx.ellipse(this.width + 8, this.height/2 + 7, 6, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === ORECCHIE DRITTE (cropped - tipiche Doberman) ===
+        // Sempre dritte e triangolari!
+        const earTwitch = isAggro ? Math.sin(CONFIG.time * 0.4) * 1 : 0;
+        
+        // Orecchio sinistro
+        ctx.fillStyle = black;
+        ctx.beginPath();
+        ctx.moveTo(this.width - 14, this.height/2 - 14);
+        ctx.lineTo(this.width - 18, this.height/2 - 36 + earTwitch);
+        ctx.lineTo(this.width - 6, this.height/2 - 14);
+        ctx.closePath();
+        ctx.fill();
+        // Interno orecchio (rosa scuro)
+        ctx.fillStyle = '#3a1818';
+        ctx.beginPath();
+        ctx.moveTo(this.width - 13, this.height/2 - 15);
+        ctx.lineTo(this.width - 16, this.height/2 - 30 + earTwitch);
+        ctx.lineTo(this.width - 8, this.height/2 - 15);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Orecchio destro
+        ctx.fillStyle = black;
+        ctx.beginPath();
+        ctx.moveTo(this.width + 2, this.height/2 - 14);
+        ctx.lineTo(this.width + 5, this.height/2 - 37 - earTwitch);
+        ctx.lineTo(this.width + 8, this.height/2 - 13);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#3a1818';
+        ctx.beginPath();
+        ctx.moveTo(this.width + 3, this.height/2 - 15);
+        ctx.lineTo(this.width + 5, this.height/2 - 31 - earTwitch);
+        ctx.lineTo(this.width + 7, this.height/2 - 14);
+        ctx.closePath();
+        ctx.fill();
+
+        // === OCCHI ===
+        const eyeX = this.width + 1;
+        const eyeY = this.height/2 - 5;
+        
+        if (isAggro) {
+            // Occhi stretti, cattivi, rossi
+            ctx.fillStyle = '#661515';
+            ctx.beginPath();
+            ctx.ellipse(eyeX, eyeY, 4.5, 2.5, 0.1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#200500';
+            ctx.beginPath();
+            ctx.ellipse(eyeX + 1, eyeY, 3, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Riflesso rosso sinistro
+            ctx.fillStyle = 'rgba(255, 40, 20, 0.6)';
+            ctx.beginPath();
+            ctx.arc(eyeX - 1, eyeY - 1, 1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Sopracciglio corrugato
+            ctx.strokeStyle = black;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(eyeX - 6, eyeY - 5);
+            ctx.lineTo(eyeX + 3, eyeY - 2);
+            ctx.stroke();
+            
+            // Secondo occhio
+            const eye2X = this.width - 8;
+            const eye2Y = eyeY + 1;
+            ctx.fillStyle = '#661515';
+            ctx.beginPath();
+            ctx.ellipse(eye2X, eye2Y, 3.5, 2, -0.1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#200500';
+            ctx.beginPath();
+            ctx.ellipse(eye2X + 0.5, eye2Y, 2.5, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = black;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(this.width - 6, this.height/2 - 9);
-            ctx.lineTo(this.width + 2, this.height/2 - 7);
+            ctx.moveTo(eye2X - 4, eye2Y - 2);
+            ctx.lineTo(eye2X + 3, eye2Y - 4);
+            ctx.stroke();
+        } else {
+            // Occhi normali - ambra scuro (tipico Doberman)
+            ctx.fillStyle = '#8a6530';
+            ctx.beginPath();
+            ctx.ellipse(eyeX, eyeY, 4, 3.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#1a0800';
+            ctx.beginPath();
+            ctx.arc(eyeX, eyeY, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Riflesso
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
+            ctx.beginPath();
+            ctx.arc(eyeX - 1, eyeY - 1, 1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Sopracciglio basso (sempre un po' minaccioso)
+            ctx.strokeStyle = black;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(eyeX - 5, eyeY - 4);
+            ctx.lineTo(eyeX + 3, eyeY - 5);
             ctx.stroke();
         }
 
-        // Naso
-        ctx.fillStyle = '#2a1a0a';
+        // === NASO ===
+        ctx.fillStyle = '#1a0800';
         ctx.beginPath();
-        ctx.ellipse(this.width + 12, this.height/2 + 1, 4, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(this.width + 21, this.height/2 + 1, 4, 3, 0, 0, Math.PI * 2);
         ctx.fill();
-        
-        // Bocca
-        ctx.strokeStyle = '#3a1a0a';
-        ctx.lineWidth = 1.5;
+        // Narici
+        ctx.fillStyle = '#0a0400';
         ctx.beginPath();
-        ctx.moveTo(this.width + 12, this.height/2 + 4);
-        ctx.quadraticCurveTo(this.width + 8, this.height/2 + 8, this.width + 4, this.height/2 + 6);
-        ctx.stroke();
-        
-        // Bocca aperta se insegue (abbaia)
-        if (this.state === 'chase' && this.barkTimer % 30 < 10) {
-            ctx.fillStyle = '#5a1a10';
+        ctx.arc(this.width + 19.5, this.height/2 + 2, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(this.width + 22.5, this.height/2 + 2, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === BOCCA / RINGHIO ===
+        if (isAggro) {
+            // Labbro tirato su - ringhio Doberman
+            ctx.fillStyle = '#2a0a08';
             ctx.beginPath();
-            ctx.ellipse(this.width + 10, this.height/2 + 7, 7, 5, 0, 0, Math.PI * 2);
+            ctx.moveTo(this.width + 6, this.height/2 + 5);
+            ctx.quadraticCurveTo(this.width + 14, this.height/2 + 3, this.width + 21, this.height/2 + 5);
+            ctx.quadraticCurveTo(this.width + 16, this.height/2 + 7, this.width + 6, this.height/2 + 5);
             ctx.fill();
+            
+            // Cavità bocca
+            ctx.fillStyle = '#150303';
+            ctx.beginPath();
+            ctx.ellipse(this.width + 14, this.height/2 + 8, 10, 5.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Gengive
+            ctx.fillStyle = '#3a1010';
+            ctx.beginPath();
+            ctx.moveTo(this.width + 5, this.height/2 + 5);
+            ctx.lineTo(this.width + 23, this.height/2 + 5);
+            ctx.lineTo(this.width + 22, this.height/2 + 7);
+            ctx.lineTo(this.width + 6, this.height/2 + 7);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Zanne grandi (Doberman ha morso potente)
+            ctx.fillStyle = '#ddd0c0';
+            // Zanna sinistra
+            ctx.beginPath();
+            ctx.moveTo(this.width + 7, this.height/2 + 5);
+            ctx.lineTo(this.width + 8, this.height/2 + 12);
+            ctx.lineTo(this.width + 10, this.height/2 + 5);
+            ctx.fill();
+            // Zanna destra
+            ctx.beginPath();
+            ctx.moveTo(this.width + 17, this.height/2 + 5);
+            ctx.lineTo(this.width + 18, this.height/2 + 13);
+            ctx.lineTo(this.width + 20, this.height/2 + 5);
+            ctx.fill();
+            // Denti piccoli
+            ctx.fillStyle = '#bbaa99';
+            for (let t = 0; t < 3; t++) {
+                ctx.fillRect(this.width + 11 + t * 2, this.height/2 + 5, 1.5, 4);
+            }
+            // Denti inferiori
+            for (let t = 0; t < 2; t++) {
+                ctx.fillRect(this.width + 10 + t * 5, this.height/2 + 11, 1.5, -3);
+            }
             
             // Lingua
-            ctx.fillStyle = '#883333';
-            ctx.beginPath();
-            ctx.ellipse(this.width + 12, this.height/2 + 10, 3, 4, 0.2, 0, Math.PI * 2);
-            ctx.fill();
+            if (isChasing && this.barkTimer % 30 < 10) {
+                ctx.fillStyle = '#551818';
+                ctx.beginPath();
+                ctx.ellipse(this.width + 15, this.height/2 + 13, 4, 5, 0.15, 0, Math.PI * 2);
+                ctx.fill();
+            }
             
-            // Denti
-            ctx.fillStyle = '#aaa';
-            ctx.fillRect(this.width + 12, this.height/2 + 3, 3, 3);
+            // Saliva
+            if (isChasing && this.barkTimer % 40 < 8) {
+                ctx.fillStyle = 'rgba(180, 180, 190, 0.35)';
+                const dripY = this.height/2 + 14 + (this.barkTimer % 40) * 0.5;
+                ctx.beginPath();
+                ctx.ellipse(this.width + 19, dripY, 1.5, 2.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Grinze ringhio
+            ctx.strokeStyle = blackDark;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(this.width + 4, this.height/2 + 3);
+            ctx.quadraticCurveTo(this.width + 2, this.height/2 + 6, this.width + 4, this.height/2 + 9);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.width + 3, this.height/2 + 1);
+            ctx.quadraticCurveTo(this.width, this.height/2 + 4, this.width + 2, this.height/2 + 8);
+            ctx.stroke();
+        } else {
+            // Bocca chiusa - linea dura
+            ctx.strokeStyle = '#1a0800';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(this.width + 21, this.height/2 + 4);
+            ctx.lineTo(this.width + 6, this.height/2 + 5);
+            ctx.stroke();
+            
+            // Zanna che spunta anche a riposo
+            ctx.fillStyle = '#ddd0c0';
+            ctx.beginPath();
+            ctx.moveTo(this.width + 16, this.height/2 + 4);
+            ctx.lineTo(this.width + 17, this.height/2 + 8);
+            ctx.lineTo(this.width + 18, this.height/2 + 4);
+            ctx.fill();
         }
         
-        // Esclamativo quando alert
-        if (this.state === 'alert') {
+        // === COLLARE CON BORCHIE ===
+        ctx.fillStyle = '#2a0808';
+        ctx.fillRect(this.width - 18, this.height/2 + 2, 14, 5);
+        // Borchie metalliche
+        ctx.fillStyle = '#555555';
+        for (let s = 0; s < 4; s++) {
+            ctx.beginPath();
+            ctx.arc(this.width - 16 + s * 4, this.height/2 + 4.5, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Riflesso borchie
+        ctx.fillStyle = '#777777';
+        for (let s = 0; s < 4; s++) {
+            ctx.beginPath();
+            ctx.arc(this.width - 16.5 + s * 4, this.height/2 + 4, 0.7, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // === ESCLAMATIVO ===
+        if (isAlert) {
             ctx.fillStyle = '#cc2222';
-            ctx.font = 'bold 20px Arial';
-            ctx.fillText('!', this.width/2 - 4, -10);
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('!', this.width/2 - 5, -20);
+        }
+        
+        // === ONDE RINGHIO ===
+        if (isChasing && this.barkTimer % 30 < 10) {
+            ctx.strokeStyle = 'rgba(200, 60, 40, 0.3)';
+            ctx.lineWidth = 1.5;
+            for (let w = 0; w < 3; w++) {
+                const wr = 10 + w * 9 + Math.sin(CONFIG.time * 0.5) * 2;
+                ctx.beginPath();
+                ctx.arc(this.width + 22, this.height/2 + 2, wr, -0.5, 0.5);
+                ctx.stroke();
+            }
         }
 
         ctx.restore();
@@ -310,7 +563,7 @@ class Enemy {
 }
 
 // ============================================
-// GHOST - Animazione fantasma del gatto
+// GHOST - Fantasma del gatto che sale in alto
 // ============================================
 
 class GhostCat {
@@ -319,7 +572,7 @@ class GhostCat {
         this.y = y;
         this.startY = y;
         this.alpha = 1;
-        this.speed = 2;
+        this.speed = 2.5;
         this.wobble = 0;
         this.active = true;
         this.scale = 1;
@@ -328,22 +581,22 @@ class GhostCat {
     update() {
         if (!this.active) return;
         
-        // Sale verso il cielo
+        // Sale verso il cielo - più in alto, più veloce all'inizio
         this.y -= this.speed;
-        this.speed *= 0.995; // Rallenta un po'
+        this.speed *= 0.997;
         
         // Oscillazione laterale
-        this.wobble += 0.08;
-        this.x += Math.sin(this.wobble) * 1.5;
+        this.wobble += 0.06;
+        this.x += Math.sin(this.wobble) * 1.2;
         
-        // Sbiadisce
-        this.alpha -= 0.008;
+        // Sbiadisce lentamente
+        this.alpha -= 0.004;
         
         // Si rimpicciolisce leggermente
-        this.scale *= 0.998;
+        this.scale *= 0.999;
         
-        // Disattiva quando sparisce
-        if (this.alpha <= 0 || this.y < this.startY - 400) {
+        // Disattiva quando sparisce - sale molto più in alto (800px)
+        if (this.alpha <= 0 || this.y < this.startY - 800) {
             this.active = false;
         }
     }
@@ -356,30 +609,43 @@ class GhostCat {
         ctx.translate(this.x, this.y);
         ctx.scale(this.scale, this.scale);
         
-        // Alone di luce eterea
-        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 40);
-        glow.addColorStop(0, 'rgba(180, 200, 255, 0.3)');
-        glow.addColorStop(0.5, 'rgba(150, 180, 255, 0.1)');
+        // Alone eterea ampio
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
+        glow.addColorStop(0, 'rgba(180, 200, 255, 0.25)');
+        glow.addColorStop(0.3, 'rgba(150, 180, 255, 0.12)');
+        glow.addColorStop(0.7, 'rgba(120, 140, 220, 0.04)');
         glow.addColorStop(1, 'transparent');
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(0, 0, 40, 0, Math.PI * 2);
+        ctx.arc(0, 0, 50, 0, Math.PI * 2);
         ctx.fill();
         
-        // Corpo fantasma (trasparente, bluastro)
-        ctx.fillStyle = 'rgba(180, 200, 255, 0.6)';
-        
-        // Forma fantasma con ondulazione
+        // Corpo fantasma
+        ctx.fillStyle = 'rgba(180, 200, 255, 0.5)';
         ctx.beginPath();
         ctx.ellipse(0, -5, 16, 12, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Bordo ondulato sotto (effetto fantasma)
+        ctx.fillStyle = 'rgba(160, 180, 240, 0.35)';
+        ctx.beginPath();
+        ctx.moveTo(-16, 0);
+        for (let i = 0; i <= 8; i++) {
+            const wx = -16 + i * 4;
+            const wy = 5 + Math.sin(CONFIG.time * 0.2 + i * 0.8) * 4;
+            ctx.lineTo(wx, wy);
+        }
+        ctx.lineTo(16, 0);
+        ctx.closePath();
+        ctx.fill();
+        
         // Testa
+        ctx.fillStyle = 'rgba(180, 200, 255, 0.55)';
         ctx.beginPath();
         ctx.ellipse(10, -8, 12, 10, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Orecchie del gatto fantasma
+        // Orecchie
         ctx.beginPath();
         ctx.moveTo(3, -15);
         ctx.lineTo(-1, -28);
@@ -397,25 +663,30 @@ class GhostCat {
         ctx.beginPath();
         ctx.ellipse(8, -10, 3, 4, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(14, -10, 2.5, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
         
         // Coda fantasma ondulata
-        ctx.strokeStyle = 'rgba(180, 200, 255, 0.5)';
+        ctx.strokeStyle = 'rgba(180, 200, 255, 0.4)';
         ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(-14, -5);
-        const wave = Math.sin(CONFIG.time * 0.15) * 8;
-        ctx.quadraticCurveTo(-25, -15 + wave, -20, -30 + wave);
+        const wave = Math.sin(CONFIG.time * 0.12) * 10;
+        ctx.quadraticCurveTo(-25, -18 + wave, -18, -35 + wave);
         ctx.stroke();
         
-        // Scia di particelle verso l'alto
-        for (let i = 0; i < 5; i++) {
-            const px = Math.sin(CONFIG.time * 0.1 + i * 1.2) * 10;
-            const py = 15 + i * 10;
-            const palpha = (1 - i / 5) * 0.5;
+        // Scia di particelle più lunga
+        for (let i = 0; i < 8; i++) {
+            const px = Math.sin(CONFIG.time * 0.08 + i * 1.0) * 12;
+            const py = 12 + i * 12;
+            const palpha = (1 - i / 8) * 0.4;
+            const psize = 3 - i * 0.3;
             
-            ctx.fillStyle = `rgba(180, 200, 255, ${palpha})`;
+            ctx.fillStyle = `rgba(160, 180, 240, ${palpha})`;
             ctx.beginPath();
-            ctx.arc(px, py, 3 - i * 0.4, 0, Math.PI * 2);
+            ctx.arc(px, py, Math.max(0.5, psize), 0, Math.PI * 2);
             ctx.fill();
         }
         
