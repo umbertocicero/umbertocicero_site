@@ -71,6 +71,7 @@ class Food {
             case 'fishbone':
                 this.drawFishbone(ctx, drawX, drawY);
                 break;
+            case 'yarn':
             case 'can':
                 this.drawCan(ctx, drawX, drawY);
                 break;
@@ -169,39 +170,56 @@ class Food {
     }
     
     drawCan(ctx, x, y) {
-        // Scatoletta di tonno
-        const gradient = ctx.createLinearGradient(x, y, x + 30, y);
-        gradient.addColorStop(0, '#4a5a6a');
-        gradient.addColorStop(0.3, '#5a6a7a');
-        gradient.addColorStop(0.7, '#506070');
-        gradient.addColorStop(1, '#3a4a5a');
+        // Gomitolo di lana
+        const cx = x + 15;
+        const cy = y + 10;
+        const r = 10;
         
-        // Corpo
+        // Corpo gomitolo
+        const gradient = ctx.createRadialGradient(cx - 2, cy - 2, 0, cx, cy, r);
+        gradient.addColorStop(0, '#dd5577');
+        gradient.addColorStop(0.5, '#bb3355');
+        gradient.addColorStop(1, '#882244');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.roundRect(x, y + 2, 28, 16, 2);
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
         
-        // Top
-        ctx.fillStyle = '#6a7a8a';
+        // Linee di filo avvolto
+        ctx.strokeStyle = 'rgba(255, 120, 150, 0.5)';
+        ctx.lineWidth = 1;
+        // Filo orizzontale
         ctx.beginPath();
-        ctx.ellipse(x + 14, y + 3, 14, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Linguetta
-        ctx.fillStyle = '#6a9a6a';
+        ctx.ellipse(cx, cy, r - 1, 4, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        // Filo diagonale
         ctx.beginPath();
-        ctx.ellipse(x + 14, y + 3, 5, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, r - 1, 4, 0.8, 0, Math.PI * 2);
+        ctx.stroke();
+        // Filo diagonale 2
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, r - 1, 4, -0.8, 0, Math.PI * 2);
+        ctx.stroke();
+        // Filo verticale
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, 4, r - 1, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Riflesso
+        ctx.fillStyle = 'rgba(255, 200, 210, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(cx - 3, cy - 4, 4, 3, -0.3, 0, Math.PI * 2);
         ctx.fill();
         
-        // Etichetta
-        ctx.fillStyle = '#cc9933';
-        ctx.fillRect(x + 4, y + 8, 20, 6);
-        
-        // Scritta etichetta
-        ctx.fillStyle = '#553311';
-        ctx.font = '5px Arial';
-        ctx.fillText('TUNA', x + 6, y + 13);
+        // Filo che esce
+        ctx.strokeStyle = '#cc4466';
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx + r - 2, cy + 3);
+        ctx.quadraticCurveTo(cx + r + 8, cy - 2, cx + r + 5, cy + 10);
+        ctx.quadraticCurveTo(cx + r + 2, cy + 15, cx + r + 8, cy + 12);
+        ctx.stroke();
     }
     
     drawMilk(ctx, x, y) {
@@ -248,6 +266,7 @@ class Food {
         const points = {
             'fish': 10,
             'fishbone': 5,
+            'yarn': 15,
             'can': 15,
             'milk': 20
         };
@@ -257,7 +276,7 @@ class Food {
 
 // Factory per generare cibo casuale
 function createRandomFood(x, y) {
-    const types = ['fish', 'fishbone', 'can', 'milk'];
+    const types = ['fish', 'fishbone', 'yarn', 'milk'];
     const weights = [0.35, 0.35, 0.2, 0.1]; // Probabilità
     
     let random = Math.random();

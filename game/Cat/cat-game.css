@@ -24,6 +24,28 @@ body {
     border-radius: 8px;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.3);
     image-rendering: pixelated;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Mobile responsive */
+@media (max-width: 1250px) {
+    #gameCanvas {
+        width: 100vw;
+        height: auto;
+        border: none;
+        border-radius: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    #instructions {
+        font-size: 11px;
+        padding: 6px 12px;
+        bottom: 8px;
+    }
 }
 
 #instructions {

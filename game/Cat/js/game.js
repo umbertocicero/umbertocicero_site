@@ -19,6 +19,8 @@ let foods = [];
 let enemies = [];
 let ghosts = [];
 let moon;
+let lifePickups = [];
+let lifeSpawnTimer = 0;
 let gameOver = false;
 let gameWon = false;
 let clickRestart = false;
@@ -35,8 +37,8 @@ const LEVEL_THEMES = {
         buildingBase: '#141420',
         buildingLight: '#181825',
         groundColor: '#131316',
-        lampColor: { r: 200, g: 160, b: 100 },
-        lampIntensity: 0.5,
+        lampColor: { r: 220, g: 180, b: 120 },
+        lampIntensity: 0.8,
         moonColor: '#9999aa',
         starAlpha: 0.15,
         enemyCount: 5,
@@ -52,8 +54,8 @@ const LEVEL_THEMES = {
         buildingBase: '#10101a',
         buildingLight: '#141422',
         groundColor: '#0e0e14',
-        lampColor: { r: 180, g: 140, b: 80 },
-        lampIntensity: 0.45,
+        lampColor: { r: 200, g: 160, b: 100 },
+        lampIntensity: 0.7,
         moonColor: '#7777aa',
         starAlpha: 0.1,
         enemyCount: 7,
@@ -69,8 +71,8 @@ const LEVEL_THEMES = {
         buildingBase: '#1a0a10',
         buildingLight: '#201015',
         groundColor: '#140a0c',
-        lampColor: { r: 200, g: 100, b: 60 },
-        lampIntensity: 0.4,
+        lampColor: { r: 220, g: 120, b: 80 },
+        lampIntensity: 0.65,
         moonColor: '#aa6666',
         starAlpha: 0.08,
         enemyCount: 9,
@@ -86,8 +88,8 @@ const LEVEL_THEMES = {
         buildingBase: '#0a0a14',
         buildingLight: '#0e0e18',
         groundColor: '#08080c',
-        lampColor: { r: 140, g: 120, b: 180 },
-        lampIntensity: 0.35,
+        lampColor: { r: 160, g: 140, b: 200 },
+        lampIntensity: 0.55,
         moonColor: '#6666aa',
         starAlpha: 0.2,
         enemyCount: 12,
@@ -221,26 +223,12 @@ function generateEnemies() {
         ? currentBuildingData[0].x + currentBuildingData[0].width + 50 
         : 400;
     
-    // Cani a terra - NON nella zona di spawn
+    // Cani SOLO a terra - NON sui tetti, NON nella zona di spawn
     const spacing = Math.max(300, CONFIG.worldWidth / (theme.enemyCount + 2));
     for (let i = 0; i < theme.enemyCount; i++) {
         const x = safeZoneEnd + 100 + i * spacing + Math.random() * 100;
         if (x < CONFIG.worldWidth - 200) {
             const enemy = new Enemy(x, CONFIG.worldHeight - 82, 120 + Math.random() * 100);
-            enemy.speed = theme.enemySpeed;
-            enemy.chaseSpeed = theme.enemyChaseSpeed;
-            enemies.push(enemy);
-        }
-    }
-    
-    // Cani sui tetti (alcuni edifici) - mai sul primo edificio (spawn)
-    const rooftopCount = Math.min(5, Math.floor(CONFIG.level * 1.5));
-    for (let i = 0; i < rooftopCount; i++) {
-        const bi = 1 + Math.floor(Math.random() * (currentBuildingData.length - 1)); // Salta edificio 0
-        const b = currentBuildingData[bi];
-        if (b && b.width > 150) {
-            const roofY = CONFIG.worldHeight - 50 - b.height - 32;
-            const enemy = new Enemy(b.x + 30, roofY, b.width - 60);
             enemy.speed = theme.enemySpeed;
             enemy.chaseSpeed = theme.enemyChaseSpeed;
             enemies.push(enemy);
@@ -296,155 +284,89 @@ function drawBackground() {
 }
 
 // ============================================
-// LAMP LIGHTING - Illumina oggetti sotto
+// LAMP LIGHTING - Illuminazione naturale
 // ============================================
 function drawLampLighting() {
     const theme = getTheme();
+    const lc = theme.lampColor || { r: 220, g: 180, b: 120 };
+    
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
     
     for (const lamp of lamps) {
         const lx = lamp.x;
-        const ly = lamp.y + 25; // Punto luce
-        const brightness = lamp.flicker > 0 ? 0.2 : (theme.lampIntensity || 0.5);
-        const lc = theme.lampColor || { r: 200, g: 160, b: 100 };
+        const ly = lamp.y + 25;
+        const brightness = lamp.flicker > 0 ? 0.15 : (theme.lampIntensity || 0.8);
         
-        const coneHeight = 200;
-        const coneBottomW = 140;
+        // Luce radiale principale dal lampione
+        const radius = 250;
+        const lampGlow = ctx.createRadialGradient(lx, ly, 0, lx, ly, radius);
+        lampGlow.addColorStop(0, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${brightness * 0.35})`);
+        lampGlow.addColorStop(0.15, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${brightness * 0.25})`);
+        lampGlow.addColorStop(0.4, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${brightness * 0.12})`);
+        lampGlow.addColorStop(0.7, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${brightness * 0.04})`);
+        lampGlow.addColorStop(1, 'transparent');
         
-        // Area illuminata: rettangolo sotto il lampione
-        const lightLeft = lx - coneBottomW;
-        const lightRight = lx + coneBottomW;
-        const lightTop = ly;
-        const lightBottom = ly + coneHeight;
-
-        // Illumina le piattaforme sotto la luce
-        for (const p of platforms) {
-            if (p.x + p.width < lightLeft - CONFIG.cameraX || p.x > lightRight - CONFIG.cameraX) continue;
-            
-            // Calcola overlap con il cono di luce
-            const overlapLeft = Math.max(p.x, lightLeft);
-            const overlapRight = Math.min(p.x + p.width, lightRight);
-            const overlapTop = Math.max(p.y, lightTop);
-            const overlapBot = Math.min(p.y + p.height, lightBottom);
-            
-            if (overlapLeft < overlapRight && overlapTop < overlapBot) {
-                // Distanza dal centro del lampione
-                const midX = (overlapLeft + overlapRight) / 2;
-                const midY = (overlapTop + overlapBot) / 2;
-                const dx = midX - lx;
-                const dy = midY - ly;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const maxDist = Math.sqrt(coneBottomW * coneBottomW + coneHeight * coneHeight);
-                
-                // Intensità che cala con la distanza
-                const intensity = Math.max(0, 1 - dist / maxDist) * brightness * 0.35;
-                
-                if (intensity > 0.01) {
-                    ctx.fillStyle = `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${intensity})`;
-                    ctx.fillRect(overlapLeft, overlapTop, overlapRight - overlapLeft, overlapBot - overlapTop);
-                }
-            }
-        }
+        ctx.fillStyle = lampGlow;
+        ctx.beginPath();
+        ctx.arc(lx, ly, radius, 0, Math.PI * 2);
+        ctx.fill();
         
-        // Illumina cassonetti e fire-escape sotto la luce
-        for (const p of platforms) {
-            if (p.type === 'ground' || p.type === 'building') continue;
-            
-            const centerX = p.x + p.width / 2;
-            const centerY = p.y + p.height / 2;
-            
-            if (centerX > lightLeft && centerX < lightRight && centerY > lightTop && centerY < lightBottom) {
-                const dx = centerX - lx;
-                const dy = centerY - ly;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const maxDist = Math.sqrt(coneBottomW * coneBottomW + coneHeight * coneHeight);
-                const intensity = Math.max(0, 1 - dist / maxDist) * brightness * 0.25;
-                
-                if (intensity > 0.01) {
-                    // Alone attorno all'oggetto
-                    const glow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(p.width, p.height));
-                    glow.addColorStop(0, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${intensity})`);
-                    glow.addColorStop(1, 'transparent');
-                    ctx.fillStyle = glow;
-                    ctx.beginPath();
-                    ctx.ellipse(centerX, centerY, p.width * 0.8, p.height * 0.8, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        }
-        
-        // Illumina il gatto se sotto la luce
-        if (cat) {
-            const catCX = cat.x + cat.width / 2;
-            const catCY = cat.y + cat.height / 2;
-            
-            if (catCX > lightLeft && catCX < lightRight && catCY > lightTop && catCY < lightBottom) {
-                const dx = catCX - lx;
-                const dy = catCY - ly;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const maxDist = Math.sqrt(coneBottomW * coneBottomW + coneHeight * coneHeight);
-                const intensity = Math.max(0, 1 - dist / maxDist) * brightness * 0.5;
-                
-                if (intensity > 0.02) {
-                    const catGlow = ctx.createRadialGradient(catCX, catCY, 0, catCX, catCY, 30);
-                    catGlow.addColorStop(0, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${intensity})`);
-                    catGlow.addColorStop(1, 'transparent');
-                    ctx.fillStyle = catGlow;
-                    ctx.beginPath();
-                    ctx.arc(catCX, catCY, 30, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        }
-        
-        // Illumina nemici sotto la luce
-        for (const enemy of enemies) {
-            const eCX = enemy.x + enemy.width / 2;
-            const eCY = enemy.y + enemy.height / 2;
-            
-            if (eCX > lightLeft && eCX < lightRight && eCY > lightTop && eCY < lightBottom) {
-                const dx = eCX - lx;
-                const dy = eCY - ly;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const maxDist = Math.sqrt(coneBottomW * coneBottomW + coneHeight * coneHeight);
-                const intensity = Math.max(0, 1 - dist / maxDist) * brightness * 0.4;
-                
-                if (intensity > 0.02) {
-                    const eGlow = ctx.createRadialGradient(eCX, eCY, 0, eCX, eCY, 35);
-                    eGlow.addColorStop(0, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${intensity})`);
-                    eGlow.addColorStop(1, 'transparent');
-                    ctx.fillStyle = eGlow;
-                    ctx.beginPath();
-                    ctx.arc(eCX, eCY, 35, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        }
-        
-        // Illumina cibo sotto la luce
-        for (const food of foods) {
-            if (food.collected) continue;
-            const fCX = food.x + food.width / 2;
-            const fCY = food.y + food.height / 2;
-            
-            if (fCX > lightLeft && fCX < lightRight && fCY > lightTop && fCY < lightBottom) {
-                const dx = fCX - lx;
-                const dy = fCY - ly;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const maxDist = Math.sqrt(coneBottomW * coneBottomW + coneHeight * coneHeight);
-                const intensity = Math.max(0, 1 - dist / maxDist) * brightness * 0.35;
-                
-                if (intensity > 0.02) {
-                    const fGlow = ctx.createRadialGradient(fCX, fCY, 0, fCX, fCY, 20);
-                    fGlow.addColorStop(0, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${intensity})`);
-                    fGlow.addColorStop(1, 'transparent');
-                    ctx.fillStyle = fGlow;
-                    ctx.beginPath();
-                    ctx.arc(fCX, fCY, 20, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        }
+        // Cono di luce direzionale verso il basso (ellisse)
+        const coneGlow = ctx.createRadialGradient(lx, ly + 100, 0, lx, ly + 100, 200);
+        coneGlow.addColorStop(0, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${brightness * 0.2})`);
+        coneGlow.addColorStop(0.5, `rgba(${lc.r}, ${lc.g}, ${lc.b}, ${brightness * 0.08})`);
+        coneGlow.addColorStop(1, 'transparent');
+        ctx.fillStyle = coneGlow;
+        ctx.beginPath();
+        ctx.ellipse(lx, ly + 120, 180, 140, 0, 0, Math.PI * 2);
+        ctx.fill();
     }
+    
+    ctx.restore();
+}
+
+// ============================================
+// CAT LIGHT - Il gatto illumina la scena
+// ============================================
+function drawCatLight() {
+    if (!cat) return;
+    
+    const theme = getTheme();
+    const catCX = cat.x + cat.width / 2;
+    const catCY = cat.y + cat.height / 2;
+    
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    
+    // Luce ambientale del gatto - cerchio grande e morbido
+    const catRadius = 180;
+    const catLight = ctx.createRadialGradient(catCX, catCY, 0, catCX, catCY, catRadius);
+    catLight.addColorStop(0, 'rgba(255, 220, 150, 0.18)');
+    catLight.addColorStop(0.15, 'rgba(255, 200, 130, 0.12)');
+    catLight.addColorStop(0.35, 'rgba(240, 180, 100, 0.06)');
+    catLight.addColorStop(0.6, 'rgba(220, 160, 80, 0.025)');
+    catLight.addColorStop(1, 'transparent');
+    ctx.fillStyle = catLight;
+    ctx.beginPath();
+    ctx.arc(catCX, catCY, catRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Luce dagli occhi del gatto (più calda, concentrata davanti)
+    const eyeX = catCX + cat.facing * 15;
+    const eyeY = catCY - 5;
+    const eyeRadius = 100;
+    const eyeLight = ctx.createRadialGradient(eyeX, eyeY, 0, eyeX, eyeY, eyeRadius);
+    eyeLight.addColorStop(0, 'rgba(255, 200, 50, 0.12)');
+    eyeLight.addColorStop(0.3, 'rgba(255, 180, 40, 0.06)');
+    eyeLight.addColorStop(0.6, 'rgba(240, 160, 30, 0.02)');
+    eyeLight.addColorStop(1, 'transparent');
+    ctx.fillStyle = eyeLight;
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, eyeRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
 }
 
 // ============================================
@@ -627,6 +549,8 @@ function nextLevel() {
     foods = [];
     enemies = [];
     ghosts = [];
+    lifePickups = [];
+    lifeSpawnTimer = 0;
     CONFIG.time = 0;
     CONFIG.levelTransition = false;
     CONFIG.levelTransitionTimer = 0;
@@ -658,6 +582,8 @@ function restart() {
     foods = [];
     enemies = [];
     ghosts = [];
+    lifePickups = [];
+    lifeSpawnTimer = 0;
     CONFIG.score = 0;
     CONFIG.time = 0;
     CONFIG.level = 1;
@@ -733,10 +659,34 @@ function gameLoop() {
     for (const food of foods) food.update();
     for (const enemy of enemies) enemy.update(cat, platforms);
     for (const ghost of ghosts) ghost.update();
+    for (const lp of lifePickups) lp.update();
     
     // Pulisci fantasmi esauriti
     for (let i = ghosts.length - 1; i >= 0; i--) {
         if (!ghosts[i].active) ghosts.splice(i, 1);
+    }
+    
+    // Pulisci vite scadute
+    for (let i = lifePickups.length - 1; i >= 0; i--) {
+        if (!lifePickups[i].active) lifePickups.splice(i, 1);
+    }
+    
+    // Spawn vite a tempo
+    lifeSpawnTimer++;
+    const spawnInterval = Math.max(400, 900 - CONFIG.level * 100); // Più frequenti nei livelli alti
+    if (lifeSpawnTimer >= spawnInterval && cat.lives < 9) {
+        lifeSpawnTimer = 0;
+        spawnLifePickup();
+    }
+    
+    // Check life pickup collection
+    for (const lp of lifePickups) {
+        if (lp.active && lp.checkCollision(cat)) {
+            if (cat.lives < 9) {
+                cat.lives++;
+                lp.active = false;
+            }
+        }
     }
     
     // Check food collection
@@ -805,6 +755,9 @@ function gameLoop() {
         }
     }
     
+    // Life pickups
+    for (const lp of lifePickups) lp.draw(ctx);
+    
     // Food
     for (const food of foods) food.draw(ctx);
     
@@ -817,8 +770,11 @@ function gameLoop() {
     // Cat
     cat.draw(ctx);
     
-    // === LAMP LIGHTING: illumina tutto sotto la luce ===
+    // === LAMP LIGHTING: illuminazione naturale ===
     drawLampLighting();
+    
+    // === CAT LIGHT: il gatto illumina la scena ===
+    drawCatLight();
     
     // Ghosts (sopra tutto)
     for (const ghost of ghosts) ghost.draw(ctx);
@@ -840,6 +796,146 @@ function gameLoop() {
     drawUI();
 
     requestAnimationFrame(gameLoop);
+}
+
+// ============================================
+// LIFE PICKUPS - Vite a tempo
+// ============================================
+class LifePickup {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 24;
+        this.height = 24;
+        this.active = true;
+        this.lifetime = 600; // ~10 secondi a 60fps
+        this.timer = 0;
+        this.bobOffset = Math.random() * Math.PI * 2;
+        this.spawnTime = CONFIG.time;
+    }
+    
+    update() {
+        if (!this.active) return;
+        this.timer++;
+        this.bobOffset += 0.08;
+        
+        // Scade dopo il tempo
+        if (this.timer >= this.lifetime) {
+            this.active = false;
+        }
+    }
+    
+    draw(ctx) {
+        if (!this.active) return;
+        
+        const remaining = this.lifetime - this.timer;
+        const bobY = Math.sin(this.bobOffset) * 4;
+        const cx = this.x + this.width / 2;
+        const cy = this.y + this.height / 2 + bobY;
+        
+        // Lampeggia quando sta per scomparire
+        if (remaining < 150 && Math.floor(this.timer / 8) % 2 === 0) return;
+        
+        // Glow pulsante rosa/rosso
+        const pulse = 0.5 + Math.sin(this.bobOffset * 2) * 0.3;
+        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40);
+        glow.addColorStop(0, `rgba(255, 80, 80, ${pulse * 0.4})`);
+        glow.addColorStop(0.4, `rgba(255, 50, 50, ${pulse * 0.2})`);
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Cuore
+        const s = 1 + Math.sin(this.bobOffset * 2) * 0.1; // Pulsazione
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(s, s);
+        
+        ctx.fillStyle = '#dd3333';
+        ctx.beginPath();
+        ctx.moveTo(0, 4);
+        ctx.bezierCurveTo(-2, 0, -10, -2, -10, -7);
+        ctx.bezierCurveTo(-10, -12, -5, -14, 0, -10);
+        ctx.bezierCurveTo(5, -14, 10, -12, 10, -7);
+        ctx.bezierCurveTo(10, -2, 2, 0, 0, 4);
+        ctx.fill();
+        
+        // Riflesso
+        ctx.fillStyle = 'rgba(255, 150, 150, 0.5)';
+        ctx.beginPath();
+        ctx.ellipse(-4, -8, 3, 2, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Croce bianca (simbolo vita)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillRect(-1.5, -9, 3, 7);
+        ctx.fillRect(-3.5, -7, 7, 3);
+        
+        ctx.restore();
+        
+        // Barra tempo rimanente
+        const barW = 20;
+        const barH = 3;
+        const barX = cx - barW / 2;
+        const barY = cy + 16;
+        const pct = remaining / this.lifetime;
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barW, barH);
+        
+        const barColor = pct > 0.3 ? '#44cc44' : '#cc4444';
+        ctx.fillStyle = barColor;
+        ctx.fillRect(barX, barY, barW * pct, barH);
+    }
+    
+    checkCollision(cat) {
+        return cat.x < this.x + this.width &&
+               cat.x + cat.width > this.x &&
+               cat.y < this.y + this.height &&
+               cat.y + cat.height > this.y;
+    }
+}
+
+function spawnLifePickup() {
+    // Genera in posizioni raggiungibili: tetti, scale antincendio, o a terra
+    const locations = [];
+    
+    // Tetti degli edifici (escluso il primo - spawn)
+    for (let i = 1; i < currentBuildingData.length; i++) {
+        const b = currentBuildingData[i];
+        locations.push({
+            x: b.x + 30 + Math.random() * (b.width - 60),
+            y: CONFIG.worldHeight - 50 - b.height - 30
+        });
+    }
+    
+    // Scale antincendio
+    for (const fe of fireEscapes) {
+        for (const p of fe.getPlatforms()) {
+            locations.push({
+                x: p.x + 10 + Math.random() * 30,
+                y: p.y - 30
+            });
+        }
+    }
+    
+    // A terra (lontano dagli enemy)
+    for (let x = 400; x < CONFIG.worldWidth - 300; x += 500) {
+        let tooClose = false;
+        for (const e of enemies) {
+            if (Math.abs(e.x - x) < 200) { tooClose = true; break; }
+        }
+        if (!tooClose) {
+            locations.push({ x: x, y: CONFIG.worldHeight - 75 });
+        }
+    }
+    
+    if (locations.length > 0) {
+        const loc = locations[Math.floor(Math.random() * locations.length)];
+        lifePickups.push(new LifePickup(loc.x, loc.y));
+    }
 }
 
 // ============================================

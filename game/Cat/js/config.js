@@ -60,72 +60,126 @@ function setupInput() {
     });
 }
 
-// Mobile touch controls
+// Mobile touch controls - Ottimizzati per gameplay
 function setupMobileControls() {
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchStartTime = 0;
-    let isTouching = false;
-    
     const canvas = document.getElementById('gameCanvas');
+    
+    // Traccia i tocchi attivi (supporto multi-touch)
+    const activeTouches = {};
     
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        const touch = e.touches[0];
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-        touchStartTime = Date.now();
-        isTouching = true;
         
-        // Tocco nella metà sinistra = sinistra, destra = destra
         const rect = canvas.getBoundingClientRect();
-        const relX = touch.clientX - rect.left;
-        const midX = rect.width / 2;
         
-        if (relX < midX * 0.6) {
-            KEYS.left = true;
-        } else if (relX > midX * 1.4) {
-            KEYS.right = true;
+        for (const touch of e.changedTouches) {
+            const relX = (touch.clientX - rect.left) / rect.width;
+            const relY = (touch.clientY - rect.top) / rect.height;
+            
+            activeTouches[touch.identifier] = {
+                startX: touch.clientX,
+                startY: touch.clientY,
+                currentX: touch.clientX,
+                currentY: touch.clientY,
+                startTime: Date.now(),
+                relX: relX,
+                zone: relX < 0.33 ? 'left' : relX > 0.67 ? 'right' : 'center'
+            };
+            
+            // Zona sinistra dello schermo = muovi a sinistra
+            if (relX < 0.33) {
+                KEYS.left = true;
+            }
+            // Zona destra dello schermo = muovi a destra
+            else if (relX > 0.67) {
+                KEYS.right = true;
+            }
+            // Zona centrale = salta
+            else {
+                KEYS.space = true;
+            }
         }
     }, { passive: false });
     
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
-        if (!isTouching) return;
         
-        const touch = e.touches[0];
-        const dx = touch.clientX - touchStartX;
-        const dy = touch.clientY - touchStartY;
-        
-        // Swipe orizzontale
-        KEYS.left = false;
-        KEYS.right = false;
-        
-        if (Math.abs(dx) > 20) {
-            if (dx < 0) {
-                KEYS.left = true;
-            } else {
-                KEYS.right = true;
+        for (const touch of e.changedTouches) {
+            const data = activeTouches[touch.identifier];
+            if (!data) continue;
+            
+            data.currentX = touch.clientX;
+            data.currentY = touch.clientY;
+            
+            const dx = touch.clientX - data.startX;
+            const dy = touch.clientY - data.startY;
+            
+            // Swipe verso l'alto da qualsiasi zona = salta
+            if (dy < -40) {
+                KEYS.space = true;
             }
-        }
-        
-        // Swipe verso l'alto = salta
-        if (dy < -30) {
-            KEYS.space = true;
+            
+            // Se il tocco era nella zona centrale e si muove orizzontalmente
+            if (data.zone === 'center' && Math.abs(dx) > 30) {
+                if (dx < 0) {
+                    KEYS.left = true;
+                    KEYS.right = false;
+                } else {
+                    KEYS.right = true;
+                    KEYS.left = false;
+                }
+            }
         }
     }, { passive: false });
     
     canvas.addEventListener('touchend', (e) => {
-        // Tap rapido = salta
-        const elapsed = Date.now() - touchStartTime;
-        if (elapsed < 200 && !KEYS.left && !KEYS.right) {
-            KEYS.space = true;
-            setTimeout(() => { KEYS.space = false; }, 100);
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            const data = activeTouches[touch.identifier];
+            if (!data) continue;
+            
+            const elapsed = Date.now() - data.startTime;
+            const dx = Math.abs(touch.clientX - data.startX);
+            const dy = touch.clientY - data.startY;
+            
+            // Tap rapido senza movimento = salta
+            if (elapsed < 250 && dx < 15 && Math.abs(dy) < 15 && data.zone === 'center') {
+                KEYS.space = true;
+                setTimeout(() => { KEYS.space = false; }, 120);
+            }
+            
+            // Rilascia il tasto associato alla zona
+            if (data.zone === 'left') {
+                KEYS.left = false;
+            } else if (data.zone === 'right') {
+                KEYS.right = false;
+            }
+            
+            // Se non ci sono più tocchi nella zona, rilascia il salto
+            if (data.zone === 'center') {
+                KEYS.space = false;
+            }
+            
+            delete activeTouches[touch.identifier];
         }
         
+        // Verifica se restano tocchi attivi nelle zone
+        let hasLeft = false, hasRight = false;
+        for (const id in activeTouches) {
+            if (activeTouches[id].zone === 'left') hasLeft = true;
+            if (activeTouches[id].zone === 'right') hasRight = true;
+        }
+        if (!hasLeft) KEYS.left = false;
+        if (!hasRight) KEYS.right = false;
+    }, { passive: false });
+    
+    canvas.addEventListener('touchcancel', (e) => {
+        for (const touch of e.changedTouches) {
+            delete activeTouches[touch.identifier];
+        }
         KEYS.left = false;
         KEYS.right = false;
         KEYS.space = false;
-        isTouching = false;
     });
 }

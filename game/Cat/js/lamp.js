@@ -18,17 +18,17 @@ class Lamp {
     }
 
     draw(ctx) {
-        const brightness = this.flicker > 0 ? 0.3 : this.intensity;
+        const brightness = this.flicker > 0 ? 0.4 : this.intensity;
         
-        // Cono di luce
-        const coneHeight = 200;
-        const coneTopWidth = 20;
-        const coneBottomWidth = 140;
+        // Cono di luce - più luminoso
+        const coneHeight = 220;
+        const coneTopWidth = 25;
+        const coneBottomWidth = 160;
         
         const gradient = ctx.createLinearGradient(this.x, this.y + 25, this.x, this.y + 25 + coneHeight);
-        gradient.addColorStop(0, `rgba(200, 160, 100, ${brightness * 0.4})`);
-        gradient.addColorStop(0.2, `rgba(180, 140, 80, ${brightness * 0.25})`);
-        gradient.addColorStop(0.5, `rgba(160, 120, 60, ${brightness * 0.12})`);
+        gradient.addColorStop(0, `rgba(220, 180, 120, ${brightness * 0.7})`);
+        gradient.addColorStop(0.15, `rgba(200, 160, 100, ${brightness * 0.45})`);
+        gradient.addColorStop(0.4, `rgba(180, 140, 80, ${brightness * 0.2})`);
         gradient.addColorStop(1, 'transparent');
         
         ctx.fillStyle = gradient;
@@ -45,9 +45,9 @@ class Lamp {
             this.x, this.y + 25 + coneHeight - 30, 0, 
             this.x, this.y + 25 + coneHeight - 30, coneBottomWidth + 20
         );
-        groundGlow.addColorStop(0, `rgba(180, 150, 90, ${brightness * 0.15})`);
-        groundGlow.addColorStop(0.4, `rgba(160, 130, 70, ${brightness * 0.08})`);
-        groundGlow.addColorStop(0.7, `rgba(140, 110, 50, ${brightness * 0.03})`);
+        groundGlow.addColorStop(0, `rgba(200, 170, 110, ${brightness * 0.3})`);
+        groundGlow.addColorStop(0.4, `rgba(180, 150, 90, ${brightness * 0.15})`);
+        groundGlow.addColorStop(0.7, `rgba(160, 130, 70, ${brightness * 0.06})`);
         groundGlow.addColorStop(1, 'transparent');
         ctx.fillStyle = groundGlow;
         ctx.beginPath();
@@ -144,10 +144,10 @@ class Lamp {
         
         // Vetro illuminato
         if (this.flicker <= 0) {
-            const glassGlow = ctx.createRadialGradient(this.x, this.y + 17, 0, this.x, this.y + 17, 20);
-            glassGlow.addColorStop(0, `rgba(200, 180, 140, ${brightness * 0.8})`);
-            glassGlow.addColorStop(0.5, `rgba(180, 160, 110, ${brightness * 0.5})`);
-            glassGlow.addColorStop(1, `rgba(160, 140, 80, ${brightness * 0.2})`);
+            const glassGlow = ctx.createRadialGradient(this.x, this.y + 17, 0, this.x, this.y + 17, 25);
+            glassGlow.addColorStop(0, `rgba(255, 230, 180, ${Math.min(1, brightness * 1.2)})`);
+            glassGlow.addColorStop(0.4, `rgba(220, 190, 140, ${brightness * 0.7})`);
+            glassGlow.addColorStop(1, `rgba(180, 150, 100, ${brightness * 0.3})`);
             ctx.fillStyle = glassGlow;
         } else {
             ctx.fillStyle = 'rgba(180, 130, 70, 0.2)';

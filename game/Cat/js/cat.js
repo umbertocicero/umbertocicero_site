@@ -200,20 +200,23 @@ class Cat {
         ctx.ellipse(this.width/2, this.height + 2, 15, 5, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Glow contorno gatto (visibilità)
-        const catGlow = ctx.createRadialGradient(this.width/2, this.height/2, 5, this.width/2, this.height/2, 40);
-        catGlow.addColorStop(0, 'rgba(180, 160, 100, 0.12)');
+        // Glow contorno gatto - luce calda che illumina
+        const catGlow = ctx.createRadialGradient(this.width/2, this.height/2, 0, this.width/2, this.height/2, 60);
+        catGlow.addColorStop(0, 'rgba(255, 220, 150, 0.22)');
+        catGlow.addColorStop(0.25, 'rgba(240, 200, 120, 0.12)');
+        catGlow.addColorStop(0.5, 'rgba(220, 180, 100, 0.05)');
         catGlow.addColorStop(1, 'transparent');
         ctx.fillStyle = catGlow;
         ctx.beginPath();
-        ctx.arc(this.width/2, this.height/2, 40, 0, Math.PI * 2);
+        ctx.arc(this.width/2, this.height/2, 60, 0, Math.PI * 2);
         ctx.fill();
+
 
         // Coda
         ctx.save();
         ctx.translate(5, this.height/2);
         ctx.rotate(this.tailWag + Math.sin(CONFIG.time * 0.15) * 0.2);
-        ctx.fillStyle = '#2a2a2e';
+        ctx.fillStyle = '#333338';
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.quadraticCurveTo(-15, -20 + Math.sin(CONFIG.time * 0.1) * 5, -10, -35);
@@ -223,21 +226,21 @@ class Cat {
         ctx.restore();
 
         // Corpo
-        ctx.fillStyle = '#2a2a2e';
+        ctx.fillStyle = '#333338';
         ctx.beginPath();
         ctx.ellipse(this.width/2, this.height/2 + 5, 18, 12, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Zampe
         const legOffset = this.state === 'walk' ? Math.sin(this.animFrame * Math.PI / 2) * 3 : 0;
-        ctx.fillStyle = '#222226';
+        ctx.fillStyle = '#2d2d32';
         ctx.fillRect(8, this.height - 8 + legOffset, 6, 10);
         ctx.fillRect(14, this.height - 8 - legOffset, 6, 10);
         ctx.fillRect(this.width - 18, this.height - 8 - legOffset, 6, 10);
         ctx.fillRect(this.width - 12, this.height - 8 + legOffset, 6, 10);
 
         // Testa
-        ctx.fillStyle = '#2a2a2e';
+        ctx.fillStyle = '#333338';
         ctx.beginPath();
         ctx.ellipse(this.width - 8, this.height/2 - 2, 14, 12, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -265,16 +268,17 @@ class Cat {
 
         // Occhi - glow ambra brillante
         if (this.eyeBlink < 3) {
-            // Glow occhio
-            const eyeGlow = ctx.createRadialGradient(this.width - 4, this.height/2 - 3, 0, this.width - 4, this.height/2 - 3, 10);
-            eyeGlow.addColorStop(0, 'rgba(255, 180, 0, 0.35)');
+            // Glow occhio - molto luminoso
+            const eyeGlow = ctx.createRadialGradient(this.width - 4, this.height/2 - 3, 0, this.width - 4, this.height/2 - 3, 16);
+            eyeGlow.addColorStop(0, 'rgba(255, 200, 0, 0.5)');
+            eyeGlow.addColorStop(0.5, 'rgba(255, 160, 0, 0.2)');
             eyeGlow.addColorStop(1, 'transparent');
             ctx.fillStyle = eyeGlow;
             ctx.beginPath();
-            ctx.arc(this.width - 4, this.height/2 - 3, 10, 0, Math.PI * 2);
+            ctx.arc(this.width - 4, this.height/2 - 3, 16, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.fillStyle = '#ddaa00';
+            ctx.fillStyle = '#ffbb00';
             ctx.beginPath();
             ctx.ellipse(this.width - 4, this.height/2 - 3, 4, 5, 0, 0, Math.PI * 2);
             ctx.fill();
@@ -298,7 +302,7 @@ class Cat {
         }
 
         // Naso
-        ctx.fillStyle = '#aa4444';
+        ctx.fillStyle = '#cc5555';
         ctx.beginPath();
         ctx.moveTo(this.width + 4, this.height/2);
         ctx.lineTo(this.width + 1, this.height/2 + 3);
@@ -306,7 +310,7 @@ class Cat {
         ctx.fill();
 
         // Baffi
-        ctx.strokeStyle = '#4a4a4a';
+        ctx.strokeStyle = '#666666';
         ctx.lineWidth = 1;
         for (let i = 0; i < 3; i++) {
             const y = this.height/2 + 2 + i * 3;

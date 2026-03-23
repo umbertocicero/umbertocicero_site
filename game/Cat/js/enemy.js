@@ -521,24 +521,6 @@ class Enemy {
             ctx.fill();
         }
         
-        // === COLLARE CON BORCHIE ===
-        ctx.fillStyle = '#2a0808';
-        ctx.fillRect(this.width - 18, this.height/2 + 2, 14, 5);
-        // Borchie metalliche
-        ctx.fillStyle = '#555555';
-        for (let s = 0; s < 4; s++) {
-            ctx.beginPath();
-            ctx.arc(this.width - 16 + s * 4, this.height/2 + 4.5, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        // Riflesso borchie
-        ctx.fillStyle = '#777777';
-        for (let s = 0; s < 4; s++) {
-            ctx.beginPath();
-            ctx.arc(this.width - 16.5 + s * 4, this.height/2 + 4, 0.7, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
         // === ESCLAMATIVO ===
         if (isAlert) {
             ctx.fillStyle = '#cc2222';
