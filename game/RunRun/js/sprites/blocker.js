@@ -21,7 +21,9 @@ export function spawnBlocker() {
 }
 
 export function allBlockersOut() {
-  return blockers.length === 0 || blockers.every(b => screen.W - b.x > b.w * 2);
+  if (blockers.length === 0) return true;
+  const minGap = screen.W * 0.35;
+  return blockers.every(b => b.x + b.w < screen.W - minGap);
 }
 
 /* ── Update ── */

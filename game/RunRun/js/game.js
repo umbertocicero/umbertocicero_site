@@ -3,7 +3,7 @@
    ========================================================================== */
 
 import { CFG, STATUS, canvas, ctx, screen, dp, resize, randRange } from './core/config.js';
-import { loadAllAssets, loadAtlas, playSound, toggleSound } from './core/assets.js';
+import { loadAllAssets, loadAtlas, playSound, toggleSound, ensureAudioCtx, startMusic, stopMusic, isMusicPlaying } from './core/assets.js';
 import { setAtlas, initMan, manIsDown, manTap, manHitBox, updateMan, drawMan } from './sprites/player.js';
 import { initSchool, updateSchool, drawSchool, drawSchoolFront } from './sprites/school.js';
 import { resetBlockers, spawnBlocker, allBlockersOut, updateBlockers, drawBlockers } from './sprites/blocker.js';
@@ -37,6 +37,18 @@ let splashTimer     = 0;
 const SPLASH_LIFE   = 500;
 
 let selectedChar = localStorage.getItem('rr_char') || 'man';
+
+/* ── Per-character sound mapping (mirrors Android AudioManager.initSfx) ── */
+const CHAR_SOUNDS = {
+  man:    { ouch: 'ouch',         wow: 'wow',         heart: 'yuppie' },
+  girl:   { ouch: 'girl_ouch',    wow: 'girl_wow',    heart: 'girl_yuppie' },
+  dragon: { ouch: 'dragon_ouch',  wow: 'dragon_wow',  heart: 'dragon_yuppie' },
+};
+
+function charSound(type) {
+  const map = CHAR_SOUNDS[selectedChar] || CHAR_SOUNDS.man;
+  return map[type] || type;
+}
 
 /* ── Spawn schedulers ── */
 let nextBlockerAt  = 0;
@@ -74,20 +86,20 @@ function onGetPoint(pts) {
 function onGetHeart() {
   if (currentHeart < CFG.MAX_HEARTS) {
     currentHeart++;
-    playSound('wing', 0.6);
+    playSound(charSound('heart'), 0.6);
   }
 }
 
 function onGetMultiplier() {
   multiplier++;
-  playSound('wow', 0.5);
+  playSound(charSound('wow'), 0.5);
 }
 
 function onGetBonus(idx) {
   currentPoint += (idx + 1) * 5;
   if (!isBonusActive()) bonusTime = performance.now();
   if (bonusUnlocked < 4) bonusUnlocked++;
-  playSound('wow', 0.5);
+  playSound(charSound('wow'), 0.5);
 }
 
 /* ──────────────── RESTART ──────────────── */
@@ -147,6 +159,7 @@ function resumeFromPause() {
   paused        = false;
   currentStatus = STATUS.NORMAL;
   playSound('bel');
+  if (!isMusicPlaying()) startMusic('music', 0.3);
 }
 
 /* ──────────────── UPDATE ──────────────── */
@@ -194,11 +207,12 @@ function update(now) {
       hitTime = performance.now();
       currentHeart--;
       multiplier = 1;
-      playSound('ouch');
+      playSound(charSound('ouch'));
     } else {
       currentStatus = STATUS.GAME_OVER;
       splashTimer   = 0;
       splashAlpha   = 1;
+      stopMusic();
       playSound('die');
       if (currentPoint > highestScore) {
         highestScore = currentPoint;
@@ -210,7 +224,7 @@ function update(now) {
   /* ── Spawning ── */
   const nowMs = now;
 
-  if (nowMs >= nextBlockerAt && allCoinsOut() && allHeartsOut() && allBonusesOut() && allDiamondsOut()) {
+  if (nowMs >= nextBlockerAt && allBlockersOut() && allCoinsOut() && allHeartsOut() && allBonusesOut() && allDiamondsOut()) {
     nextBlockerAt = nowMs + randRange(CFG.BLOCKER_SPAWN_MIN, CFG.BLOCKER_SPAWN_MAX);
     if (!bonusActive) spawnBlocker();
   }
@@ -271,7 +285,10 @@ function draw() {
 }
 
 /* ──────────────── GAME LOOP ──────────────── */
+let loopRunning = false;
+
 function gameLoop(ts) {
+  if (!loopRunning) return;
   resize();
   if (!paused) {
     update(ts);
@@ -309,24 +326,24 @@ function handleTap(x, y) {
       break;
 
     case STATUS.NORMAL: {
-      let jumpSound = false;
       if (manIsDown(true)) {
         allowSecondJump = true;
         manTap(false);
-        jumpSound = true;
+        playSound('jump', 0.6);
       } else if (allowSecondJump) {
         allowSecondJump = false;
         manTap(true);
-        jumpSound = true;
+        playSound('jump2', 0.6);
       }
-      if (jumpSound) playSound('wing', 0.6);
       break;
     }
 
     case STATUS.GAME_OVER:
       if (hitTest(x, y, reloadBtnRect())) {
         playSound('swooshing');
-        restart();
+        stopMusic();
+        loopRunning = false;
+        charSelectEl.classList.remove('hidden');
       }
       break;
   }
@@ -359,10 +376,13 @@ document.querySelectorAll('.char-btn').forEach(btn => {
 });
 
 startBtn.addEventListener('click', async () => {
+  ensureAudioCtx();                                 // unlock audio on user gesture
   localStorage.setItem('rr_char', selectedChar);
   setAtlas(await loadAtlas(selectedChar));
   charSelectEl.classList.add('hidden');
   restart();
+  loopRunning = true;
+  lastFrameTime = 0;
   requestAnimationFrame(gameLoop);
 });
 
@@ -371,6 +391,7 @@ startBtn.addEventListener('click', async () => {
   // Try to lock to landscape on mobile
   try { await window.screen.orientation?.lock?.('landscape'); } catch (e) { /* not supported or denied */ }
 
+  ensureAudioCtx();       // create AudioContext early so decodeAudioData works during loading
   await loadAllAssets();
   const saved = localStorage.getItem('rr_char') || 'man';
   document.querySelectorAll('.char-btn').forEach(b => {

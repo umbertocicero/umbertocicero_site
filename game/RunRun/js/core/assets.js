@@ -5,11 +5,37 @@
 import { ctx } from './config.js';
 
 export const ASSETS  = {};
-export const SOUNDS  = {};
 export let assetsLoaded = false;
 export let soundEnabled = true;
 
-export function toggleSound() { soundEnabled = !soundEnabled; }
+/* ══════════════════════════════════════════════════════════════════════
+   Web Audio API  —  zero-latency pre-decoded buffer playback
+   ══════════════════════════════════════════════════════════════════════ */
+let audioCtx   = null;
+let masterGain = null;
+let musicGain  = null;
+const BUFFERS  = {};              // name → AudioBuffer (pre-decoded)
+let musicSource = null;           // current background music source node
+let musicPlaying = false;
+
+/** Create / resume AudioContext (must be called from a user gesture) */
+export function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.connect(audioCtx.destination);
+    musicGain  = audioCtx.createGain();
+    musicGain.gain.value = 0.35;          // music quieter than SFX
+    musicGain.connect(masterGain);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+export function toggleSound() {
+  soundEnabled = !soundEnabled;
+  if (masterGain) masterGain.gain.value = soundEnabled ? 1 : 0;
+}
 
 /* ── Loaders ── */
 function loadImage(name, src) {
@@ -23,28 +49,53 @@ function loadImage(name, src) {
 
 function loadSound(name, src) {
   return new Promise(res => {
-    try {
-      const a = new Audio(src);
-      a.preload = 'auto';
-      SOUNDS[name] = a;
-      a.addEventListener('canplaythrough', () => res(), { once: true });
-      a.addEventListener('error', () => { console.warn('Sound fail', src); res(); }, { once: true });
-      setTimeout(res, 3000);
-    } catch (e) { res(); }
+    fetch(src)
+      .then(r => r.arrayBuffer())
+      .then(buf => {
+        const ctx = ensureAudioCtx();
+        return ctx.decodeAudioData(buf);
+      })
+      .then(decoded => { BUFFERS[name] = decoded; res(); })
+      .catch(() => { console.warn('Sound fail', src); res(); });
   });
 }
 
-/* ── Playback ── */
+/* ── Playback (SFX — fire-and-forget, zero latency) ── */
 export function playSound(name, vol = 0.5) {
-  if (!soundEnabled) return;
-  const s = SOUNDS[name];
-  if (!s) return;
+  if (!soundEnabled || !audioCtx || !BUFFERS[name]) return;
   try {
-    const c = s.cloneNode();
-    c.volume = vol;
-    c.play().catch(() => {});
+    const src  = audioCtx.createBufferSource();
+    src.buffer = BUFFERS[name];
+    const gain = audioCtx.createGain();
+    gain.gain.value = vol;
+    src.connect(gain).connect(masterGain);
+    src.start(0);
   } catch (e) { /* swallow */ }
 }
+
+/* ── Music (looping background track) ── */
+export function startMusic(name, vol = 0.35) {
+  if (!audioCtx || !BUFFERS[name]) return;
+  stopMusic();
+  musicGain.gain.value = vol;
+  musicSource = audioCtx.createBufferSource();
+  musicSource.buffer = BUFFERS[name];
+  musicSource.loop   = true;
+  musicSource.connect(musicGain);
+  musicSource.start(0);
+  musicPlaying = true;
+}
+
+export function stopMusic() {
+  if (musicSource) {
+    try { musicSource.stop(); } catch (e) { /* already stopped */ }
+    musicSource.disconnect();
+    musicSource = null;
+  }
+  musicPlaying = false;
+}
+
+export function isMusicPlaying() { return musicPlaying; }
 
 /* ── Bulk loader ── */
 export async function loadAllAssets() {
@@ -86,9 +137,23 @@ export async function loadAllAssets() {
     ['point',     `${P}audio/sfx_point.ogg`],
     ['swooshing', `${P}audio/sfx_swooshing.ogg`],
     ['wing',      `${P}audio/sfx_wing.ogg`],
-    ['ouch',      `${P}audio/ouch.mp3`],
-    ['wow',       `${P}audio/wow.wav`],
-    ['bel',       `${P}audio/school_bel.mp3`],
+    ['ouch',           `${P}audio/ouch.mp3`],
+    ['wow',            `${P}audio/wow.wav`],
+    ['yuppie',         `${P}audio/yuppie.wav`],
+    ['bel',            `${P}audio/school_bel.mp3`],
+    /* ── Soundtrack ── */
+    ['music',          `${P}audio/pixel_power.mp3`],
+    /* ── Girl character sounds ── */
+    ['girl_wow',       `${P}audio/girl_wow.m4a`],
+    ['girl_ouch',      `${P}audio/girl_ouch.mp4`],
+    ['girl_yuppie',    `${P}audio/girl_yuppie.mp4`],
+    /* ── Dragon character sounds ── */
+    ['dragon_wow',     `${P}audio/dragon_wow.mp4`],
+    ['dragon_ouch',    `${P}audio/dragon_ouch.mp4`],
+    ['dragon_yuppie',  `${P}audio/dragon_yuppie.mp4`],
+    /* ── Jump variants ── */
+    ['jump',           `${P}audio/jump.mp4`],
+    ['jump2',          `${P}audio/jump2.mp4`],
   ];
 
   await Promise.all([

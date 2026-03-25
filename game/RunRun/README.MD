@@ -5,7 +5,7 @@ Retro pixel-art endless runner, ported from the original Android game **Run Run 
 ## 🎮 How to play
 
 | Action | Mobile | Desktop |
-|--------|--------|---------|
+| ------ | ------ | ------- |
 | Jump | Tap screen | `Space` / `↑` |
 | Double jump | Tap again mid-air | `Space` / `↑` mid-air |
 | Pause | Tap ⏸ button | Tap ⏸ button |
@@ -66,7 +66,7 @@ game/RunRun/
 ## 🎯 Game mechanics (from Android source)
 
 | Mechanic | Value |
-|----------|-------|
+| -------- | ----- |
 | Max lives | 3 |
 | Ghost duration | 3 s |
 | Bonus duration | 3.5 s |
@@ -84,6 +84,7 @@ game/RunRun/
 ## 📱 Mobile support
 
 The game is designed mobile-first:
+
 - Forces **landscape orientation** (CSS `@media (orientation: portrait)` shows a rotate prompt, plus `screen.orientation.lock('landscape')` API)
 - Full-screen canvas with `touch-action: none`
 - Apple/Chrome mobile webapp capable meta tags
@@ -91,4 +92,4 @@ The game is designed mobile-first:
 
 ## 🔗 Credits
 
-Ported from the Android app **Run Run 8-bit** by Umberto Cicero.
+AI Ported from the Android app **Run Run 8-bit** by Umberto Cicero.
