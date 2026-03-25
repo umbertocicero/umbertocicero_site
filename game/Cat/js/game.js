@@ -483,25 +483,22 @@ function drawMobileControls() {
 
     const joy = TOUCH_CTRL.joy;
     const jmp = TOUCH_CTRL.jump;
-    const up  = TOUCH_CTRL.up;
     const t   = CONFIG.time;
 
     ctx.save();
-    ctx.globalAlpha = 0.45;
+    ctx.globalAlpha = 0.4;
 
     // ── JOYSTICK BASE ──
-    // Outer ring
     ctx.beginPath();
     ctx.arc(joy.baseX, joy.baseY, joy.radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
     ctx.stroke();
 
     // Direction hints (small arrows)
-    const hintAlpha = 0.25;
-    ctx.fillStyle = `rgba(255,255,255,${hintAlpha})`;
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -520,22 +517,22 @@ function drawMobileControls() {
     );
     stickGrad.addColorStop(0, `rgba(255,255,255,${stickGlow + 0.15})`);
     stickGrad.addColorStop(0.7, `rgba(255,255,255,${stickGlow})`);
-    stickGrad.addColorStop(1, `rgba(255,255,255,${stickGlow * 0.5})`);
+    stickGrad.addColorStop(1, `rgba(255,255,255,${stickGlow * 0.4})`);
     ctx.fillStyle = stickGrad;
     ctx.fill();
     ctx.lineWidth = 2;
     ctx.strokeStyle = `rgba(255,255,255,${stickGlow + 0.1})`;
     ctx.stroke();
 
-    // ── JUMP BUTTON ──
-    const jmpPulse = jmp.pressed ? 0.5 : (0.18 + Math.sin(t * 0.08) * 0.04);
-    const jmpR = jmp.radius + (jmp.pressed ? 3 : 0);
+    // ── JUMP BUTTON (single, big) ──
+    const jmpPulse = jmp.pressed ? 0.55 : (0.18 + Math.sin(t * 0.08) * 0.04);
+    const jmpR = jmp.radius + (jmp.pressed ? 4 : 0);
 
-    // Glow ring
+    // Flash on tap
     if (jmp.flash > 0) {
         jmp.flash--;
         ctx.beginPath();
-        ctx.arc(jmp.x, jmp.y, jmpR + 10, 0, Math.PI * 2);
+        ctx.arc(jmp.x, jmp.y, jmpR + 14, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(100,200,255,${jmp.flash * 0.06})`;
         ctx.fill();
     }
@@ -545,54 +542,20 @@ function drawMobileControls() {
     const jmpGrad = ctx.createRadialGradient(jmp.x, jmp.y, 0, jmp.x, jmp.y, jmpR);
     jmpGrad.addColorStop(0, `rgba(80,180,255,${jmpPulse + 0.1})`);
     jmpGrad.addColorStop(0.6, `rgba(60,140,220,${jmpPulse})`);
-    jmpGrad.addColorStop(1, `rgba(40,100,180,${jmpPulse * 0.6})`);
+    jmpGrad.addColorStop(1, `rgba(40,100,180,${jmpPulse * 0.5})`);
     ctx.fillStyle = jmpGrad;
     ctx.fill();
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = `rgba(120,200,255,${jmpPulse + 0.08})`;
     ctx.stroke();
 
-    // Jump icon (arrow up)
-    ctx.globalAlpha = jmp.pressed ? 0.9 : 0.6;
+    // Jump label
+    ctx.globalAlpha = jmp.pressed ? 0.95 : 0.65;
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${jmp.pressed ? 22 : 20}px Arial`;
+    ctx.font = `bold ${jmp.pressed ? 26 : 22}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⬆', jmp.x, jmp.y - 1);
-    ctx.globalAlpha = 0.45;
-
-    // ── UP / CLIMB BUTTON ──
-    const upPulse = up.pressed ? 0.45 : 0.14;
-    const upR = up.radius + (up.pressed ? 2 : 0);
-
-    if (up.flash > 0) {
-        up.flash--;
-        ctx.beginPath();
-        ctx.arc(up.x, up.y, upR + 8, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(100,255,150,${up.flash * 0.05})`;
-        ctx.fill();
-    }
-
-    ctx.beginPath();
-    ctx.arc(up.x, up.y, upR, 0, Math.PI * 2);
-    const upGrad = ctx.createRadialGradient(up.x, up.y, 0, up.x, up.y, upR);
-    upGrad.addColorStop(0, `rgba(80,220,130,${upPulse + 0.08})`);
-    upGrad.addColorStop(0.6, `rgba(60,180,100,${upPulse})`);
-    upGrad.addColorStop(1, `rgba(40,140,80,${upPulse * 0.5})`);
-    ctx.fillStyle = upGrad;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = `rgba(100,230,150,${upPulse + 0.06})`;
-    ctx.stroke();
-
-    // Climb icon
-    ctx.globalAlpha = up.pressed ? 0.85 : 0.55;
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${up.pressed ? 16 : 14}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🐾', up.x, up.y);
-    ctx.globalAlpha = 0.45;
 
     ctx.restore();
 }

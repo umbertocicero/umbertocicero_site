@@ -75,28 +75,17 @@ const TOUCH_CTRL = {
     active: false,           // true once setupMobileControls runs
     // Joystick state (left side of screen)
     joy: {
-        // base position (set on first touch / resize)
         baseX: 0, baseY: 0,
-        // current stick position
         stickX: 0, stickY: 0,
-        radius: 50,           // base circle radius
-        stickRadius: 28,      // moveable stick radius
+        radius: 54,           // base circle radius
+        stickRadius: 30,      // moveable stick radius
         touchId: null,
         pressed: false
     },
-    // Jump button (right side of screen)
+    // Jump button (right side of screen) — single big button
     jump: {
         x: 0, y: 0,
-        radius: 38,
-        touchId: null,
-        pressed: false,
-        // visual feedback timer
-        flash: 0
-    },
-    // Up‑arrow button (right side, above jump)
-    up: {
-        x: 0, y: 0,
-        radius: 28,
+        radius: 46,           // bigger for easy thumb reach
         touchId: null,
         pressed: false,
         flash: 0
@@ -122,10 +111,6 @@ function layoutTouchControls() {
     // Jump — bottom‑right
     TOUCH_CTRL.jump.x = vw - pad - TOUCH_CTRL.jump.radius - 10;
     TOUCH_CTRL.jump.y = bottom;
-
-    // Up (climb) — above jump button
-    TOUCH_CTRL.up.x = TOUCH_CTRL.jump.x;
-    TOUCH_CTRL.up.y = TOUCH_CTRL.jump.y - TOUCH_CTRL.jump.radius - TOUCH_CTRL.up.radius - 18;
 }
 
 function setupMobileControls() {
@@ -156,10 +141,9 @@ function setupMobileControls() {
             const p = pageToLogical(touch.clientX, touch.clientY);
             const joy = TOUCH_CTRL.joy;
             const jmp = TOUCH_CTRL.jump;
-            const up  = TOUCH_CTRL.up;
 
-            // 1) Check jump button first
-            if (jmp.touchId === null && dist(p.x, p.y, jmp.x, jmp.y) < jmp.radius * 1.6) {
+            // 1) Check jump button first (generous hit area)
+            if (jmp.touchId === null && dist(p.x, p.y, jmp.x, jmp.y) < jmp.radius * 1.5) {
                 jmp.touchId = touch.identifier;
                 jmp.pressed = true;
                 jmp.flash = 6;
@@ -167,16 +151,7 @@ function setupMobileControls() {
                 continue;
             }
 
-            // 2) Check up button
-            if (up.touchId === null && dist(p.x, p.y, up.x, up.y) < up.radius * 1.6) {
-                up.touchId = touch.identifier;
-                up.pressed = true;
-                up.flash = 6;
-                KEYS.up = true;
-                continue;
-            }
-
-            // 3) Left half of screen → joystick
+            // 2) Left half of screen → joystick
             if (joy.touchId === null && p.x < CONFIG.canvasWidth * 0.5) {
                 joy.touchId = touch.identifier;
                 joy.pressed = true;
@@ -228,12 +203,10 @@ function setupMobileControls() {
         for (const touch of e.changedTouches) {
             const joy = TOUCH_CTRL.joy;
             const jmp = TOUCH_CTRL.jump;
-            const up  = TOUCH_CTRL.up;
 
             if (touch.identifier === joy.touchId) {
                 joy.touchId = null;
                 joy.pressed = false;
-                // recenter stick
                 joy.stickX = joy.baseX;
                 joy.stickY = joy.baseY;
                 KEYS.left = false;
@@ -246,11 +219,6 @@ function setupMobileControls() {
                 jmp.pressed = false;
                 KEYS.space = false;
             }
-            if (touch.identifier === up.touchId) {
-                up.touchId = null;
-                up.pressed = false;
-                KEYS.up = false;
-            }
         }
     }, { passive: false });
 
@@ -258,7 +226,6 @@ function setupMobileControls() {
         for (const touch of e.changedTouches) {
             if (touch.identifier === TOUCH_CTRL.joy.touchId)  { TOUCH_CTRL.joy.touchId = null;  TOUCH_CTRL.joy.pressed = false; }
             if (touch.identifier === TOUCH_CTRL.jump.touchId) { TOUCH_CTRL.jump.touchId = null; TOUCH_CTRL.jump.pressed = false; }
-            if (touch.identifier === TOUCH_CTRL.up.touchId)   { TOUCH_CTRL.up.touchId = null;   TOUCH_CTRL.up.pressed = false; }
         }
         KEYS.left = KEYS.right = KEYS.up = KEYS.down = KEYS.space = false;
     });
