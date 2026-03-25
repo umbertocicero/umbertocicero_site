@@ -5,8 +5,46 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-canvas.width = CONFIG.canvasWidth;
-canvas.height = CONFIG.canvasHeight;
+// ============================================
+// DYNAMIC RESIZE + ZOOM
+// ============================================
+function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+
+    // Zoom: on mobile the world is rendered bigger so the cat fills
+    // more of the screen (tighter camera). Desktop stays 1:1.
+    const zoom = CONFIG.baseZoom;
+    CONFIG.zoom = zoom;
+
+    // The "logical" game viewport (how much of the world we see)
+    // shrinks when zoom > 1 → everything looks bigger.
+    const logicalW = Math.round(screenW / zoom);
+    const logicalH = Math.round(screenH / zoom);
+
+    CONFIG.canvasWidth = logicalW;
+    CONFIG.canvasHeight = logicalH;
+
+    // Physical (pixel) size for crisp rendering on high-DPI screens
+    canvas.width  = Math.round(screenW * dpr);
+    canvas.height = Math.round(screenH * dpr);
+
+    // CSS size = screen size
+    canvas.style.width  = screenW + 'px';
+    canvas.style.height = screenH + 'px';
+
+    // Scale context so we draw in logical coords and it fills the screen
+    ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, 0, 0);
+}
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Try to lock orientation on supported browsers
+if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(() => {});
+}
 
 // Game objects
 let cat;
@@ -240,14 +278,16 @@ function generateEnemies() {
 // CAMERA
 // ============================================
 function updateCamera() {
-    const targetX = cat.x - canvas.width / 2 + cat.width / 2;
-    const targetY = cat.y - canvas.height / 2 + cat.height / 2;
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
+    const targetX = cat.x - vw / 2 + cat.width / 2;
+    const targetY = cat.y - vh / 2 + cat.height / 2;
     
     CONFIG.cameraX += (targetX - CONFIG.cameraX) * 0.08;
     CONFIG.cameraY += (targetY - CONFIG.cameraY) * 0.08;
     
-    CONFIG.cameraX = Math.max(0, Math.min(CONFIG.cameraX, CONFIG.worldWidth - canvas.width));
-    CONFIG.cameraY = Math.max(0, Math.min(CONFIG.cameraY, CONFIG.worldHeight - canvas.height));
+    CONFIG.cameraX = Math.max(0, Math.min(CONFIG.cameraX, CONFIG.worldWidth - vw));
+    CONFIG.cameraY = Math.max(0, Math.min(CONFIG.cameraY, CONFIG.worldHeight - vh));
 }
 
 // ============================================
@@ -256,12 +296,14 @@ function updateCamera() {
 function drawBackground() {
     const theme = getTheme();
     
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
+    const gradient = ctx.createLinearGradient(0, 0, 0, vh);
     gradient.addColorStop(0, theme.skyTop);
     gradient.addColorStop(0.5, theme.skyMid);
     gradient.addColorStop(1, theme.skyBot);
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, vw, vh);
 
     ctx.save();
     ctx.translate(-CONFIG.cameraX * 0.1, -CONFIG.cameraY * 0.1);
@@ -275,11 +317,11 @@ function drawBackground() {
     
     // Nebbia livello
     if (theme.fogAlpha > 0) {
-        const fogGrad = ctx.createLinearGradient(0, canvas.height * 0.5, 0, canvas.height);
+        const fogGrad = ctx.createLinearGradient(0, vh * 0.5, 0, vh);
         fogGrad.addColorStop(0, 'transparent');
         fogGrad.addColorStop(1, `rgba(20, 20, 30, ${theme.fogAlpha})`);
         ctx.fillStyle = fogGrad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, vw, vh);
     }
 }
 
@@ -431,14 +473,141 @@ function drawUI() {
 }
 
 // ============================================
+// DRAW MOBILE CONTROLS — Virtual Joystick + Buttons
+// ============================================
+function drawMobileControls() {
+    if (!TOUCH_CTRL.active) return;
+
+    // Re-layout each frame so resize is always reflected
+    layoutTouchControls();
+
+    const joy = TOUCH_CTRL.joy;
+    const jmp = TOUCH_CTRL.jump;
+    const up  = TOUCH_CTRL.up;
+    const t   = CONFIG.time;
+
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+
+    // ── JOYSTICK BASE ──
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(joy.baseX, joy.baseY, joy.radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.stroke();
+
+    // Direction hints (small arrows)
+    const hintAlpha = 0.25;
+    ctx.fillStyle = `rgba(255,255,255,${hintAlpha})`;
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◀', joy.baseX - joy.radius + 12, joy.baseY);
+    ctx.fillText('▶', joy.baseX + joy.radius - 12, joy.baseY);
+    ctx.fillText('▲', joy.baseX, joy.baseY - joy.radius + 12);
+    ctx.fillText('▼', joy.baseX, joy.baseY + joy.radius - 12);
+
+    // Stick (moveable thumb)
+    const stickGlow = joy.pressed ? 0.35 : 0.15;
+    ctx.beginPath();
+    ctx.arc(joy.stickX, joy.stickY, joy.stickRadius, 0, Math.PI * 2);
+    const stickGrad = ctx.createRadialGradient(
+        joy.stickX, joy.stickY, 0,
+        joy.stickX, joy.stickY, joy.stickRadius
+    );
+    stickGrad.addColorStop(0, `rgba(255,255,255,${stickGlow + 0.15})`);
+    stickGrad.addColorStop(0.7, `rgba(255,255,255,${stickGlow})`);
+    stickGrad.addColorStop(1, `rgba(255,255,255,${stickGlow * 0.5})`);
+    ctx.fillStyle = stickGrad;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(255,255,255,${stickGlow + 0.1})`;
+    ctx.stroke();
+
+    // ── JUMP BUTTON ──
+    const jmpPulse = jmp.pressed ? 0.5 : (0.18 + Math.sin(t * 0.08) * 0.04);
+    const jmpR = jmp.radius + (jmp.pressed ? 3 : 0);
+
+    // Glow ring
+    if (jmp.flash > 0) {
+        jmp.flash--;
+        ctx.beginPath();
+        ctx.arc(jmp.x, jmp.y, jmpR + 10, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(100,200,255,${jmp.flash * 0.06})`;
+        ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(jmp.x, jmp.y, jmpR, 0, Math.PI * 2);
+    const jmpGrad = ctx.createRadialGradient(jmp.x, jmp.y, 0, jmp.x, jmp.y, jmpR);
+    jmpGrad.addColorStop(0, `rgba(80,180,255,${jmpPulse + 0.1})`);
+    jmpGrad.addColorStop(0.6, `rgba(60,140,220,${jmpPulse})`);
+    jmpGrad.addColorStop(1, `rgba(40,100,180,${jmpPulse * 0.6})`);
+    ctx.fillStyle = jmpGrad;
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = `rgba(120,200,255,${jmpPulse + 0.08})`;
+    ctx.stroke();
+
+    // Jump icon (arrow up)
+    ctx.globalAlpha = jmp.pressed ? 0.9 : 0.6;
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${jmp.pressed ? 22 : 20}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⬆', jmp.x, jmp.y - 1);
+    ctx.globalAlpha = 0.45;
+
+    // ── UP / CLIMB BUTTON ──
+    const upPulse = up.pressed ? 0.45 : 0.14;
+    const upR = up.radius + (up.pressed ? 2 : 0);
+
+    if (up.flash > 0) {
+        up.flash--;
+        ctx.beginPath();
+        ctx.arc(up.x, up.y, upR + 8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(100,255,150,${up.flash * 0.05})`;
+        ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(up.x, up.y, upR, 0, Math.PI * 2);
+    const upGrad = ctx.createRadialGradient(up.x, up.y, 0, up.x, up.y, upR);
+    upGrad.addColorStop(0, `rgba(80,220,130,${upPulse + 0.08})`);
+    upGrad.addColorStop(0.6, `rgba(60,180,100,${upPulse})`);
+    upGrad.addColorStop(1, `rgba(40,140,80,${upPulse * 0.5})`);
+    ctx.fillStyle = upGrad;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(100,230,150,${upPulse + 0.06})`;
+    ctx.stroke();
+
+    // Climb icon
+    ctx.globalAlpha = up.pressed ? 0.85 : 0.55;
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${up.pressed ? 16 : 14}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🐾', up.x, up.y);
+    ctx.globalAlpha = 0.45;
+
+    ctx.restore();
+}
+
+// ============================================
 // DRAW LEVEL COMPLETE
 // ============================================
 function drawLevelComplete() {
     const t = CONFIG.levelTransitionTimer;
     const alpha = Math.min(1, t / 30);
     
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
     ctx.fillStyle = `rgba(0, 0, 0, ${alpha * 0.85})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, vw, vh);
     
     if (t > 30) {
         const theme = getTheme();
@@ -446,22 +615,23 @@ function drawLevelComplete() {
         ctx.fillStyle = '#44aa44';
         ctx.font = 'bold 50px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('LIVELLO COMPLETATO!', canvas.width/2, canvas.height/2 - 50);
+        ctx.fillText('LIVELLO COMPLETATO!', vw/2, vh/2 - 50);
         
         ctx.fillStyle = '#997722';
         ctx.font = '22px Arial';
-        ctx.fillText('Punteggio: ' + CONFIG.score, canvas.width/2, canvas.height/2 + 5);
+        ctx.fillText('Punteggio: ' + CONFIG.score, vw/2, vh/2 + 5);
         
         if (CONFIG.level < CONFIG.maxLevel) {
             ctx.fillStyle = '#668899';
             ctx.font = '20px Arial';
             const nextTheme = LEVEL_THEMES[CONFIG.level + 1];
-            ctx.fillText('Prossimo: ' + nextTheme.name, canvas.width/2, canvas.height/2 + 40);
+            ctx.fillText('Prossimo: ' + nextTheme.name, vw/2, vh/2 + 40);
             
             if (t > 90) {
                 ctx.fillStyle = '#555';
                 ctx.font = '16px Arial';
-                ctx.fillText('Premi SPAZIO per continuare', canvas.width/2, canvas.height/2 + 75);
+                const contMsg = IS_MOBILE ? 'Tocca per continuare' : 'Premi SPAZIO per continuare';
+                ctx.fillText(contMsg, vw/2, vh/2 + 75);
             }
         }
         
@@ -473,14 +643,16 @@ function drawLevelComplete() {
 // DRAW GAME WON
 // ============================================
 function drawGameWon() {
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, vw, vh);
     
     // Stelle animate
     const starCount = 30;
     for (let i = 0; i < starCount; i++) {
-        const sx = (Math.sin(CONFIG.time * 0.02 + i * 1.3) + 1) * canvas.width / 2;
-        const sy = (Math.cos(CONFIG.time * 0.015 + i * 0.9) + 1) * canvas.height / 2;
+        const sx = (Math.sin(CONFIG.time * 0.02 + i * 1.3) + 1) * vw / 2;
+        const sy = (Math.cos(CONFIG.time * 0.015 + i * 0.9) + 1) * vh / 2;
         const salpha = 0.3 + Math.sin(CONFIG.time * 0.05 + i) * 0.2;
         ctx.fillStyle = `rgba(255, 220, 100, ${salpha})`;
         ctx.beginPath();
@@ -491,19 +663,20 @@ function drawGameWon() {
     ctx.fillStyle = '#ffcc44';
     ctx.font = 'bold 55px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('🐱 HAI VINTO! 🐱', canvas.width/2, canvas.height/2 - 50);
+    ctx.fillText('🐱 HAI VINTO! 🐱', vw/2, vh/2 - 50);
     
     ctx.fillStyle = '#aaaacc';
     ctx.font = '20px Arial';
-    ctx.fillText('Il gatto è al sicuro!', canvas.width/2, canvas.height/2 + 5);
+    ctx.fillText('Il gatto è al sicuro!', vw/2, vh/2 + 5);
     
     ctx.fillStyle = '#997722';
     ctx.font = 'bold 24px Arial';
-    ctx.fillText('Punteggio finale: ' + CONFIG.score, canvas.width/2, canvas.height/2 + 45);
+    ctx.fillText('Punteggio finale: ' + CONFIG.score, vw/2, vh/2 + 45);
     
     ctx.fillStyle = '#555';
     ctx.font = '16px Arial';
-    ctx.fillText('Premi SPAZIO o tocca per rigiocare', canvas.width/2, canvas.height/2 + 85);
+    const replayMsg = IS_MOBILE ? 'Tocca per rigiocare' : 'Premi SPAZIO o tocca per rigiocare';
+    ctx.fillText(replayMsg, vw/2, vh/2 + 85);
     
     ctx.textAlign = 'left';
 }
@@ -512,25 +685,28 @@ function drawGameWon() {
 // DRAW GAME OVER
 // ============================================
 function drawGameOver() {
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, vw, vh);
     
     ctx.fillStyle = '#aa2222';
     ctx.font = 'bold 60px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 40);
+    ctx.fillText('GAME OVER', vw/2, vh/2 - 40);
     
     ctx.fillStyle = '#997722';
     ctx.font = '24px Arial';
-    ctx.fillText('Punteggio: ' + CONFIG.score, canvas.width/2, canvas.height/2 + 20);
+    ctx.fillText('Punteggio: ' + CONFIG.score, vw/2, vh/2 + 20);
     
     ctx.fillStyle = '#668899';
     ctx.font = '16px Arial';
-    ctx.fillText('Livello raggiunto: ' + CONFIG.level + ' - ' + getTheme().name, canvas.width/2, canvas.height/2 + 50);
+    ctx.fillText('Livello raggiunto: ' + CONFIG.level + ' - ' + getTheme().name, vw/2, vh/2 + 50);
     
     ctx.fillStyle = '#555';
     ctx.font = '18px Arial';
-    ctx.fillText('Premi SPAZIO o tocca per ricominciare', canvas.width/2, canvas.height/2 + 85);
+    const restartMsg = IS_MOBILE ? 'Tocca per ricominciare' : 'Premi SPAZIO o tocca per ricominciare';
+    ctx.fillText(restartMsg, vw/2, vh/2 + 85);
     
     ctx.textAlign = 'left';
 }
@@ -606,6 +782,16 @@ function restart() {
 }
 
 // ============================================
+// HELPER — clear canvas & reapply zoom transform
+// ============================================
+function _clearFrame() {
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(CONFIG.zoom * dpr, 0, 0, CONFIG.zoom * dpr, 0, 0);
+}
+
+// ============================================
 // MAIN GAME LOOP
 // ============================================
 function gameLoop() {
@@ -617,7 +803,9 @@ function gameLoop() {
             clickRestart = false;
             restart();
         }
+        _clearFrame();
         drawGameOver();
+        drawMobileControls();
         requestAnimationFrame(gameLoop);
         return;
     }
@@ -628,7 +816,9 @@ function gameLoop() {
             clickRestart = false;
             restart();
         }
+        _clearFrame();
         drawGameWon();
+        drawMobileControls();
         requestAnimationFrame(gameLoop);
         return;
     }
@@ -636,9 +826,12 @@ function gameLoop() {
     // Level transition
     if (CONFIG.levelTransition) {
         CONFIG.levelTransitionTimer++;
+        _clearFrame();
         drawLevelComplete();
+        drawMobileControls();
         
-        if (CONFIG.levelTransitionTimer > 90 && KEYS.space) {
+        if (CONFIG.levelTransitionTimer > 90 && (KEYS.space || clickRestart)) {
+            clickRestart = false;
             if (CONFIG.level < CONFIG.maxLevel) {
                 nextLevel();
             } else {
@@ -724,8 +917,8 @@ function gameLoop() {
         }
     }
 
-    // Draw
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw — clear & reapply zoom transform
+    _clearFrame();
     
     drawBackground();
     
@@ -782,18 +975,21 @@ function gameLoop() {
     ctx.restore();
 
     // Vignette
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
     const vignette = ctx.createRadialGradient(
-        canvas.width/2, canvas.height/2, canvas.height/4,
-        canvas.width/2, canvas.height/2, canvas.height
+        vw/2, vh/2, vh/4,
+        vw/2, vh/2, vh
     );
     vignette.addColorStop(0, 'transparent');
     vignette.addColorStop(0.6, 'rgba(0, 0, 0, 0.3)');
     vignette.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
     ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, vw, vh);
     
     // UI
     drawUI();
+    drawMobileControls();
 
     requestAnimationFrame(gameLoop);
 }

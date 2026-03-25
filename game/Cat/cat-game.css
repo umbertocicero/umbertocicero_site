@@ -4,6 +4,12 @@
     box-sizing: border-box;
 }
 
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     background: #020205;
     overflow: hidden;
@@ -13,13 +19,16 @@ body {
 #game-container {
     width: 100vw;
     height: 100vh;
+    height: 100dvh;            /* dynamic viewport for mobile address bar */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    position: relative;
 }
 
 #gameCanvas {
+    display: block;
     border: 2px solid #151520;
     border-radius: 8px;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.3);
@@ -30,13 +39,55 @@ body {
     user-select: none;
 }
 
-/* Mobile responsive */
+/* ─── Mobile: canvas fills the screen ─── */
 @media (max-width: 1250px) {
     #gameCanvas {
         width: 100vw;
-        height: auto;
+        height: 100vh;
+        height: 100dvh;
         border: none;
         border-radius: 0;
+        box-shadow: none;
+    }
+}
+
+/* ─── Rotate-device overlay (portrait phones) ─── */
+#rotate-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #020205;
+    color: #888;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    padding: 20px;
+}
+#rotate-overlay .rotate-icon {
+    font-size: 64px;
+    animation: rotateHint 2s ease-in-out infinite;
+}
+#rotate-overlay .rotate-text {
+    font-size: 18px;
+    line-height: 1.6;
+}
+@keyframes rotateHint {
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-20deg); }
+    75%      { transform: rotate(90deg); }
+}
+
+/* Show overlay only on small portrait screens */
+@media (max-width: 900px) and (orientation: portrait) {
+    #rotate-overlay {
+        display: flex !important;
+    }
+    #gameCanvas {
+        display: none !important;
     }
 }
 

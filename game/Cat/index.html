@@ -2,16 +2,23 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="screen-orientation" content="landscape">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Night Cat - Indie Game</title>
     <link rel="stylesheet" href="cat-game.css">
 </head>
 <body>
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
-        <!--div id="instructions">
-            <p>🐱 <strong>Frecce</strong> muovi | <strong>Spazio/↑</strong> salta | 📱 <strong>Sx/Dx</strong> muovi | <strong>Centro/Swipe↑</strong> salta | Raccogli 🐟 e ❤!</p>
-        </div-->
+    </div>
+
+    <!-- Portrait → landscape prompt -->
+    <div id="rotate-overlay">
+        <span class="rotate-icon">📱</span>
+        <span class="rotate-text">Ruota il telefono in orizzontale<br>per giocare a Night Cat</span>
     </div>
     
     <!-- Game Scripts - Ordine importante! -->

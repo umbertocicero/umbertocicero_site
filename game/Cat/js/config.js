@@ -2,10 +2,19 @@
 // CONFIG - Configurazione globale del gioco
 // ============================================
 
+// Detect mobile / small-screen
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+                  || (window.innerWidth <= 1024 && 'ontouchstart' in window);
+
 const CONFIG = {
-    // Canvas
+    // Canvas — logical (game-world) size. Overwritten by resizeCanvas()
     canvasWidth: 1200,
     canvasHeight: 700,
+
+    // Display scale — how much the game-world is zoomed on screen
+    // Bigger = closer view, bigger sprites. Mobile gets a tighter camera.
+    baseZoom: IS_MOBILE ? 1.6 : 1.0,
+    zoom: 1.0,                       // actual value set by resizeCanvas()
     
     // World
     worldWidth: 4000,
@@ -60,126 +69,197 @@ function setupInput() {
     });
 }
 
-// Mobile touch controls - Ottimizzati per gameplay
+// Mobile touch controls — Virtual Joystick + Jump Button
+// Joystick on the LEFT, Jump button on the RIGHT
+const TOUCH_CTRL = {
+    active: false,           // true once setupMobileControls runs
+    // Joystick state (left side of screen)
+    joy: {
+        // base position (set on first touch / resize)
+        baseX: 0, baseY: 0,
+        // current stick position
+        stickX: 0, stickY: 0,
+        radius: 50,           // base circle radius
+        stickRadius: 28,      // moveable stick radius
+        touchId: null,
+        pressed: false
+    },
+    // Jump button (right side of screen)
+    jump: {
+        x: 0, y: 0,
+        radius: 38,
+        touchId: null,
+        pressed: false,
+        // visual feedback timer
+        flash: 0
+    },
+    // Up‑arrow button (right side, above jump)
+    up: {
+        x: 0, y: 0,
+        radius: 28,
+        touchId: null,
+        pressed: false,
+        flash: 0
+    }
+};
+
+function layoutTouchControls() {
+    // Called on init and on resize.
+    // Positions are in *logical* (game) coords — the canvas context is
+    // already scaled by zoom*dpr so we work in CONFIG.canvasWidth/Height space.
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
+
+    const pad   = IS_MOBILE ? 30 : 40;     // distance from edge
+    const bottom = vh - pad - 50;
+
+    // Joystick — bottom‑left
+    TOUCH_CTRL.joy.baseX = pad + TOUCH_CTRL.joy.radius + 10;
+    TOUCH_CTRL.joy.baseY = bottom;
+    TOUCH_CTRL.joy.stickX = TOUCH_CTRL.joy.baseX;
+    TOUCH_CTRL.joy.stickY = TOUCH_CTRL.joy.baseY;
+
+    // Jump — bottom‑right
+    TOUCH_CTRL.jump.x = vw - pad - TOUCH_CTRL.jump.radius - 10;
+    TOUCH_CTRL.jump.y = bottom;
+
+    // Up (climb) — above jump button
+    TOUCH_CTRL.up.x = TOUCH_CTRL.jump.x;
+    TOUCH_CTRL.up.y = TOUCH_CTRL.jump.y - TOUCH_CTRL.jump.radius - TOUCH_CTRL.up.radius - 18;
+}
+
 function setupMobileControls() {
+    if (!IS_MOBILE) return;
+
+    TOUCH_CTRL.active = true;
+    layoutTouchControls();
+
     const canvas = document.getElementById('gameCanvas');
-    
-    // Traccia i tocchi attivi (supporto multi-touch)
-    const activeTouches = {};
-    
+
+    // ── helpers to convert page coords → logical game coords ──
+    function pageToLogical(px, py) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (px - rect.left) / rect.width  * CONFIG.canvasWidth,
+            y: (py - rect.top)  / rect.height * CONFIG.canvasHeight
+        };
+    }
+
+    function dist(ax, ay, bx, by) {
+        return Math.hypot(ax - bx, ay - by);
+    }
+
+    // ── TOUCH START ──
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        
-        const rect = canvas.getBoundingClientRect();
-        
         for (const touch of e.changedTouches) {
-            const relX = (touch.clientX - rect.left) / rect.width;
-            const relY = (touch.clientY - rect.top) / rect.height;
-            
-            activeTouches[touch.identifier] = {
-                startX: touch.clientX,
-                startY: touch.clientY,
-                currentX: touch.clientX,
-                currentY: touch.clientY,
-                startTime: Date.now(),
-                relX: relX,
-                zone: relX < 0.33 ? 'left' : relX > 0.67 ? 'right' : 'center'
-            };
-            
-            // Zona sinistra dello schermo = muovi a sinistra
-            if (relX < 0.33) {
-                KEYS.left = true;
-            }
-            // Zona destra dello schermo = muovi a destra
-            else if (relX > 0.67) {
-                KEYS.right = true;
-            }
-            // Zona centrale = salta
-            else {
+            const p = pageToLogical(touch.clientX, touch.clientY);
+            const joy = TOUCH_CTRL.joy;
+            const jmp = TOUCH_CTRL.jump;
+            const up  = TOUCH_CTRL.up;
+
+            // 1) Check jump button first
+            if (jmp.touchId === null && dist(p.x, p.y, jmp.x, jmp.y) < jmp.radius * 1.6) {
+                jmp.touchId = touch.identifier;
+                jmp.pressed = true;
+                jmp.flash = 6;
                 KEYS.space = true;
+                continue;
+            }
+
+            // 2) Check up button
+            if (up.touchId === null && dist(p.x, p.y, up.x, up.y) < up.radius * 1.6) {
+                up.touchId = touch.identifier;
+                up.pressed = true;
+                up.flash = 6;
+                KEYS.up = true;
+                continue;
+            }
+
+            // 3) Left half of screen → joystick
+            if (joy.touchId === null && p.x < CONFIG.canvasWidth * 0.5) {
+                joy.touchId = touch.identifier;
+                joy.pressed = true;
+                // snap base to where the finger landed
+                joy.baseX = p.x;
+                joy.baseY = p.y;
+                joy.stickX = p.x;
+                joy.stickY = p.y;
             }
         }
     }, { passive: false });
-    
+
+    // ── TOUCH MOVE ──
     canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
-        
         for (const touch of e.changedTouches) {
-            const data = activeTouches[touch.identifier];
-            if (!data) continue;
-            
-            data.currentX = touch.clientX;
-            data.currentY = touch.clientY;
-            
-            const dx = touch.clientX - data.startX;
-            const dy = touch.clientY - data.startY;
-            
-            // Swipe verso l'alto da qualsiasi zona = salta
-            if (dy < -40) {
-                KEYS.space = true;
-            }
-            
-            // Se il tocco era nella zona centrale e si muove orizzontalmente
-            if (data.zone === 'center' && Math.abs(dx) > 30) {
-                if (dx < 0) {
-                    KEYS.left = true;
-                    KEYS.right = false;
+            const p = pageToLogical(touch.clientX, touch.clientY);
+            const joy = TOUCH_CTRL.joy;
+
+            if (touch.identifier === joy.touchId) {
+                // Clamp stick within radius
+                const dx = p.x - joy.baseX;
+                const dy = p.y - joy.baseY;
+                const d  = Math.hypot(dx, dy);
+                const maxR = joy.radius;
+                if (d > maxR) {
+                    joy.stickX = joy.baseX + (dx / d) * maxR;
+                    joy.stickY = joy.baseY + (dy / d) * maxR;
                 } else {
-                    KEYS.right = true;
-                    KEYS.left = false;
+                    joy.stickX = p.x;
+                    joy.stickY = p.y;
                 }
+
+                // Map to KEYS with a dead-zone of 0.25
+                const nx = (joy.stickX - joy.baseX) / maxR;
+                const ny = (joy.stickY - joy.baseY) / maxR;
+
+                KEYS.left  = nx < -0.25;
+                KEYS.right = nx > 0.25;
+                KEYS.up    = ny < -0.45;   // push up on stick → climb up
+                KEYS.down  = ny > 0.45;
             }
         }
     }, { passive: false });
-    
+
+    // ── TOUCH END ──
     canvas.addEventListener('touchend', (e) => {
         e.preventDefault();
-        
         for (const touch of e.changedTouches) {
-            const data = activeTouches[touch.identifier];
-            if (!data) continue;
-            
-            const elapsed = Date.now() - data.startTime;
-            const dx = Math.abs(touch.clientX - data.startX);
-            const dy = touch.clientY - data.startY;
-            
-            // Tap rapido senza movimento = salta
-            if (elapsed < 250 && dx < 15 && Math.abs(dy) < 15 && data.zone === 'center') {
-                KEYS.space = true;
-                setTimeout(() => { KEYS.space = false; }, 120);
-            }
-            
-            // Rilascia il tasto associato alla zona
-            if (data.zone === 'left') {
+            const joy = TOUCH_CTRL.joy;
+            const jmp = TOUCH_CTRL.jump;
+            const up  = TOUCH_CTRL.up;
+
+            if (touch.identifier === joy.touchId) {
+                joy.touchId = null;
+                joy.pressed = false;
+                // recenter stick
+                joy.stickX = joy.baseX;
+                joy.stickY = joy.baseY;
                 KEYS.left = false;
-            } else if (data.zone === 'right') {
                 KEYS.right = false;
+                KEYS.up = false;
+                KEYS.down = false;
             }
-            
-            // Se non ci sono più tocchi nella zona, rilascia il salto
-            if (data.zone === 'center') {
+            if (touch.identifier === jmp.touchId) {
+                jmp.touchId = null;
+                jmp.pressed = false;
                 KEYS.space = false;
             }
-            
-            delete activeTouches[touch.identifier];
+            if (touch.identifier === up.touchId) {
+                up.touchId = null;
+                up.pressed = false;
+                KEYS.up = false;
+            }
         }
-        
-        // Verifica se restano tocchi attivi nelle zone
-        let hasLeft = false, hasRight = false;
-        for (const id in activeTouches) {
-            if (activeTouches[id].zone === 'left') hasLeft = true;
-            if (activeTouches[id].zone === 'right') hasRight = true;
-        }
-        if (!hasLeft) KEYS.left = false;
-        if (!hasRight) KEYS.right = false;
     }, { passive: false });
-    
+
     canvas.addEventListener('touchcancel', (e) => {
         for (const touch of e.changedTouches) {
-            delete activeTouches[touch.identifier];
+            if (touch.identifier === TOUCH_CTRL.joy.touchId)  { TOUCH_CTRL.joy.touchId = null;  TOUCH_CTRL.joy.pressed = false; }
+            if (touch.identifier === TOUCH_CTRL.jump.touchId) { TOUCH_CTRL.jump.touchId = null; TOUCH_CTRL.jump.pressed = false; }
+            if (touch.identifier === TOUCH_CTRL.up.touchId)   { TOUCH_CTRL.up.touchId = null;   TOUCH_CTRL.up.pressed = false; }
         }
-        KEYS.left = false;
-        KEYS.right = false;
-        KEYS.space = false;
+        KEYS.left = KEYS.right = KEYS.up = KEYS.down = KEYS.space = false;
     });
 }

@@ -7,13 +7,9 @@ aggiungere click sound sul canvas
 
 migliorare effetto liquid rendendolo trasparente invece che grigio e accentuando l'effetto HUE
 
-creare gioco webapp
-
 refactoring per mobile
 
-fabicon
-
-Clic nella sezione contatti genera altre emoji
+Click nella sezione contatti genera altre emoji
 emoji coerenti con me
 
 style: 
@@ -23,8 +19,4 @@ mettere a comune left-scroll-line.js e right-scroll-line.js
 
 animazione della scritta: Let's work together!
 
-anni auto calcolati in : Over 14 years of professional 
-
-rendi puù belli i caroselli in app.html
-
-gestire back nei giochi
+gestire back nei giochi.

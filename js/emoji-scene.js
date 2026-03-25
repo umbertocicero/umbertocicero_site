@@ -53,7 +53,7 @@
 
   /* Responsive particle count: double on desktop, normal on mobile */
   var IS_MOBILE       = (window.innerWidth || 1024) < 768;
-  var PARTICLE_COUNT  = IS_MOBILE ? 50 : 200;
+  var PARTICLE_COUNT  = IS_MOBILE ? 50 : 150;
   var R               = 16;        // uniform collision radius for every particle
   var EMOJI_PX        = 28;        // font-size used to rasterise each glyph
   var EMIT_RATE       = 40;        // particles per second during spawn phase
