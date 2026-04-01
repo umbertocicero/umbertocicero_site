@@ -34,6 +34,12 @@ class Cat {
         this.coyoteTimeMax = 8;
         this.jumpBufferTime = 0;
         this.jumpBufferMax = 8;
+        
+        // Puddle detection
+        this.onPuddle = false;
+        
+        // Stillness timer — cani si calmano se fermo 8 secondi
+        this.stillTimer = 0;
     }
 
     update(platforms) {
@@ -59,13 +65,15 @@ class Cat {
             this.jumpBufferTime--;
         }
         
-        // Movement — slippery on ice (level 3)
+        // Movement — slippery on ice (level 3) or puddles (level 4)
         const isIcy = CONFIG.level === 3;
-        const moveAccel = isIcy ? 0.4 : this.speed;  // accelerazione graduale sul ghiaccio
-        const stopFriction = isIcy ? 0.96 : CONFIG.friction;  // scivola di più
+        const isOnPuddle = CONFIG.level === 4 && this.onPuddle;
+        const slippery = isIcy || isOnPuddle;
+        const moveAccel = slippery ? (isOnPuddle ? 0.5 : 0.4) : this.speed;
+        const stopFriction = slippery ? (isOnPuddle ? 0.94 : 0.96) : CONFIG.friction;
         
         if (KEYS.left) {
-            if (isIcy) {
+            if (slippery) {
                 this.vx -= moveAccel;
                 if (this.vx < -this.speed) this.vx = -this.speed;
             } else {
@@ -74,7 +82,7 @@ class Cat {
             this.facing = -1;
             if (this.onGround) this.state = 'walk';
         } else if (KEYS.right) {
-            if (isIcy) {
+            if (slippery) {
                 this.vx += moveAccel;
                 if (this.vx > this.speed) this.vx = this.speed;
             } else {
@@ -112,7 +120,22 @@ class Cat {
         
         this.y += this.vy;
         this.onGround = false;
+        this.onPuddle = false;
         this.checkCollisionY(platforms);
+        
+        // Puddle overlap check: even when standing on ground,
+        // detect if cat's feet overlap any puddle platform
+        if (CONFIG.level === 4 && this.onGround) {
+            const feetY = this.y + this.height;
+            for (const p of platforms) {
+                if (p.type !== 'puddle') continue;
+                if (this.x + this.width > p.x && this.x < p.x + p.width &&
+                    feetY >= p.y && feetY <= p.y + p.height + 8) {
+                    this.onPuddle = true;
+                    break;
+                }
+            }
+        }
 
         // Animation
         this.animTimer++;
@@ -128,6 +151,13 @@ class Cat {
         
         if (Math.random() < 0.01) this.earTwitch = 5;
         if (this.earTwitch > 0) this.earTwitch--;
+
+        // Stillness tracking
+        if (KEYS.left || KEYS.right || KEYS.up || KEYS.space) {
+            this.stillTimer = 0;
+        } else {
+            this.stillTimer++;
+        }
 
         // Bounds
         this.x = Math.max(0, Math.min(this.x, CONFIG.worldWidth - this.width));
@@ -172,6 +202,8 @@ class Cat {
                             this.y = platform.y - this.height;
                             this.vy = 0;
                             this.onGround = true;
+                            // Detect puddle per physics scivolamento
+                            if (platform.type === 'puddle') this.onPuddle = true;
                         }
                     }
                 }

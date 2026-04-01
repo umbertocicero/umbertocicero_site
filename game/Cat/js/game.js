@@ -61,6 +61,9 @@ let cranes = [];
 let snowflakes = [];
 let steamParticles = [];
 let lifePickups = [];
+let raindrops = [];
+let rainSplashes = [];
+let rivalCat = null;
 let lifeSpawnTimer = 0;
 let gameOver = false;
 let gameWon = false;
@@ -125,20 +128,22 @@ const LEVEL_THEMES = {
     },
     4: {
         name: 'La Fuga',
-        skyTop: '#000005',
-        skyMid: '#02020a',
-        skyBot: '#050510',
-        buildingBase: '#0a0a14',
-        buildingLight: '#0e0e18',
-        groundColor: '#08080c',
-        lampColor: { r: 160, g: 140, b: 200 },
-        lampIntensity: 0.55,
-        moonColor: '#6666aa',
-        starAlpha: 0.2,
-        enemyCount: 12,
-        enemySpeed: 3.5,
-        enemyChaseSpeed: 5,
-        fogAlpha: 0.15
+        skyTop: '#050208',
+        skyMid: '#0a0510',
+        skyBot: '#0e0815',
+        buildingBase: '#0c0a14',
+        buildingLight: '#100e18',
+        groundColor: '#0a080e',
+        lampColor: { r: 180, g: 140, b: 120 },
+        lampIntensity: 0.5,
+        moonColor: '#cc6644',
+        starAlpha: 0.1,
+        enemyCount: 10,
+        enemySpeed: 3,
+        enemyChaseSpeed: 4.5,
+        fogAlpha: 0.12,
+        rain: true,
+        pudbleFriction: 0.94
     }
 };
 
@@ -251,6 +256,22 @@ function generateCity() {
         for (let i = 0; i < 10; i++) particles.push(new Particle());
     } else {
         for (let i = 0; i < 30; i++) particles.push(new Particle());
+    }
+    
+    // Pioggia (Livello 4 - La Fuga)
+    if (CONFIG.level === 4) {
+        for (let i = 0; i < 350; i++) raindrops.push(new Raindrop());
+        // Pozze d'acqua a terra — scivolose
+        for (let x = 150; x < CONFIG.worldWidth - 200; x += 200 + Math.random() * 250) {
+            const pw = 60 + Math.random() * 80;
+            const ph = 6 + Math.random() * 4;
+            const puddleY = CONFIG.worldHeight - 50 - ph + 2;
+            platforms.push(new Platform(x, puddleY, pw, ph, 'puddle'));
+        }
+        // Gatto rivale — spawna dall'altra parte del mondo
+        const rivalX = CONFIG.worldWidth - 200;
+        const rivalY = CONFIG.worldHeight - 90;
+        rivalCat = new RivalCat(rivalX, rivalY);
     }
     
     // Food
@@ -742,6 +763,9 @@ function nextLevel() {
     snowflakes = [];
     steamParticles = [];
     lifePickups = [];
+    raindrops = [];
+    rainSplashes = [];
+    rivalCat = null;
     lifeSpawnTimer = 0;
     CONFIG.time = 0;
     CONFIG.levelTransition = false;
@@ -778,6 +802,9 @@ function restart() {
     snowflakes = [];
     steamParticles = [];
     lifePickups = [];
+    raindrops = [];
+    rainSplashes = [];
+    rivalCat = null;
     lifeSpawnTimer = 0;
     CONFIG.score = 0;
     CONFIG.time = 0;
@@ -876,6 +903,24 @@ function gameLoop() {
     for (const sf of snowflakes) sf.update();
     for (const sp of steamParticles) sp.update();
     
+    // Pioggia (Livello 4)
+    for (const rd of raindrops) rd.update();
+    for (let i = rainSplashes.length - 1; i >= 0; i--) {
+        rainSplashes[i].update();
+        if (rainSplashes[i].life <= 0) rainSplashes.splice(i, 1);
+    }
+    // Genera splash random sulle superfici
+    if (CONFIG.level === 4 && CONFIG.time % 2 === 0) {
+        const splX = CONFIG.cameraX + Math.random() * CONFIG.canvasWidth;
+        const groundY = CONFIG.worldHeight - 50;
+        rainSplashes.push(new RainSplash(splX, groundY));
+    }
+    
+    // Gatto rivale (Livello 4)
+    if (rivalCat) {
+        rivalCat.update(cat, platforms);
+    }
+    
     // Pulisci fantasmi esauriti
     for (let i = ghosts.length - 1; i >= 0; i--) {
         if (!ghosts[i].active) ghosts.splice(i, 1);
@@ -938,6 +983,20 @@ function gameLoop() {
             }
         }
     }
+    
+    // Check rival cat collision (Livello 4)
+    if (rivalCat && rivalCat.checkCollisionWithCat(cat)) {
+        if (cat.takeDamage()) {
+            ghosts.push(new GhostCat(cat.x + cat.width/2, cat.y));
+            cat.vy = -8;
+            cat.vx = (cat.x > rivalCat.x) ? 6 : -6;
+            // Il gatto rivale si ferma 5 secondi dopo aver colpito
+            rivalCat.pauseTimer = 300;
+            if (cat.lives <= 0) {
+                gameOver = true;
+            }
+        }
+    }
 
     // Draw — clear & reapply zoom transform
     _clearFrame();
@@ -987,6 +1046,13 @@ function gameLoop() {
     
     // Snowflakes (neve livello 3)
     for (const sf of snowflakes) sf.draw(ctx);
+    
+    // Pioggia (livello 4)
+    for (const rd of raindrops) rd.draw(ctx);
+    for (const rs of rainSplashes) rs.draw(ctx);
+    
+    // Rival Cat (gatto antagonista livello 4)
+    if (rivalCat) rivalCat.draw(ctx);
     
     // Enemies
     for (const enemy of enemies) enemy.draw(ctx);

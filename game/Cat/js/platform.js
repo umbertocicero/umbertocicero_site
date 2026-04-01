@@ -12,7 +12,7 @@ class Platform {
         this.color = this.getColor();
         this.windows = this.generateWindows();
         
-        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster' || type === 'barrier' || type === 'steam-vent');
+        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster' || type === 'barrier' || type === 'steam-vent' || type === 'puddle');
         this.roofOnly = (type === 'building');
     }
 
@@ -24,6 +24,7 @@ class Platform {
             'railing': '#2a2a35',
             'barrier': '#1a1a0a',
             'steam-vent': '#cc5500',
+            'puddle': '#0a0c14',
             'roof': '#0e0e18',
             'ground': '#141416'
         };
@@ -53,7 +54,7 @@ class Platform {
 
     draw(ctx) {
         // Skip base rect for types that draw their own shape
-        if (this.type !== 'steam-vent' && this.type !== 'barrier') {
+        if (this.type !== 'steam-vent' && this.type !== 'barrier' && this.type !== 'puddle') {
             ctx.fillStyle = this.color;
             ctx.fillRect(this.x, this.y, this.width, this.height);
 
@@ -74,6 +75,9 @@ class Platform {
                 break;
             case 'steam-vent':
                 this.drawSteamVent(ctx);
+                break;
+            case 'puddle':
+                this.drawPuddle(ctx);
                 break;
             case 'ground':
                 this.drawGround(ctx);
@@ -462,6 +466,67 @@ class Platform {
         ctx.fillRect(cx - botW/2 - 2, by + bh - 5, botW + 4, 6);
     }
 
+    // --- Pozza d'acqua (Livello 4 - La Fuga) ---
+    drawPuddle(ctx) {
+        const px = this.x;
+        const py = this.y;
+        const pw = this.width;
+        const ph = this.height;
+
+        // Forma ovale della pozza
+        ctx.save();
+
+        // Acqua scura con riflessi
+        const waterGrad = ctx.createRadialGradient(
+            px + pw / 2, py + ph / 2, 0,
+            px + pw / 2, py + ph / 2, pw / 2
+        );
+        waterGrad.addColorStop(0, 'rgba(30, 40, 60, 0.7)');
+        waterGrad.addColorStop(0.6, 'rgba(20, 30, 50, 0.5)');
+        waterGrad.addColorStop(1, 'rgba(15, 20, 35, 0.3)');
+        ctx.fillStyle = waterGrad;
+        ctx.beginPath();
+        ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2, ph / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Riflesso luce (lampione riflesso nell'acqua)
+        const refX = px + pw * 0.35 + Math.sin(CONFIG.time * 0.04) * 3;
+        const refY = py + ph * 0.3;
+        const refGrad = ctx.createRadialGradient(refX, refY, 0, refX, refY, pw * 0.25);
+        refGrad.addColorStop(0, 'rgba(180, 160, 120, 0.15)');
+        refGrad.addColorStop(0.5, 'rgba(140, 120, 80, 0.06)');
+        refGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = refGrad;
+        ctx.beginPath();
+        ctx.ellipse(refX, refY, pw * 0.25, ph * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Increspature concentriche (animazione)
+        ctx.strokeStyle = 'rgba(120, 140, 180, 0.12)';
+        ctx.lineWidth = 1;
+        const ripplePhase = CONFIG.time * 0.05;
+        for (let r = 0; r < 3; r++) {
+            const rr = ((ripplePhase + r * 0.8) % 2.4) / 2.4;  // 0..1 ciclo
+            const rippleR = rr * pw * 0.4;
+            const rippleA = (1 - rr) * 0.15;
+            if (rippleA > 0.01) {
+                ctx.strokeStyle = `rgba(120, 140, 180, ${rippleA})`;
+                ctx.beginPath();
+                ctx.ellipse(px + pw / 2, py + ph / 2, rippleR, rippleR * 0.4, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        // Bordo più scuro
+        ctx.strokeStyle = 'rgba(10, 15, 25, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2, ph / 2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
     // --- Neve sui tetti e a terra (Livello 3) ---
     drawSnowLayer(ctx, x, y, width, height) {
         // Strato di neve irregolare in cima
@@ -547,6 +612,23 @@ class Platform {
                 const moundH = 6 + Math.sin(i * 0.3) * 3;
                 ctx.beginPath();
                 ctx.ellipse(this.x + i, this.y - 1, moundW, moundH, 0, Math.PI, 0);
+                ctx.fill();
+            }
+        }
+
+        // Bagnato a terra (Livello 4 - La Fuga)
+        if (CONFIG.level === 4) {
+            // Sheen lucido sull'asfalto bagnato
+            ctx.fillStyle = 'rgba(80, 100, 140, 0.06)';
+            ctx.fillRect(this.x, this.y, this.width, 12);
+            
+            // Riflessi intermittenti (effetto bagnato)
+            for (let i = 30; i < this.width; i += 60 + Math.sin(i * 0.2) * 30) {
+                const rw = 20 + Math.sin(i * 0.5) * 10;
+                const shimmer = Math.sin(CONFIG.time * 0.03 + i * 0.1) * 0.04 + 0.04;
+                ctx.fillStyle = `rgba(120, 140, 180, ${shimmer})`;
+                ctx.beginPath();
+                ctx.ellipse(this.x + i, this.y + 3, rw, 2, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
         }

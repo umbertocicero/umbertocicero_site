@@ -44,7 +44,7 @@ class Enemy {
         switch(this.state) {
             case 'patrol':
                 this.patrol();
-                if (dist < this.detectionRange && Math.abs(dy) < this.detectionRangeY && !cat.invincible) {
+                if (dist < this.detectionRange && Math.abs(dy) < this.detectionRangeY && !cat.invincible && cat.stillTimer < 480) {
                     this.state = 'alert';
                     this.alertTimer = this.alertDuration;
                     this.facing = dx > 0 ? 1 : -1;
@@ -62,7 +62,7 @@ class Enemy {
                 
             case 'chase':
                 this.chase(cat);
-                if (dist > this.loseRange || cat.invincible) {
+                if (dist > this.loseRange || cat.invincible || cat.stillTimer >= 480) {
                     this.state = 'patrol';
                     this.pauseTimer = 60;
                 }

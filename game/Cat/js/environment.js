@@ -34,12 +34,19 @@ class Moon {
 
     draw(ctx, theme) {
         const moonColor = (theme && theme.moonColor) || '#9999aa';
+        const isReddish = CONFIG.level === 4;
         
         // Glow
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 150);
-        gradient.addColorStop(0, 'rgba(120, 120, 160, 0.15)');
-        gradient.addColorStop(0.5, 'rgba(80, 80, 120, 0.05)');
-        gradient.addColorStop(1, 'transparent');
+        if (isReddish) {
+            gradient.addColorStop(0, 'rgba(200, 100, 60, 0.2)');
+            gradient.addColorStop(0.5, 'rgba(160, 70, 40, 0.08)');
+            gradient.addColorStop(1, 'transparent');
+        } else {
+            gradient.addColorStop(0, 'rgba(120, 120, 160, 0.15)');
+            gradient.addColorStop(0.5, 'rgba(80, 80, 120, 0.05)');
+            gradient.addColorStop(1, 'transparent');
+        }
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(this.x, this.y, 150, 0, Math.PI * 2);
@@ -52,7 +59,7 @@ class Moon {
         ctx.fill();
 
         // Crateri
-        ctx.fillStyle = '#777788';
+        ctx.fillStyle = isReddish ? '#994433' : '#777788';
         ctx.beginPath();
         ctx.arc(this.x - 15, this.y - 10, 8, 0, Math.PI * 2);
         ctx.arc(this.x + 20, this.y + 5, 12, 0, Math.PI * 2);
@@ -164,6 +171,73 @@ class Snowflake {
 // ============================================
 // STEAM PARTICLE - Vapore dai comignoli (Livello 3)
 // ============================================
+
+// ============================================
+// RAINDROP - Pioggia battente (Livello 4 - La Fuga)
+// ============================================
+class Raindrop {
+    constructor() {
+        this.reset(true);
+    }
+
+    reset(initial) {
+        this.x = Math.random() * CONFIG.worldWidth;
+        this.y = initial ? Math.random() * CONFIG.worldHeight : -10 - Math.random() * 200;
+        this.length = 8 + Math.random() * 14;     // lunghezza striscia
+        this.speed = 10 + Math.random() * 8;       // caduta veloce
+        this.wind = -1.5 + Math.random() * -1.5;   // vento obliquo
+        this.alpha = 0.15 + Math.random() * 0.25;
+        this.thickness = 1 + Math.random() * 1.2;
+    }
+
+    update() {
+        this.y += this.speed;
+        this.x += this.wind;
+
+        if (this.y > CONFIG.worldHeight + 30) {
+            this.reset(false);
+        }
+    }
+
+    draw(ctx) {
+        ctx.strokeStyle = `rgba(170, 190, 220, ${this.alpha})`;
+        ctx.lineWidth = this.thickness;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.wind * 0.6, this.y + this.length);
+        ctx.stroke();
+    }
+}
+
+// ============================================
+// RAIN SPLASH - Schizzo quando la goccia tocca terra
+// ============================================
+class RainSplash {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.life = 6 + Math.random() * 4;
+        this.maxLife = this.life;
+        this.size = 2 + Math.random() * 3;
+    }
+
+    update() {
+        this.life--;
+    }
+
+    draw(ctx) {
+        if (this.life <= 0) return;
+        const t = 1 - this.life / this.maxLife;
+        const r = this.size + t * 6;
+        const a = (1 - t) * 0.3;
+        ctx.strokeStyle = `rgba(170, 190, 220, ${a})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, r, r * 0.3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+}
+
 class SteamParticle {
     constructor(x, y) {
         this.baseX = x;
