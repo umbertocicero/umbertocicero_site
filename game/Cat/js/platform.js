@@ -12,7 +12,7 @@ class Platform {
         this.color = this.getColor();
         this.windows = this.generateWindows();
         
-        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster');
+        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster' || type === 'barrier');
         this.roofOnly = (type === 'building');
     }
 
@@ -22,6 +22,7 @@ class Platform {
             'fire-escape': '#222228',
             'dumpster': '#0a0a0a',
             'railing': '#2a2a35',
+            'barrier': '#1a1a0a',
             'roof': '#0e0e18',
             'ground': '#141416'
         };
@@ -63,6 +64,9 @@ class Platform {
                 break;
             case 'dumpster':
                 this.drawDumpster(ctx);
+                break;
+            case 'barrier':
+                this.drawBarrier(ctx);
                 break;
             case 'ground':
                 this.drawGround(ctx);
@@ -243,6 +247,126 @@ class Platform {
             ctx.lineWidth = 2;
             ctx.stroke();
         }
+    }
+
+    drawBarrier(ctx) {
+        // Transenna da cantiere gialla e nera
+        const bx = this.x;
+        const by = this.y;
+        const bw = this.width;
+        const bh = this.height;
+        
+        // Ombra
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(bx + bw/2, by + bh + 4, bw/2 + 3, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Gambe della transenna (cavalletto a X)
+        ctx.strokeStyle = '#806818';
+        ctx.lineWidth = 4;
+        // Gamba sinistra
+        ctx.beginPath();
+        ctx.moveTo(bx + 8, by + 6);
+        ctx.lineTo(bx - 4, by + bh + 5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bx + 8, by + 6);
+        ctx.lineTo(bx + 20, by + bh + 5);
+        ctx.stroke();
+        // Gamba destra
+        ctx.beginPath();
+        ctx.moveTo(bx + bw - 8, by + 6);
+        ctx.lineTo(bx + bw + 4, by + bh + 5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bx + bw - 8, by + 6);
+        ctx.lineTo(bx + bw - 20, by + bh + 5);
+        ctx.stroke();
+        
+        // Barra orizzontale principale (la parte con strisce gialle/nere)
+        const barH = 14;
+        const barY = by;
+        
+        // Sfondo barra
+        ctx.fillStyle = '#ccaa20';
+        ctx.beginPath();
+        ctx.roundRect(bx, barY, bw, barH, 2);
+        ctx.fill();
+        
+        // Strisce diagonali nere
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(bx, barY, bw, barH, 2);
+        ctx.clip();
+        
+        const stripeW = 12;
+        ctx.fillStyle = '#111111';
+        for (let sx = bx - barH; sx < bx + bw + barH; sx += stripeW * 2) {
+            ctx.beginPath();
+            ctx.moveTo(sx, barY);
+            ctx.lineTo(sx + stripeW, barY);
+            ctx.lineTo(sx + stripeW + barH, barY + barH);
+            ctx.lineTo(sx + barH, barY + barH);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
+        
+        // Bordo metallico
+        ctx.strokeStyle = '#aa8818';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(bx, barY, bw, barH, 2);
+        ctx.stroke();
+        
+        // Highlight superiore
+        ctx.strokeStyle = 'rgba(255, 220, 80, 0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(bx + 3, barY + 1);
+        ctx.lineTo(bx + bw - 3, barY + 1);
+        ctx.stroke();
+        
+        // Barra inferiore di rinforzo (più sottile)
+        const bar2Y = by + bh - 6;
+        const bar2H = 6;
+        ctx.fillStyle = '#ccaa20';
+        ctx.fillRect(bx + 10, bar2Y, bw - 20, bar2H);
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(bx + 10, bar2Y, bw - 20, bar2H);
+        ctx.clip();
+        ctx.fillStyle = '#111111';
+        for (let sx = bx - bar2H; sx < bx + bw + bar2H; sx += stripeW * 2) {
+            ctx.beginPath();
+            ctx.moveTo(sx, bar2Y);
+            ctx.lineTo(sx + stripeW, bar2Y);
+            ctx.lineTo(sx + stripeW + bar2H, bar2Y + bar2H);
+            ctx.lineTo(sx + bar2H, bar2Y + bar2H);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
+        
+        // Catarifrangenti arancioni sui lati
+        ctx.fillStyle = '#dd6600';
+        ctx.beginPath();
+        ctx.arc(bx + 5, barY + barH/2, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(bx + bw - 5, barY + barH/2, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Riflesso catarifrangenti
+        ctx.fillStyle = 'rgba(255, 150, 30, 0.3)';
+        ctx.beginPath();
+        ctx.arc(bx + 5, barY + barH/2, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(bx + bw - 5, barY + barH/2, 6, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     drawGround(ctx) {

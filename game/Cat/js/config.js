@@ -12,8 +12,8 @@ const CONFIG = {
     canvasHeight: 700,
 
     // Display scale — how much the game-world is zoomed on screen
-    // Bigger = closer view, bigger sprites. Mobile gets a tighter camera.
-    baseZoom: IS_MOBILE ? 1.6 : 1.0,
+    // Bigger = closer view, bigger sprites. Mobile gets a wider camera (zoom-out).
+    baseZoom: IS_MOBILE ? 1.0 : 1.0,
     zoom: 1.0,                       // actual value set by resizeCanvas()
     
     // World
@@ -27,7 +27,7 @@ const CONFIG = {
     // Game state
     time: 0,
     score: 0,
-    level: 1,
+    level: 2,
     maxLevel: 4,
     levelTransition: false,
     levelTransitionTimer: 0,

@@ -57,6 +57,7 @@ let foods = [];
 let enemies = [];
 let ghosts = [];
 let moon;
+let cranes = [];
 let lifePickups = [];
 let lifeSpawnTimer = 0;
 let gameOver = false;
@@ -85,7 +86,7 @@ const LEVEL_THEMES = {
         fogAlpha: 0
     },
     2: {
-        name: 'Porto Industriale',
+        name: 'Cantiere',
         skyTop: '#020210',
         skyMid: '#0a0a20',
         skyBot: '#10101a',
@@ -184,10 +185,25 @@ function generateCity() {
     // Ground
     platforms.push(new Platform(0, CONFIG.worldHeight - 50, CONFIG.worldWidth, 100, 'ground'));
 
-    // Dumpsters - più nei livelli avanzati
+    // Dumpsters / Barriers - tipo dipende dal livello
+    const obstacleType = CONFIG.level === 2 ? 'barrier' : 'dumpster';
+    const obstacleW = CONFIG.level === 2 ? 90 : 80;
+    const obstacleH = CONFIG.level === 2 ? 45 : 50;
     const dumpsterSpacing = Math.max(250, 450 - CONFIG.level * 40);
     for (let x = 100; x < CONFIG.worldWidth - 200; x += dumpsterSpacing + Math.random() * 100) {
-        platforms.push(new Platform(x, CONFIG.worldHeight - 100, 80, 50, 'dumpster'));
+        platforms.push(new Platform(x, CONFIG.worldHeight - 50 - obstacleH, obstacleW, obstacleH, obstacleType));
+    }
+    
+    // Gru (solo livello 2 - Cantiere)
+    if (CONFIG.level === 2) {
+        const craneSpacing = 600 + Math.random() * 200;
+        for (let cx = 300; cx < CONFIG.worldWidth - 400; cx += craneSpacing + Math.random() * 300) {
+            const craneHeight = 300 + Math.random() * 200;
+            const crane = new Crane(cx, CONFIG.worldHeight - 50, craneHeight);
+            cranes.push(crane);
+            // Aggiungi la piattaforma mobile del braccio alle platforms
+            platforms.push(crane.getPlatform());
+        }
     }
 
     // Fire escapes
@@ -416,59 +432,72 @@ function drawCatLight() {
 // ============================================
 function drawUI() {
     const theme = getTheme();
+    const isMobile = IS_MOBILE;
     
-    // Panel sfondo
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    // Panel sfondo — più piccolo e trasparente su mobile
+    const panelW = isMobile ? 180 : 260;
+    const panelH = isMobile ? 42 : 55;
+    const panelAlpha = isMobile ? 0.35 : 0.8;
+    const pad = isMobile ? 6 : 10;
+    
+    ctx.fillStyle = `rgba(0, 0, 0, ${panelAlpha})`;
     ctx.beginPath();
-    ctx.roundRect(10, 10, 260, 55, 10);
+    ctx.roundRect(pad, pad, panelW, panelH, 8);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (!isMobile) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
     
     // Livello
     ctx.fillStyle = '#668899';
-    ctx.font = 'bold 11px Arial';
-    ctx.fillText('LV.' + CONFIG.level + ' - ' + theme.name, 18, 23);
+    ctx.font = isMobile ? 'bold 9px Arial' : 'bold 11px Arial';
+    ctx.fillText('LV.' + CONFIG.level + ' - ' + theme.name, pad + 8, pad + (isMobile ? 11 : 13));
     
-    // Vite
-    ctx.font = '14px Arial';
+    // Vite — più piccole su mobile
+    const heartSize = isMobile ? 10 : 14;
+    const heartSpacing = isMobile ? 13 : 17;
+    ctx.font = heartSize + 'px Arial';
     for (let i = 0; i < 9; i++) {
         if (i < cat.lives) {
             ctx.fillStyle = '#aa3333';
-            ctx.fillText('❤', 18 + i * 17, 40);
+            ctx.fillText('❤', pad + 8 + i * heartSpacing, pad + (isMobile ? 24 : 30));
         } else {
             ctx.fillStyle = '#1a1a1a';
-            ctx.fillText('❤', 18 + i * 17, 40);
+            ctx.fillText('❤', pad + 8 + i * heartSpacing, pad + (isMobile ? 24 : 30));
         }
     }
     
     // Score
     ctx.fillStyle = '#997722';
-    ctx.font = 'bold 14px Arial';
-    ctx.fillText('🐟 ' + CONFIG.score, 18, 55);
+    ctx.font = isMobile ? 'bold 10px Arial' : 'bold 14px Arial';
+    ctx.fillText('🐟 ' + CONFIG.score, pad + 8, pad + (isMobile ? 37 : 45));
     
     // Food count
     const remainingFood = foods.filter(f => !f.collected).length;
     const totalFood = foods.length;
     ctx.fillStyle = '#555';
-    ctx.font = '11px Arial';
-    ctx.fillText((totalFood - remainingFood) + '/' + totalFood, 90, 55);
+    ctx.font = isMobile ? '9px Arial' : '11px Arial';
+    const countX = isMobile ? pad + 58 : 90;
+    ctx.fillText((totalFood - remainingFood) + '/' + totalFood, countX, pad + (isMobile ? 37 : 45));
     
     // Barra progresso cibo
-    const barX = 130;
-    const barW = 120;
+    const barX = isMobile ? pad + 90 : 130;
+    const barW = isMobile ? 80 : 120;
+    const barH = isMobile ? 7 : 10;
+    const barY = pad + (isMobile ? 31 : 37);
     const progress = totalFood > 0 ? (totalFood - remainingFood) / totalFood : 0;
     
     ctx.fillStyle = '#111';
     ctx.beginPath();
-    ctx.roundRect(barX, 47, barW, 10, 3);
+    ctx.roundRect(barX, barY, barW, barH, 3);
     ctx.fill();
     
     const barColor = progress >= 1 ? '#33aa33' : '#997722';
     ctx.fillStyle = barColor;
     ctx.beginPath();
-    ctx.roundRect(barX, 47, barW * progress, 10, 3);
+    ctx.roundRect(barX, barY, barW * progress, barH, 3);
     ctx.fill();
 }
 
@@ -688,6 +717,7 @@ function nextLevel() {
     foods = [];
     enemies = [];
     ghosts = [];
+    cranes = [];
     lifePickups = [];
     lifeSpawnTimer = 0;
     CONFIG.time = 0;
@@ -721,6 +751,7 @@ function restart() {
     foods = [];
     enemies = [];
     ghosts = [];
+    cranes = [];
     lifePickups = [];
     lifeSpawnTimer = 0;
     CONFIG.score = 0;
@@ -816,6 +847,7 @@ function gameLoop() {
     for (const enemy of enemies) enemy.update(cat, platforms);
     for (const ghost of ghosts) ghost.update();
     for (const lp of lifePickups) lp.update();
+    for (const crane of cranes) crane.update();
     
     // Pulisci fantasmi esauriti
     for (let i = ghosts.length - 1; i >= 0; i--) {
@@ -901,10 +933,13 @@ function gameLoop() {
     // Fire escapes
     for (const fe of fireEscapes) fe.draw(ctx);
     
+    // Cranes (gru da cantiere)
+    for (const crane of cranes) crane.draw(ctx);
+    
     // Lamps (struttura)
     for (const lamp of lamps) lamp.draw(ctx);
     
-    // Other platforms
+    // Other platforms (dumpsters, barriers, railings, etc.)
     for (const p of platforms) {
         if (p.type !== 'building' && p.type !== 'ground' && p.type !== 'fire-escape') {
             p.draw(ctx);
