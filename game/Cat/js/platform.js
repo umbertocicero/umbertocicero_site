@@ -12,7 +12,7 @@ class Platform {
         this.color = this.getColor();
         this.windows = this.generateWindows();
         
-        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster' || type === 'barrier');
+        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster' || type === 'barrier' || type === 'steam-vent');
         this.roofOnly = (type === 'building');
     }
 
@@ -23,6 +23,7 @@ class Platform {
             'dumpster': '#0a0a0a',
             'railing': '#2a2a35',
             'barrier': '#1a1a0a',
+            'steam-vent': '#cc5500',
             'roof': '#0e0e18',
             'ground': '#141416'
         };
@@ -51,12 +52,15 @@ class Platform {
     }
 
     draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Skip base rect for types that draw their own shape
+        if (this.type !== 'steam-vent' && this.type !== 'barrier') {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
 
-        ctx.strokeStyle = '#0a0a14';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+            ctx.strokeStyle = '#0a0a14';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+        }
 
         switch(this.type) {
             case 'building':
@@ -67,6 +71,9 @@ class Platform {
                 break;
             case 'barrier':
                 this.drawBarrier(ctx);
+                break;
+            case 'steam-vent':
+                this.drawSteamVent(ctx);
                 break;
             case 'ground':
                 this.drawGround(ctx);
@@ -167,6 +174,22 @@ class Platform {
         
         ctx.fillStyle = '#1e1e28';
         ctx.fillRect(this.x - 2, this.y + this.height - 8, this.width + 4, 3);
+        
+        // Neve sui tetti (Livello 3 - Inverno)
+        if (CONFIG.level === 3) {
+            this.drawSnowLayer(ctx, this.x - 2, this.y - 10, this.width + 4, 10);
+            // Ghiaccioli sotto la cornice
+            ctx.fillStyle = '#bcc5d8';
+            for (let ix = this.x + 8; ix < this.x + this.width - 8; ix += 12 + Math.sin(ix) * 5) {
+                const icicleH = 6 + Math.sin(ix * 0.3) * 4;
+                ctx.beginPath();
+                ctx.moveTo(ix, this.y - 3);
+                ctx.lineTo(ix + 2, this.y - 3);
+                ctx.lineTo(ix + 1, this.y - 3 + icicleH);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
     }
 
     drawDumpster(ctx) {
@@ -369,6 +392,107 @@ class Platform {
         ctx.fill();
     }
 
+    drawSteamVent(ctx) {
+        // Comignolo arancione stile NYC (steam stack)
+        const cx = this.x + this.width / 2;
+        const by = this.y;
+        const bh = this.height;
+        const bw = this.width;
+        
+        // Ombra
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(cx, by + bh + 3, bw / 2 + 4, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Corpo conico — più largo in basso, stretto in alto
+        const topW = bw * 0.45;
+        const botW = bw;
+        
+        // Gradiente arancione
+        const bodyGrad = ctx.createLinearGradient(cx - botW/2, by, cx + botW/2, by);
+        bodyGrad.addColorStop(0, '#aa3800');
+        bodyGrad.addColorStop(0.3, '#dd5500');
+        bodyGrad.addColorStop(0.6, '#cc4a00');
+        bodyGrad.addColorStop(1, '#993000');
+        ctx.fillStyle = bodyGrad;
+        
+        ctx.beginPath();
+        ctx.moveTo(cx - topW/2, by);
+        ctx.lineTo(cx + topW/2, by);
+        ctx.lineTo(cx + botW/2, by + bh);
+        ctx.lineTo(cx - botW/2, by + bh);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Bordo
+        ctx.strokeStyle = '#882800';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Strisce bianche orizzontali (tipiche NYC)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        const stripes = 3;
+        for (let i = 0; i < stripes; i++) {
+            const sy = by + 8 + i * (bh / (stripes + 1));
+            const t = (sy - by) / bh;  // 0..1 top to bottom
+            const sw = topW + (botW - topW) * t;
+            ctx.fillRect(cx - sw/2 + 2, sy, sw - 4, 4);
+        }
+        
+        // Anello metallico in cima
+        ctx.fillStyle = '#888888';
+        ctx.fillRect(cx - topW/2 - 3, by - 3, topW + 6, 6);
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - topW/2 - 3, by - 3, topW + 6, 6);
+        
+        // Highlight
+        ctx.fillStyle = 'rgba(255, 200, 150, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(cx - topW/2 + 3, by + 2);
+        ctx.lineTo(cx - 2, by + 2);
+        ctx.lineTo(cx - botW/4, by + bh - 3);
+        ctx.lineTo(cx - botW/2 + 5, by + bh - 3);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Base rinforzata
+        ctx.fillStyle = '#882800';
+        ctx.fillRect(cx - botW/2 - 2, by + bh - 5, botW + 4, 6);
+    }
+
+    // --- Neve sui tetti e a terra (Livello 3) ---
+    drawSnowLayer(ctx, x, y, width, height) {
+        // Strato di neve irregolare in cima
+        ctx.fillStyle = '#d8dde8';
+        ctx.beginPath();
+        ctx.moveTo(x - 2, y + height);
+        ctx.lineTo(x - 2, y + 3);
+        // Bordo superiore ondulato
+        const steps = Math.floor(width / 8);
+        for (let i = 0; i <= steps; i++) {
+            const sx = x + (i / steps) * width;
+            const sy = y + Math.sin(i * 1.3 + x * 0.01) * 2;
+            ctx.lineTo(sx, sy);
+        }
+        ctx.lineTo(x + width + 2, y + 3);
+        ctx.lineTo(x + width + 2, y + height);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Ombra leggera sotto
+        ctx.fillStyle = 'rgba(150, 160, 180, 0.3)';
+        ctx.fillRect(x, y + height - 2, width, 2);
+        
+        // Riflesso luce in cima
+        ctx.fillStyle = 'rgba(240, 245, 255, 0.5)';
+        for (let i = 0; i < steps; i += 2) {
+            const sx = x + (i / steps) * width;
+            ctx.fillRect(sx, y + 1, 6, 1);
+        }
+    }
+
     drawGround(ctx) {
         // Asfalto
         const asphaltGradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
@@ -411,6 +535,20 @@ class Platform {
         ctx.fillStyle = '#2a2a15';
         for (let i = 50; i < this.width; i += 150) {
             ctx.fillRect(this.x + i, this.y + 35, 50, 4);
+        }
+        
+        // Neve a terra (Livello 3 - Inverno)
+        if (CONFIG.level === 3) {
+            this.drawSnowLayer(ctx, this.x, this.y - 3, this.width, 8);
+            // Cumuli di neve qua e là
+            ctx.fillStyle = '#ccd2e0';
+            for (let i = 80; i < this.width; i += 200 + Math.sin(i) * 50) {
+                const moundW = 30 + Math.sin(i * 0.5) * 15;
+                const moundH = 6 + Math.sin(i * 0.3) * 3;
+                ctx.beginPath();
+                ctx.ellipse(this.x + i, this.y - 1, moundW, moundH, 0, Math.PI, 0);
+                ctx.fill();
+            }
         }
     }
 }

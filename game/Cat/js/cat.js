@@ -59,17 +59,31 @@ class Cat {
             this.jumpBufferTime--;
         }
         
-        // Movement
+        // Movement — slippery on ice (level 3)
+        const isIcy = CONFIG.level === 3;
+        const moveAccel = isIcy ? 0.4 : this.speed;  // accelerazione graduale sul ghiaccio
+        const stopFriction = isIcy ? 0.96 : CONFIG.friction;  // scivola di più
+        
         if (KEYS.left) {
-            this.vx = -this.speed;
+            if (isIcy) {
+                this.vx -= moveAccel;
+                if (this.vx < -this.speed) this.vx = -this.speed;
+            } else {
+                this.vx = -this.speed;
+            }
             this.facing = -1;
             if (this.onGround) this.state = 'walk';
         } else if (KEYS.right) {
-            this.vx = this.speed;
+            if (isIcy) {
+                this.vx += moveAccel;
+                if (this.vx > this.speed) this.vx = this.speed;
+            } else {
+                this.vx = this.speed;
+            }
             this.facing = 1;
             if (this.onGround) this.state = 'walk';
         } else {
-            this.vx *= CONFIG.friction;
+            this.vx *= stopFriction;
             if (this.onGround && Math.abs(this.vx) < 0.5) this.state = 'idle';
         }
 

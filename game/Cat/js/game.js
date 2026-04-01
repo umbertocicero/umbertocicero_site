@@ -58,6 +58,8 @@ let enemies = [];
 let ghosts = [];
 let moon;
 let cranes = [];
+let snowflakes = [];
+let steamParticles = [];
 let lifePickups = [];
 let lifeSpawnTimer = 0;
 let gameOver = false;
@@ -103,21 +105,23 @@ const LEVEL_THEMES = {
         fogAlpha: 0.06
     },
     3: {
-        name: 'Zona Rossa',
-        skyTop: '#0a0204',
-        skyMid: '#120508',
-        skyBot: '#18080c',
-        buildingBase: '#1a0a10',
-        buildingLight: '#201015',
-        groundColor: '#140a0c',
-        lampColor: { r: 220, g: 120, b: 80 },
-        lampIntensity: 0.65,
-        moonColor: '#aa6666',
-        starAlpha: 0.08,
+        name: 'Inverno',
+        skyTop: '#050810',
+        skyMid: '#0a1018',
+        skyBot: '#101822',
+        buildingBase: '#121820',
+        buildingLight: '#161c28',
+        groundColor: '#0e1218',
+        lampColor: { r: 180, g: 200, b: 240 },
+        lampIntensity: 0.7,
+        moonColor: '#ccddee',
+        starAlpha: 0.2,
         enemyCount: 9,
-        enemySpeed: 3,
-        enemyChaseSpeed: 4.5,
-        fogAlpha: 0.1
+        enemySpeed: 2.5,
+        enemyChaseSpeed: 4,
+        fogAlpha: 0.05,
+        snow: true,
+        iceFriction: 0.95
     },
     4: {
         name: 'La Fuga',
@@ -185,13 +189,25 @@ function generateCity() {
     // Ground
     platforms.push(new Platform(0, CONFIG.worldHeight - 50, CONFIG.worldWidth, 100, 'ground'));
 
-    // Dumpsters / Barriers - tipo dipende dal livello
-    const obstacleType = CONFIG.level === 2 ? 'barrier' : 'dumpster';
-    const obstacleW = CONFIG.level === 2 ? 90 : 80;
-    const obstacleH = CONFIG.level === 2 ? 45 : 50;
+    // Dumpsters / Barriers / Steam vents - tipo dipende dal livello
+    let obstacleType, obstacleW, obstacleH;
+    if (CONFIG.level === 2) {
+        obstacleType = 'barrier'; obstacleW = 90; obstacleH = 45;
+    } else if (CONFIG.level === 3) {
+        obstacleType = 'steam-vent'; obstacleW = 40; obstacleH = 60;
+    } else {
+        obstacleType = 'dumpster'; obstacleW = 80; obstacleH = 50;
+    }
     const dumpsterSpacing = Math.max(250, 450 - CONFIG.level * 40);
     for (let x = 100; x < CONFIG.worldWidth - 200; x += dumpsterSpacing + Math.random() * 100) {
-        platforms.push(new Platform(x, CONFIG.worldHeight - 50 - obstacleH, obstacleW, obstacleH, obstacleType));
+        const plat = new Platform(x, CONFIG.worldHeight - 50 - obstacleH, obstacleW, obstacleH, obstacleType);
+        platforms.push(plat);
+        // Genera particelle di vapore per ogni steam-vent
+        if (obstacleType === 'steam-vent') {
+            for (let s = 0; s < 5; s++) {
+                steamParticles.push(new SteamParticle(x + obstacleW / 2, CONFIG.worldHeight - 50 - obstacleH - 5));
+            }
+        }
     }
     
     // Gru (solo livello 2 - Cantiere)
@@ -229,8 +245,13 @@ function generateCity() {
     // Stars
     for (let i = 0; i < 100; i++) stars.push(new Star());
 
-    // Particles
-    for (let i = 0; i < 30; i++) particles.push(new Particle());
+    // Particles / Snowflakes
+    if (CONFIG.level === 3) {
+        for (let i = 0; i < 200; i++) snowflakes.push(new Snowflake());
+        for (let i = 0; i < 10; i++) particles.push(new Particle());
+    } else {
+        for (let i = 0; i < 30; i++) particles.push(new Particle());
+    }
     
     // Food
     generateFood();
@@ -718,6 +739,8 @@ function nextLevel() {
     enemies = [];
     ghosts = [];
     cranes = [];
+    snowflakes = [];
+    steamParticles = [];
     lifePickups = [];
     lifeSpawnTimer = 0;
     CONFIG.time = 0;
@@ -752,6 +775,8 @@ function restart() {
     enemies = [];
     ghosts = [];
     cranes = [];
+    snowflakes = [];
+    steamParticles = [];
     lifePickups = [];
     lifeSpawnTimer = 0;
     CONFIG.score = 0;
@@ -848,6 +873,8 @@ function gameLoop() {
     for (const ghost of ghosts) ghost.update();
     for (const lp of lifePickups) lp.update();
     for (const crane of cranes) crane.update();
+    for (const sf of snowflakes) sf.update();
+    for (const sp of steamParticles) sp.update();
     
     // Pulisci fantasmi esauriti
     for (let i = ghosts.length - 1; i >= 0; i--) {
@@ -954,6 +981,12 @@ function gameLoop() {
     
     // Particles
     for (const particle of particles) particle.draw(ctx);
+    
+    // Steam particles (vapore dai comignoli)
+    for (const sp of steamParticles) sp.draw(ctx);
+    
+    // Snowflakes (neve livello 3)
+    for (const sf of snowflakes) sf.draw(ctx);
     
     // Enemies
     for (const enemy of enemies) enemy.draw(ctx);
