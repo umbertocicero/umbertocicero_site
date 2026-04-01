@@ -69,6 +69,11 @@ let gameOver = false;
 let gameWon = false;
 let clickRestart = false;
 
+// Easter egg — level selector
+let easterEggTaps = 0;
+let easterEggTimeout = 0;
+let easterEggOpen = false;
+
 // ============================================
 // LEVEL THEMES
 // ============================================
@@ -843,6 +848,19 @@ function _clearFrame() {
 function gameLoop() {
     CONFIG.time++;
 
+    // Easter egg level selector — pausa il gioco
+    if (easterEggOpen) {
+        _clearFrame();
+        drawLevelSelector();
+        // Easter egg timeout
+        if (easterEggTimeout > 0) {
+            easterEggTimeout--;
+            if (easterEggTimeout <= 0) easterEggTaps = 0;
+        }
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
     // Game Over
     if (gameOver) {
         if (KEYS.space || clickRestart) {
@@ -1088,6 +1106,12 @@ function gameLoop() {
     drawUI();
     drawMobileControls();
 
+    // Easter egg timeout
+    if (easterEggTimeout > 0) {
+        easterEggTimeout--;
+        if (easterEggTimeout <= 0) easterEggTaps = 0;
+    }
+
     requestAnimationFrame(gameLoop);
 }
 
@@ -1232,6 +1256,130 @@ function spawnLifePickup() {
 }
 
 // ============================================
+// EASTER EGG — LEVEL SELECTOR
+// ============================================
+function goToLevel(lvl) {
+    platforms = [];
+    lamps = [];
+    stars = [];
+    particles = [];
+    fireEscapes = [];
+    foods = [];
+    enemies = [];
+    ghosts = [];
+    cranes = [];
+    snowflakes = [];
+    steamParticles = [];
+    lifePickups = [];
+    raindrops = [];
+    rainSplashes = [];
+    rivalCat = null;
+    lifeSpawnTimer = 0;
+    CONFIG.time = 0;
+    CONFIG.level = lvl;
+    CONFIG.levelTransition = false;
+    CONFIG.levelTransitionTimer = 0;
+    gameOver = false;
+    gameWon = false;
+    easterEggOpen = false;
+
+    CONFIG.cameraX = 0;
+    CONFIG.cameraY = 0;
+
+    cat = new Cat(200, CONFIG.worldHeight - 150);
+    moon = new Moon();
+    generateCity();
+
+    const spawn = findSafeSpawn();
+    cat.x = spawn.x;
+    cat.y = spawn.y;
+    cat.spawnX = spawn.x;
+    cat.spawnY = spawn.y;
+}
+
+function drawLevelSelector() {
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
+
+    // Sfondo scuro
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+    ctx.fillRect(0, 0, vw, vh);
+
+    // Titolo
+    ctx.fillStyle = '#ffcc44';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('🐱 SCEGLI LIVELLO', vw / 2, vh / 2 - 100);
+
+    // Bottoni livello
+    const levels = Object.keys(LEVEL_THEMES).map(Number);
+    const btnW = 180;
+    const btnH = 50;
+    const gap = 18;
+    const totalW = levels.length * btnW + (levels.length - 1) * gap;
+    const startX = (vw - totalW) / 2;
+    const btnY = vh / 2 - 30;
+
+    for (let i = 0; i < levels.length; i++) {
+        const lvl = levels[i];
+        const theme = LEVEL_THEMES[lvl];
+        const bx = startX + i * (btnW + gap);
+
+        // Sfondo bottone
+        const isCurrentLevel = lvl === CONFIG.level;
+        ctx.fillStyle = isCurrentLevel ? 'rgba(100, 180, 100, 0.35)' : 'rgba(40, 40, 60, 0.7)';
+        ctx.beginPath();
+        ctx.roundRect(bx, btnY, btnW, btnH, 8);
+        ctx.fill();
+
+        // Bordo
+        ctx.strokeStyle = isCurrentLevel ? '#66aa66' : 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Testo
+        ctx.fillStyle = isCurrentLevel ? '#aaffaa' : '#ccccdd';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText('LV.' + lvl, bx + btnW / 2, btnY + 20);
+
+        ctx.fillStyle = isCurrentLevel ? '#88cc88' : '#8888aa';
+        ctx.font = '13px Arial';
+        ctx.fillText(theme.name, bx + btnW / 2, btnY + 38);
+    }
+
+    // Istruzioni chiusura
+    ctx.fillStyle = '#555';
+    ctx.font = '13px Arial';
+    const closeMsg = IS_MOBILE ? 'Tocca fuori per chiudere' : 'ESC o clicca fuori per chiudere';
+    ctx.fillText(closeMsg, vw / 2, btnY + btnH + 40);
+
+    ctx.textAlign = 'left';
+
+    // Salva coordinate per hit-test (usate nel click handler)
+    drawLevelSelector._buttons = levels.map((lvl, i) => ({
+        lvl,
+        x: startX + i * (btnW + gap),
+        y: btnY,
+        w: btnW,
+        h: btnH
+    }));
+}
+
+function handleLevelSelectorClick(cx, cy) {
+    if (!drawLevelSelector._buttons) return false;
+    for (const btn of drawLevelSelector._buttons) {
+        if (cx >= btn.x && cx <= btn.x + btn.w &&
+            cy >= btn.y && cy <= btn.y + btn.h) {
+            goToLevel(btn.lvl);
+            return true;
+        }
+    }
+    // Click fuori → chiudi
+    easterEggOpen = false;
+    return true;
+}
+
+// ============================================
 // INIT
 // ============================================
 function findSafeSpawn() {
@@ -1261,24 +1409,80 @@ function init() {
     cat.spawnX = spawn.x;
     cat.spawnY = spawn.y;
     
-    // Click/touch per ricominciare alla sconfitta/vittoria
-    canvas.addEventListener('click', () => {
+    // Click/touch per ricominciare alla sconfitta/vittoria + easter egg
+    canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / CONFIG.zoom;
+        const my = (e.clientY - rect.top) / CONFIG.zoom;
+
+        // Easter egg level selector aperto → gestisci click bottoni
+        if (easterEggOpen) {
+            handleLevelSelectorClick(mx, my);
+            return;
+        }
+
+        // Easter egg: 5 click in alto a destra (area 80×80)
+        const cornerSize = 80;
+        if (mx > CONFIG.canvasWidth - cornerSize && my < cornerSize) {
+            easterEggTaps++;
+            easterEggTimeout = 180; // 3 secondi per completare i 5 tap
+            if (easterEggTaps >= 5) {
+                easterEggOpen = true;
+                easterEggTaps = 0;
+            }
+            return;
+        } else {
+            easterEggTaps = 0;
+        }
+
         if (gameOver || gameWon) {
             clickRestart = true;
         }
     });
     canvas.addEventListener('touchend', (e) => {
+        if (e.changedTouches.length > 0) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.changedTouches[0];
+            const mx = (touch.clientX - rect.left) / CONFIG.zoom;
+            const my = (touch.clientY - rect.top) / CONFIG.zoom;
+
+            if (easterEggOpen) {
+                handleLevelSelectorClick(mx, my);
+                e.preventDefault();
+                return;
+            }
+
+            const cornerSize = 80;
+            if (mx > CONFIG.canvasWidth - cornerSize && my < cornerSize) {
+                easterEggTaps++;
+                easterEggTimeout = 180;
+                if (easterEggTaps >= 5) {
+                    easterEggOpen = true;
+                    easterEggTaps = 0;
+                }
+                e.preventDefault();
+                return;
+            } else {
+                easterEggTaps = 0;
+            }
+        }
+
         if (gameOver || gameWon) {
             clickRestart = true;
             e.preventDefault();
         }
     });
+
+    // ESC chiude il level selector
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && easterEggOpen) {
+            easterEggOpen = false;
+        }
+    });
     
     // Mobile touch controls
     setupMobileControls();
-    
-    console.log('🐱 Night Cat - Raccogli tutto il cibo per passare al livello successivo!');
-    
+        
     gameLoop();
 }
 

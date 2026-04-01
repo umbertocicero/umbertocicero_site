@@ -27,7 +27,7 @@ const CONFIG = {
     // Game state
     time: 0,
     score: 0,
-    level: 4,
+    level: 1,
     maxLevel: 4,
     levelTransition: false,
     levelTransitionTimer: 0,
