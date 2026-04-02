@@ -104,6 +104,7 @@ class Cat {
             this.coyoteTime = 0;
             this.jumpBufferTime = 0;
             this.state = 'jump';
+            if (typeof CatAudio !== 'undefined') CatAudio.play('sfx_wing', 0.18);
         }
 
         // Gravity

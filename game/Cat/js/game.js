@@ -649,6 +649,15 @@ function drawCatLight() {
 // ============================================
 // DRAW UI
 // ============================================
+function _soundBtnRect() {
+    const sz = IS_MOBILE ? 28 : 34;
+    const margin = IS_MOBILE ? 6 : 10;
+    // On level 5 the boss health panel occupies the top-right corner —
+    // shift the button below it so it stays visible.
+    const bossOffset = (CONFIG.level === 5) ? (IS_MOBILE ? 48 : 62) : 0;
+    return { x: CONFIG.canvasWidth - sz - margin, y: margin + bossOffset, w: sz, h: sz };
+}
+
 function drawUI() {
     const theme = getTheme();
     const isMobile = IS_MOBILE;
@@ -720,6 +729,23 @@ function drawUI() {
         ctx.roundRect(barX, barY, barW * progress, barH, 3);
         ctx.fill();
     }
+
+    // ── Sound toggle button (top-right corner) ──
+    const sbr = _soundBtnRect();
+    ctx.fillStyle = CatAudio.isEnabled() ? 'rgba(0,0,0,0.45)' : 'rgba(180,0,0,0.45)';
+    ctx.beginPath();
+    ctx.roundRect(sbr.x, sbr.y, sbr.w, sbr.h, 6);
+    ctx.fill();
+    ctx.strokeStyle = CatAudio.isEnabled() ? 'rgba(255,255,255,0.15)' : 'rgba(255,80,80,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = (isMobile ? 13 : 16) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(CatAudio.isEnabled() ? '🔊' : '🔇', sbr.x + sbr.w / 2, sbr.y + sbr.h / 2);
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
 }
 
 // ============================================
@@ -1191,6 +1217,7 @@ function gameLoop() {
                 if (cat.takeDamage()) {
                     ghosts.push(new GhostCat(cat.x + cat.width / 2, cat.y));
                     cat.vy = -7;
+                    CatAudio.play('ouch', 0.45);
                     if (cat.lives <= 0) gameOver = true;
                 }
             }
@@ -1201,6 +1228,7 @@ function gameLoop() {
                     ghosts.push(new GhostCat(cat.x + cat.width / 2, cat.y));
                     cat.vy = -9;
                     cat.vx = (cat.x > quantumCat.x) ? 7 : -7;
+                    CatAudio.play('ouch', 0.45);
                     if (cat.lives <= 0) gameOver = true;
                 }
             }
@@ -1300,6 +1328,7 @@ function gameLoop() {
             if (held && quantumCat && !quantumCat.defeated) {
                 held.throwAt(cat, quantumCat);
                 catHoldsOrb = false;
+                CatAudio.play('ball_fire', 0.45);
             }
         }
 
@@ -1343,6 +1372,7 @@ function gameLoop() {
             if (cat.lives < 9) {
                 cat.lives++;
                 lp.active = false;
+                CatAudio.play('heart', 0.4);
             }
         }
     }
@@ -1352,6 +1382,7 @@ function gameLoop() {
         for (const food of foods) {
             if (food.checkCollision(cat)) {
                 food.collect();
+                CatAudio.play('sfx_point', 0.2);
             }
         }
     
@@ -1375,7 +1406,8 @@ function gameLoop() {
                 // Knockback
                 cat.vy = -8;
                 cat.vx = (cat.x > enemy.x) ? 6 : -6;
-                
+                CatAudio.play('ouch', 0.45);
+
                 // Game over?
                 if (cat.lives <= 0) {
                     gameOver = true;
@@ -1390,6 +1422,7 @@ function gameLoop() {
             ghosts.push(new GhostCat(cat.x + cat.width/2, cat.y));
             cat.vy = -8;
             cat.vx = (cat.x > rivalCat.x) ? 6 : -6;
+            CatAudio.play('ouch', 0.45);
             // Il gatto rivale si ferma 5 secondi dopo aver colpito
             rivalCat.pauseTimer = 300;
             if (cat.lives <= 0) {
@@ -1723,7 +1756,7 @@ function drawBossIntro(ctx) {
         // 3 istruzioni chiave
         const tips = [
             { icon: '🔵', text: 'Raccogli le ORB che brillano nell\'arena' },
-            { icon: '🎯', text: 'Premi SPAZIO per lanciare l\'orb verso il boss' },
+            { icon: '🎯', text: IS_MOBILE ? 'Premi SALTO per lanciare l\'orb verso il boss' : 'Premi SPAZIO per lanciare l\'orb verso il boss' },
             { icon: '💙', text: 'Colpisci 9 volte per sconfiggerlo — poi entra nel portale!' }
         ];
         const tipY = vh / 2 + 0;
@@ -1764,7 +1797,7 @@ function drawBossHint(ctx) {
     ctx.save();
     ctx.globalAlpha = fade * 0.7;
     const msg = catHoldsOrb
-        ? '🎯 Mira e premi SPAZIO per lanciare!'
+        ? (IS_MOBILE ? '🎯 Premi SALTO per lanciare!' : '🎯 Mira e premi SPAZIO per lanciare!')
         : '🔵 Raccogli un\'ORB e lancia verso il boss!';
     const hintW = IS_MOBILE ? 240 : 340;
     const hintH = IS_MOBILE ? 26 : 30;
@@ -2058,9 +2091,17 @@ function init() {
     
     // Click/touch per ricominciare alla sconfitta/vittoria + easter egg
     canvas.addEventListener('click', (e) => {
+        CatAudio.init();
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) / CONFIG.zoom;
         const my = (e.clientY - rect.top) / CONFIG.zoom;
+
+        // Sound toggle button
+        const sbr = _soundBtnRect();
+        if (mx >= sbr.x && mx <= sbr.x + sbr.w && my >= sbr.y && my <= sbr.y + sbr.h) {
+            CatAudio.setEnabled(!CatAudio.isEnabled());
+            return;
+        }
 
         // Easter egg level selector aperto → gestisci click bottoni
         if (easterEggOpen) {
@@ -2087,11 +2128,19 @@ function init() {
         }
     });
     canvas.addEventListener('touchend', (e) => {
+        CatAudio.init();
         if (e.changedTouches.length > 0) {
             const rect = canvas.getBoundingClientRect();
             const touch = e.changedTouches[0];
             const mx = (touch.clientX - rect.left) / CONFIG.zoom;
             const my = (touch.clientY - rect.top) / CONFIG.zoom;
+
+            // Sound toggle button
+            const sbr = _soundBtnRect();
+            if (mx >= sbr.x && mx <= sbr.x + sbr.w && my >= sbr.y && my <= sbr.y + sbr.h) {
+                CatAudio.setEnabled(!CatAudio.isEnabled());
+                return;
+            }
 
             if (easterEggOpen) {
                 handleLevelSelectorClick(mx, my);
@@ -2122,6 +2171,7 @@ function init() {
 
     // ESC chiude il level selector
     window.addEventListener('keydown', (e) => {
+        CatAudio.init();
         if (e.key === 'Escape' && easterEggOpen) {
             easterEggOpen = false;
         }
@@ -2129,7 +2179,7 @@ function init() {
     
     // Mobile touch controls
     setupMobileControls();
-        
+
     gameLoop();
 }
 
