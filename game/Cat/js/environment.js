@@ -35,12 +35,18 @@ class Moon {
     draw(ctx, theme) {
         const moonColor = (theme && theme.moonColor) || '#9999aa';
         const isReddish = CONFIG.level === 4;
+        const isQuantum = CONFIG.level === 5;
         
         // Glow
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 150);
         if (isReddish) {
             gradient.addColorStop(0, 'rgba(200, 100, 60, 0.2)');
             gradient.addColorStop(0.5, 'rgba(160, 70, 40, 0.08)');
+            gradient.addColorStop(1, 'transparent');
+        } else if (isQuantum) {
+            const qPulse = 0.25 + Math.sin(CONFIG.time * 0.05) * 0.1;
+            gradient.addColorStop(0, `rgba(60, 120, 255, ${qPulse})`);
+            gradient.addColorStop(0.4, `rgba(80, 60, 220, ${qPulse * 0.5})`);
             gradient.addColorStop(1, 'transparent');
         } else {
             gradient.addColorStop(0, 'rgba(120, 120, 160, 0.15)');
@@ -58,8 +64,25 @@ class Moon {
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
 
+        // Anello orbitale (solo livello 5)
+        if (isQuantum) {
+            const ringAngle = CONFIG.time * 0.02;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(ringAngle);
+            ctx.strokeStyle = `rgba(80,160,255,${0.4 + Math.sin(CONFIG.time * 0.07) * 0.2})`;
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(80,160,255,0.8)';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, this.radius + 20, 8, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
         // Crateri
-        ctx.fillStyle = isReddish ? '#994433' : '#777788';
+        ctx.fillStyle = isReddish ? '#994433' : (isQuantum ? '#223366' : '#777788');
         ctx.beginPath();
         ctx.arc(this.x - 15, this.y - 10, 8, 0, Math.PI * 2);
         ctx.arc(this.x + 20, this.y + 5, 12, 0, Math.PI * 2);
@@ -68,6 +91,68 @@ class Moon {
         ctx.fill();
     }
 }
+
+// ============================================
+// QUANTUM GRID - Griglia neon sci-fi (Livello 5)
+// ============================================
+class QuantumGrid {
+    constructor() {
+        this.cellW = 120;
+        this.cellH = 80;
+        this.cols = Math.ceil(CONFIG.worldWidth / this.cellW) + 2;
+        this.rows = Math.ceil(CONFIG.worldHeight / this.cellH) + 2;
+    }
+
+    draw(ctx) {
+        if (CONFIG.level !== 5) return;
+        const t = CONFIG.time;
+        const camX = CONFIG.cameraX;
+        const camY = CONFIG.cameraY;
+
+        ctx.save();
+        ctx.globalAlpha = 0.07 + Math.sin(t * 0.03) * 0.02;
+        ctx.strokeStyle = 'rgba(60, 120, 255, 1)';
+        ctx.lineWidth = 0.8;
+
+        const offX = -(camX % this.cellW);
+        const offY = -(camY % this.cellH);
+
+        for (let col = 0; col <= this.cols; col++) {
+            const x = offX + col * this.cellW;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, CONFIG.canvasHeight);
+            ctx.stroke();
+        }
+        for (let row = 0; row <= this.rows; row++) {
+            const y = offY + row * this.cellH;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(CONFIG.canvasWidth, y);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // Nodi luminosi agli incroci
+        ctx.save();
+        ctx.globalAlpha = 0.15;
+        for (let col = 0; col <= this.cols; col++) {
+            for (let row = 0; row <= this.rows; row++) {
+                const nx = offX + col * this.cellW;
+                const ny = offY + row * this.cellH;
+                const pulse = Math.sin(t * 0.05 + col * 0.7 + row * 0.5) * 0.5 + 0.5;
+                ctx.fillStyle = `rgba(80,180,255,${pulse * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(nx, ny, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
+}
+
+// Istanza globale della griglia quantum
+let quantumGrid = null;
 
 class Particle {
     constructor() {

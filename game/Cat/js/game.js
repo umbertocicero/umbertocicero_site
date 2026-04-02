@@ -64,6 +64,13 @@ let lifePickups = [];
 let raindrops = [];
 let rainSplashes = [];
 let rivalCat = null;
+let quantumCat = null;
+let portals = [];
+let portalBursts = [];
+let quantumOrbs = [];
+let catHoldsOrb = false;      // il gatto tiene un'orb
+let bossPortalSpawnTimer = 0;
+let bossIntroTimer = 0;   // schermata intro livello 5
 let lifeSpawnTimer = 0;
 let gameOver = false;
 let gameWon = false;
@@ -149,6 +156,24 @@ const LEVEL_THEMES = {
         fogAlpha: 0.12,
         rain: true,
         pudbleFriction: 0.94
+    },
+    5: {
+        name: 'Quantum',
+        skyTop: '#010108',
+        skyMid: '#02020e',
+        skyBot: '#030314',
+        buildingBase: '#04040f',
+        buildingLight: '#07071a',
+        groundColor: '#03030a',
+        lampColor: { r: 80, g: 140, b: 255 },
+        lampIntensity: 0.6,
+        moonColor: '#4466dd',
+        starAlpha: 0.25,
+        enemyCount: 0,        // nessun cane — solo il boss
+        enemySpeed: 0,
+        enemyChaseSpeed: 0,
+        fogAlpha: 0.08,
+        isBossFight: true
     }
 };
 
@@ -189,6 +214,15 @@ let currentBuildingData = [];
 // ============================================
 function generateCity() {
     const theme = getTheme();
+    
+    // Init quantum grid for level 5
+    if (CONFIG.level === 5) {
+        quantumGrid = new QuantumGrid();
+        generateBossArena();
+        return;
+    }
+    
+    quantumGrid = null;
     currentBuildingData = generateBuildingData();
 
     // Buildings
@@ -287,6 +321,139 @@ function generateCity() {
 }
 
 // ============================================
+// BOSS ARENA - Livello 5
+// ============================================
+function generateBossArena() {
+    // Mondo più corto: arena circoscritta
+    CONFIG.worldWidth = 2400;
+    platforms.length = 0;
+
+    // Ground
+    platforms.push(new Platform(0, CONFIG.worldHeight - 50, CONFIG.worldWidth, 100, 'ground'));
+
+    // Edifici laterali — pareti dell'arena
+    platforms.push(new Platform(0, CONFIG.worldHeight - 50 - 400, 120, 400, 'building'));
+    platforms.push(new Platform(CONFIG.worldWidth - 120, CONFIG.worldHeight - 50 - 400, 120, 400, 'building'));
+
+    // Piattaforme centrali — 3 livelli simmetrici
+    const groundY = CONFIG.worldHeight - 50;
+    const arenaW = CONFIG.worldWidth;
+
+    // Livello 1 (basso) — più larghe per maggiore visibilità
+    platforms.push(new Platform(arenaW * 0.2 - 80,  groundY - 130, 200, 16, 'quantum'));
+    platforms.push(new Platform(arenaW * 0.5 - 100, groundY - 130, 200, 16, 'quantum'));
+    platforms.push(new Platform(arenaW * 0.8 - 80,  groundY - 130, 200, 16, 'quantum'));
+
+    // Livello 2 (medio)
+    platforms.push(new Platform(arenaW * 0.15 - 70, groundY - 260, 180, 16, 'quantum'));
+    platforms.push(new Platform(arenaW * 0.5 - 90,  groundY - 260, 180, 16, 'quantum'));
+    platforms.push(new Platform(arenaW * 0.85 - 70, groundY - 260, 180, 16, 'quantum'));
+
+    // Livello 3 (alto)
+    platforms.push(new Platform(arenaW * 0.35 - 80, groundY - 390, 180, 16, 'quantum'));
+    platforms.push(new Platform(arenaW * 0.65 - 80, groundY - 390, 180, 16, 'quantum'));
+
+    // Edifici di sfondo (decorativi)
+    platforms.push(new Platform(130, groundY - 350, 200, 350, 'building'));
+    platforms.push(new Platform(arenaW * 0.45 - 100, groundY - 300, 200, 300, 'building'));
+    platforms.push(new Platform(arenaW - 330, groundY - 350, 200, 350, 'building'));
+
+    // Lamps — a terra (palo appoggiato al ground)
+    for (let x = 200; x < arenaW - 100; x += 350) {
+        lamps.push(new Lamp(x, groundY - 100));
+    }
+
+    // Stars (dense — spazio)
+    for (let i = 0; i < 180; i++) stars.push(new Star());
+
+    // Particelle quantum (più di quelle normali)
+    for (let i = 0; i < 60; i++) particles.push(new Particle());
+
+    // Cibo — nessuno: vittoria tramite boss
+    // Spawn il boss al centro-destra
+    const bossX = arenaW * 0.65;
+    const bossY = groundY - 90;
+    quantumCat = new QuantumCat(bossX, bossY);
+
+    // Portali fissi iniziali: uno a sinistra, uno a destra
+    const p1 = new Portal(150, groundY - 165);
+    const p2 = new Portal(arenaW - 180, groundY - 165);
+    p1.linkedPortal = p2;
+    p2.linkedPortal = p1;
+    portals.push(p1, p2);
+
+    // Intro tutorial — 5 secondi
+    bossIntroTimer = 300;
+
+    // Orb iniziali: 3 sparse nell'arena
+    _spawnQuantumOrb();
+    _spawnQuantumOrb();
+    _spawnQuantumOrb();
+
+    // Nessun cibo → la barra progresso non viene usata
+    // Vittoria: sconfiggere il boss attraverso i portali
+}
+
+// Spawna una coppia di portali in posizioni pseudo-random dell'arena
+function _spawnBossPortalPair() {
+    const groundY = CONFIG.worldHeight - 50;
+    const arenaW = CONFIG.worldWidth;
+
+    // Posizioni candidate (allineate alle piattaforme quantum)
+    const candidates = [
+        { x: 160,              y: groundY - 165 },
+        { x: arenaW * 0.2 - 80,  y: groundY - 165 },
+        { x: arenaW * 0.5 - 100, y: groundY - 165 },
+        { x: arenaW * 0.8 - 80,  y: groundY - 165 },
+        { x: arenaW - 200,     y: groundY - 165 },
+        { x: arenaW * 0.15 - 70, y: groundY - 295 },
+        { x: arenaW * 0.5 - 90,  y: groundY - 295 },
+        { x: arenaW * 0.85 - 70, y: groundY - 295 },
+        { x: arenaW * 0.35 - 80, y: groundY - 425 },
+        { x: arenaW * 0.65 - 80, y: groundY - 425 },
+    ];
+
+    // Shuffle and pick 2 different spots
+    const shuffled = candidates.sort(() => Math.random() - 0.5);
+    const spot1 = shuffled[0];
+    const spot2 = shuffled[1];
+
+    const ttl = 300 + Math.floor(Math.random() * 200); // 5-8 sec
+    const pa = new Portal(spot1.x, spot1.y);
+    const pb = new Portal(spot2.x, spot2.y);
+    pa.linkedPortal = pb;
+    pb.linkedPortal = pa;
+    pa.life = ttl;
+    pb.life = ttl;
+    portals.push(pa, pb);
+}
+
+// Spawna una QuantumOrb in posizione casuale dell'arena
+function _spawnQuantumOrb() {
+    const groundY = CONFIG.worldHeight - 50;
+    const arenaW = CONFIG.worldWidth;
+    // Posizioni candidate: a terra + sulle piattaforme
+    const spots = [
+        { x: arenaW * 0.12, y: groundY - 40 },
+        { x: arenaW * 0.30, y: groundY - 40 },
+        { x: arenaW * 0.55, y: groundY - 40 },
+        { x: arenaW * 0.78, y: groundY - 40 },
+        { x: arenaW * 0.2 - 60,  y: groundY - 170 },
+        { x: arenaW * 0.5 - 80,  y: groundY - 170 },
+        { x: arenaW * 0.8 - 60,  y: groundY - 170 },
+        { x: arenaW * 0.15 - 50, y: groundY - 300 },
+        { x: arenaW * 0.5 - 70,  y: groundY - 300 },
+        { x: arenaW * 0.85 - 50, y: groundY - 300 },
+    ];
+    // Evita dove c'è già un'orb
+    const free = spots.filter(s => !quantumOrbs.some(
+        o => o.active && !o.thrown && Math.abs(o.x - s.x) < 80
+    ));
+    const spot = free.length ? free[Math.floor(Math.random() * free.length)] : spots[0];
+    quantumOrbs.push(new QuantumOrb(spot.x, spot.y));
+}
+
+// ============================================
 // FOOD GENERATION
 // ============================================
 function generateFood() {
@@ -377,6 +544,11 @@ function drawBackground() {
     ctx.translate(-CONFIG.cameraX * 0.2, -CONFIG.cameraY * 0.2);
     for (const star of stars) star.draw(ctx, theme);
     ctx.restore();
+    
+    // Quantum grid (Livello 5 — sfondo sci-fi)
+    if (CONFIG.level === 5 && quantumGrid) {
+        quantumGrid.draw(ctx);
+    }
     
     // Nebbia livello
     if (theme.fogAlpha > 0) {
@@ -521,31 +693,33 @@ function drawUI() {
     ctx.font = isMobile ? 'bold 10px Arial' : 'bold 14px Arial';
     ctx.fillText('🐟 ' + CONFIG.score, pad + 8, pad + (isMobile ? 37 : 45));
     
-    // Food count
-    const remainingFood = foods.filter(f => !f.collected).length;
-    const totalFood = foods.length;
-    ctx.fillStyle = '#555';
-    ctx.font = isMobile ? '9px Arial' : '11px Arial';
-    const countX = isMobile ? pad + 58 : 90;
-    ctx.fillText((totalFood - remainingFood) + '/' + totalFood, countX, pad + (isMobile ? 37 : 45));
-    
-    // Barra progresso cibo
-    const barX = isMobile ? pad + 90 : 130;
-    const barW = isMobile ? 80 : 120;
-    const barH = isMobile ? 7 : 10;
-    const barY = pad + (isMobile ? 31 : 37);
-    const progress = totalFood > 0 ? (totalFood - remainingFood) / totalFood : 0;
-    
-    ctx.fillStyle = '#111';
-    ctx.beginPath();
-    ctx.roundRect(barX, barY, barW, barH, 3);
-    ctx.fill();
-    
-    const barColor = progress >= 1 ? '#33aa33' : '#997722';
-    ctx.fillStyle = barColor;
-    ctx.beginPath();
-    ctx.roundRect(barX, barY, barW * progress, barH, 3);
-    ctx.fill();
+    // Food count / barra progresso — nascosti nel boss fight
+    if (CONFIG.level !== 5) {
+        const remainingFood = foods.filter(f => !f.collected).length;
+        const totalFood = foods.length;
+        ctx.fillStyle = '#555';
+        ctx.font = isMobile ? '9px Arial' : '11px Arial';
+        const countX = isMobile ? pad + 58 : 90;
+        ctx.fillText((totalFood - remainingFood) + '/' + totalFood, countX, pad + (isMobile ? 37 : 45));
+        
+        // Barra progresso cibo
+        const barX = isMobile ? pad + 90 : 130;
+        const barW = isMobile ? 80 : 120;
+        const barH = isMobile ? 7 : 10;
+        const barY = pad + (isMobile ? 31 : 37);
+        const progress = totalFood > 0 ? (totalFood - remainingFood) / totalFood : 0;
+        
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 3);
+        ctx.fill();
+        
+        const barColor = progress >= 1 ? '#33aa33' : '#997722';
+        ctx.fillStyle = barColor;
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW * progress, barH, 3);
+        ctx.fill();
+    }
 }
 
 // ============================================
@@ -672,29 +846,47 @@ function drawLevelComplete() {
     ctx.fillRect(0, 0, vw, vh);
     
     if (t > 30) {
+        const isBossFight = CONFIG.level === 5;
         const theme = getTheme();
         
-        ctx.fillStyle = '#44aa44';
-        ctx.font = 'bold 50px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('LIVELLO COMPLETATO!', vw/2, vh/2 - 50);
-        
-        ctx.fillStyle = '#997722';
-        ctx.font = '22px Arial';
-        ctx.fillText('Punteggio: ' + CONFIG.score, vw/2, vh/2 + 5);
-        
-        if (CONFIG.level < CONFIG.maxLevel) {
-            ctx.fillStyle = '#668899';
-            ctx.font = '20px Arial';
-            const nextTheme = LEVEL_THEMES[CONFIG.level + 1];
-            ctx.fillText('Prossimo: ' + nextTheme.name, vw/2, vh/2 + 40);
+        if (isBossFight) {
+            // Effetto boss defeated — colori neon
+            const blink = Math.sin(t * 0.15) * 0.5 + 0.5;
+            ctx.fillStyle = `rgba(80,180,255,${blink})`;
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚡ QUANTUM CAT SCONFITTO! ⚡', vw/2, vh/2 - 70);
+
+            ctx.fillStyle = '#aaccff';
+            ctx.font = '22px Arial';
+            ctx.fillText('Il gatto è fuggito attraverso il portale!', vw/2, vh/2 - 20);
+
+            ctx.fillStyle = '#997722';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('Punteggio: ' + CONFIG.score, vw/2, vh/2 + 20);
+        } else {
+            ctx.fillStyle = '#44aa44';
+            ctx.font = 'bold 50px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('LIVELLO COMPLETATO!', vw/2, vh/2 - 50);
             
-            if (t > 90) {
-                ctx.fillStyle = '#555';
-                ctx.font = '16px Arial';
-                const contMsg = IS_MOBILE ? 'Tocca per continuare' : 'Premi SPAZIO per continuare';
-                ctx.fillText(contMsg, vw/2, vh/2 + 75);
+            ctx.fillStyle = '#997722';
+            ctx.font = '22px Arial';
+            ctx.fillText('Punteggio: ' + CONFIG.score, vw/2, vh/2 + 5);
+            
+            if (CONFIG.level < CONFIG.maxLevel) {
+                ctx.fillStyle = '#668899';
+                ctx.font = '20px Arial';
+                const nextTheme = LEVEL_THEMES[CONFIG.level + 1];
+                ctx.fillText('Prossimo: ' + nextTheme.name, vw/2, vh/2 + 40);
             }
+        }
+        
+        if (t > 90) {
+            ctx.fillStyle = '#555';
+            ctx.font = '16px Arial';
+            const contMsg = IS_MOBILE ? 'Tocca per continuare' : 'Premi SPAZIO per continuare';
+            ctx.fillText(contMsg, vw/2, vh/2 + (isBossFight ? 75 : 75));
         }
         
         ctx.textAlign = 'left';
@@ -794,6 +986,13 @@ function nextLevel() {
     raindrops = [];
     rainSplashes = [];
     rivalCat = null;
+    quantumCat = null;
+    portals = [];
+    portalBursts = [];
+    quantumOrbs = [];
+    catHoldsOrb = false;
+    bossPortalSpawnTimer = 0;
+    bossIntroTimer = 0;
     lifeSpawnTimer = 0;
     CONFIG.time = 0;
     CONFIG.levelTransition = false;
@@ -833,6 +1032,13 @@ function restart() {
     raindrops = [];
     rainSplashes = [];
     rivalCat = null;
+    quantumCat = null;
+    portals = [];
+    portalBursts = [];
+    quantumOrbs = [];
+    catHoldsOrb = false;
+    bossPortalSpawnTimer = 0;
+    bossIntroTimer = 0;
     lifeSpawnTimer = 0;
     CONFIG.score = 0;
     CONFIG.time = 0;
@@ -962,6 +1168,157 @@ function gameLoop() {
         rivalCat.update(cat, platforms);
     }
     
+    // ── LIVELLO 5: Boss Fight ──
+    if (CONFIG.level === 5) {
+        // Intro countdown — boss non attacca e updates sono bloccati
+        if (bossIntroTimer > 0) {
+            bossIntroTimer--;
+        } else {
+        // Aggiorna boss
+        if (quantumCat && !quantumCat.defeated) {
+            quantumCat.update(cat, platforms, portals);
+
+            // Spawn portali quando il boss viene "danneggiato" dall'avvicinarsi (ogni fase)
+            bossPortalSpawnTimer++;
+            const portalSpawnInterval = quantumCat.phase === 1 ? 400 : quantumCat.phase === 2 ? 280 : 180;
+            if (bossPortalSpawnTimer >= portalSpawnInterval) {
+                bossPortalSpawnTimer = 0;
+                _spawnBossPortalPair();
+            }
+
+            // Danno da proiettili del boss
+            if (quantumCat.checkProjectileHit(cat)) {
+                if (cat.takeDamage()) {
+                    ghosts.push(new GhostCat(cat.x + cat.width / 2, cat.y));
+                    cat.vy = -7;
+                    if (cat.lives <= 0) gameOver = true;
+                }
+            }
+
+            // Danno da contatto col boss
+            if (quantumCat.checkBodyHit(cat)) {
+                if (cat.takeDamage()) {
+                    ghosts.push(new GhostCat(cat.x + cat.width / 2, cat.y));
+                    cat.vy = -9;
+                    cat.vx = (cat.x > quantumCat.x) ? 7 : -7;
+                    if (cat.lives <= 0) gameOver = true;
+                }
+            }
+        }
+
+        // Aggiorna portali
+        for (let i = portals.length - 1; i >= 0; i--) {
+            portals[i].update();
+            if (!portals[i].active) portals.splice(i, 1);
+        }
+
+        // Teletrasporto gatto attraverso portale
+        for (const portal of portals) {
+            if (portal.checkEntry(cat)) {
+                // Portale vittoria — non teletrasporta, triggera fine livello
+                if (portal.isVictory) {
+                    portalBursts.push(new PortalBurst(
+                        portal.x + portal.width / 2,
+                        portal.y + portal.height / 2,
+                        true
+                    ));
+                    portal.useCooldown = 60;
+                    CONFIG.levelTransition = true;
+                    CONFIG.levelTransitionTimer = 0;
+                    CONFIG.score += CONFIG.level * 200;
+                    break;
+                }
+
+                // Portale normale — teletrasporta
+                const burstPos = portal.teleportCat(cat);
+                portalBursts.push(new PortalBurst(burstPos.x, burstPos.y, false));
+
+                // Colpisce il boss se l'uscita è vicina a lui (<300px)
+                if (quantumCat && !quantumCat.defeated) {
+                    const exit = portal.linkedPortal;
+                    if (exit) {
+                        const exitCx = exit.x + exit.width / 2;
+                        const bossCx = quantumCat.x + quantumCat.width / 2;
+                        if (Math.abs(exitCx - bossCx) < 300) {
+                            if (quantumCat.takeDamage()) {
+                                _spawnBossPortalPair();
+                                portalBursts.push(new PortalBurst(
+                                    quantumCat.x + quantumCat.width / 2,
+                                    quantumCat.y + quantumCat.height / 2
+                                ));
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
+        // Aggiorna portal bursts
+        for (let i = portalBursts.length - 1; i >= 0; i--) {
+            portalBursts[i].update();
+            if (portalBursts[i].done) portalBursts.splice(i, 1);
+        }
+
+        // ── QUANTUM ORBS ──
+        for (let i = quantumOrbs.length - 1; i >= 0; i--) {
+            const orb = quantumOrbs[i];
+            orb.update(cat, quantumCat);
+
+            // Raccogli orb
+            if (!catHoldsOrb && orb.checkPickup(cat)) {
+                orb.collected = true;
+                catHoldsOrb = true;
+            }
+
+            // Orb colpisce il boss
+            if (orb.hitBoss && quantumCat && !quantumCat.defeated) {
+                if (quantumCat.takeDamage()) {
+                    portalBursts.push(new PortalBurst(
+                        quantumCat.x + quantumCat.width / 2,
+                        quantumCat.y + quantumCat.height / 2
+                    ));
+                    CONFIG.score += 50;
+                }
+            }
+
+            if (!orb.active) {
+                if (orb.collected) catHoldsOrb = false;
+                quantumOrbs.splice(i, 1);
+            }
+        }
+
+        // Respawn orb se ne rimangono meno di 2 nell'arena
+        const orbsOnGround = quantumOrbs.filter(o => !o.collected && !o.thrown && o.active).length;
+        if (orbsOnGround < 2 && CONFIG.time % 180 === 0) {
+            _spawnQuantumOrb();
+        }
+
+        // Lancia orb con SPACE (solo se il gatto tiene un'orb)
+        if (catHoldsOrb && (KEYS.space || KEYS.up)) {
+            const held = quantumOrbs.find(o => o.collected && o.active);
+            if (held && quantumCat && !quantumCat.defeated) {
+                held.throwAt(cat, quantumCat);
+                catHoldsOrb = false;
+            }
+        }
+
+        // Boss sconfitto → spawna portale della vittoria
+        if (quantumCat && quantumCat.defeated) {
+            const victoryAlreadySpawned = portals.some(p => p.isVictory);
+            if (!victoryAlreadySpawned) {
+                const vx = quantumCat.x + quantumCat.width / 2 - 15;
+                const vy = quantumCat.y - 80;
+                const vPortal = new Portal(vx, vy);
+                vPortal.isVictory = true;
+                vPortal.linkedPortal = null;
+                vPortal.active = true;
+                portals.push(vPortal);
+            }
+        }
+        } // fine else bossIntroTimer
+    }
+    
     // Pulisci fantasmi esauriti
     for (let i = ghosts.length - 1; i >= 0; i--) {
         if (!ghosts[i].active) ghosts.splice(i, 1);
@@ -990,20 +1347,22 @@ function gameLoop() {
         }
     }
     
-    // Check food collection
-    for (const food of foods) {
-        if (food.checkCollision(cat)) {
-            food.collect();
+    // Check food collection (non in boss fight)
+    if (CONFIG.level !== 5) {
+        for (const food of foods) {
+            if (food.checkCollision(cat)) {
+                food.collect();
+            }
         }
-    }
     
-    // Check se tutto il cibo è raccolto → livello completato!
-    const remainingFood = foods.filter(f => !f.collected).length;
-    if (remainingFood === 0 && foods.length > 0) {
-        CONFIG.levelTransition = true;
-        CONFIG.levelTransitionTimer = 0;
-        // Bonus punti per completamento livello
-        CONFIG.score += CONFIG.level * 100;
+        // Check se tutto il cibo è raccolto → livello completato!
+        const remainingFood = foods.filter(f => !f.collected).length;
+        if (remainingFood === 0 && foods.length > 0) {
+            CONFIG.levelTransition = true;
+            CONFIG.levelTransitionTimer = 0;
+            // Bonus punti per completamento livello
+            CONFIG.score += CONFIG.level * 100;
+        }
     }
     
     // Check enemy collision
@@ -1095,11 +1454,42 @@ function gameLoop() {
     // Rival Cat (gatto antagonista livello 4)
     if (rivalCat) rivalCat.draw(ctx);
     
+    // Portali (livello 5)
+    for (const portal of portals) portal.draw(ctx);
+    
+    // Portal bursts
+    for (const pb of portalBursts) pb.draw(ctx);
+    
+    // Quantum Orbs (livello 5)
+    for (const orb of quantumOrbs) orb.draw(ctx);
+    
+    // Quantum Cat boss (livello 5)
+    if (quantumCat) quantumCat.draw(ctx);
+    
     // Enemies
     for (const enemy of enemies) enemy.draw(ctx);
     
     // Cat
     cat.draw(ctx);
+
+    // Orb tenuta dal gatto (livello 5)
+    if (CONFIG.level === 5 && catHoldsOrb) {
+        const t = CONFIG.time;
+        const cx = cat.x + cat.width / 2;
+        const cy = cat.y - 10;
+        const pulse = 0.7 + Math.sin(t * 0.15) * 0.3;
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = 'rgba(80,200,255,0.9)';
+        const og = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10);
+        og.addColorStop(0, 'rgba(200,240,255,1)');
+        og.addColorStop(0.4, `rgba(80,200,255,${pulse})`);
+        og.addColorStop(1, 'transparent');
+        ctx.fillStyle = og;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
     
     // === LAMP LIGHTING: illuminazione naturale ===
     drawLampLighting();
@@ -1127,6 +1517,21 @@ function gameLoop() {
     
     // UI
     drawUI();
+    
+    // Boss health bar (Livello 5)
+    if (CONFIG.level === 5 && quantumCat) {
+        quantumCat.drawHealthBar(ctx);
+    }
+
+    // Boss intro overlay (Livello 5)
+    if (CONFIG.level === 5 && bossIntroTimer > 0) {
+        drawBossIntro(ctx);
+    }
+    // Boss persistent HUD hint (piccolo, dopo intro)
+    else if (CONFIG.level === 5 && quantumCat && !quantumCat.defeated && bossIntroTimer <= 0) {
+        drawBossHint(ctx);
+    }
+    
     drawMobileControls();
 
     // Easter egg timeout
@@ -1279,6 +1684,110 @@ function spawnLifePickup() {
 }
 
 // ============================================
+// BOSS INTRO OVERLAY + HUD HINT (Livello 5)
+// ============================================
+function drawBossIntro(ctx) {
+    const t = CONFIG.time;
+    const vw = CONFIG.canvasWidth;
+    const vh = CONFIG.canvasHeight;
+
+    // Fade in/out dell'overlay
+    const progress = 1 - (bossIntroTimer / 300);  // 0 → 1
+    const fadeAlpha = progress < 0.1
+        ? progress / 0.1
+        : (progress > 0.85 ? (1 - progress) / 0.15 : 1);
+
+    ctx.fillStyle = `rgba(0, 0, 10, ${fadeAlpha * 0.82})`;
+    ctx.fillRect(0, 0, vw, vh);
+
+    if (bossIntroTimer < 270) {
+        const a = Math.min(1, (270 - bossIntroTimer) / 20) * fadeAlpha;
+
+        // Titolo boss
+        const pulse = Math.sin(t * 0.12) * 0.15 + 0.85;
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = 'rgba(80,160,255,0.9)';
+        ctx.fillStyle = '#88ccff';
+        ctx.font = `bold ${IS_MOBILE ? 28 : 40}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('⚡ QUANTUM CAT ⚡', vw / 2, vh / 2 - 80);
+        ctx.shadowBlur = 0;
+
+        // Sottotitolo
+        ctx.fillStyle = '#aaaacc';
+        ctx.font = `${IS_MOBILE ? 13 : 17}px Arial`;
+        ctx.fillText('Il boss finale ti sfida in un\'arena quantistica', vw / 2, vh / 2 - 42);
+
+        // 3 istruzioni chiave
+        const tips = [
+            { icon: '🔵', text: 'Raccogli le ORB che brillano nell\'arena' },
+            { icon: '🎯', text: 'Premi SPAZIO per lanciare l\'orb verso il boss' },
+            { icon: '💙', text: 'Colpisci 9 volte per sconfiggerlo — poi entra nel portale!' }
+        ];
+        const tipY = vh / 2 + 0;
+        for (let i = 0; i < tips.length; i++) {
+            const tip = tips[i];
+            const ty = tipY + i * (IS_MOBILE ? 30 : 38);
+            ctx.fillStyle = 'rgba(60,120,200,0.25)';
+            ctx.beginPath();
+            ctx.roundRect(vw / 2 - (IS_MOBILE ? 180 : 260), ty - 18, IS_MOBILE ? 360 : 520, IS_MOBILE ? 26 : 30, 6);
+            ctx.fill();
+            ctx.fillStyle = '#ccddff';
+            ctx.font = `${IS_MOBILE ? 12 : 15}px Arial`;
+            ctx.fillText(`${tip.icon}  ${tip.text}`, vw / 2, ty);
+        }
+
+        // Countdown
+        const secs = Math.ceil(bossIntroTimer / 60);
+        ctx.fillStyle = `rgba(100,160,255,${pulse * a})`;
+        ctx.font = `bold ${IS_MOBILE ? 14 : 18}px Arial`;
+        ctx.fillText(`Inizia tra ${secs}...`, vw / 2, tipY + tips.length * (IS_MOBILE ? 30 : 38) + 30);
+
+        ctx.restore();
+        ctx.textAlign = 'left';
+    }
+}
+
+function drawBossHint(ctx) {
+    if (!quantumCat) return;
+    const t = CONFIG.time;
+    const vw = CONFIG.canvasWidth;
+    // Piccolo promemoria in basso a destra (scompare dopo 600 frame ~ 10 sec)
+    const displayTime = 600;
+    const elapsed = t - 300; // parte dopo l'intro
+    if (elapsed > displayTime) return;
+
+    const fade = elapsed > displayTime - 60 ? (displayTime - elapsed) / 60 : 1;
+
+    ctx.save();
+    ctx.globalAlpha = fade * 0.7;
+    const msg = catHoldsOrb
+        ? '🎯 Mira e premi SPAZIO per lanciare!'
+        : '🔵 Raccogli un\'ORB e lancia verso il boss!';
+    const hintW = IS_MOBILE ? 240 : 340;
+    const hintH = IS_MOBILE ? 26 : 30;
+    const hx = vw - hintW - 10;
+    const hy = IS_MOBILE ? 60 : 70;
+
+    ctx.fillStyle = 'rgba(0,10,30,0.8)';
+    ctx.beginPath();
+    ctx.roundRect(hx, hy, hintW, hintH, 6);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60,120,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#99bbff';
+    ctx.font = `${IS_MOBILE ? 10 : 12}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(msg, hx + hintW / 2, hy + (IS_MOBILE ? 17 : 19));
+    ctx.textAlign = 'left';
+    ctx.restore();
+}
+
+// ============================================
 // EASTER EGG — LEVEL SELECTOR
 // ============================================
 function goToLevel(lvl) {
@@ -1297,6 +1806,13 @@ function goToLevel(lvl) {
     raindrops = [];
     rainSplashes = [];
     rivalCat = null;
+    quantumCat = null;
+    portals = [];
+    portalBursts = [];
+    quantumOrbs = [];
+    catHoldsOrb = false;
+    bossPortalSpawnTimer = 0;
+    bossIntroTimer = 0;
     lifeSpawnTimer = 0;
     CONFIG.time = 0;
     CONFIG.level = lvl;
@@ -1324,68 +1840,170 @@ function drawLevelSelector() {
     const vw = CONFIG.canvasWidth;
     const vh = CONFIG.canvasHeight;
 
-    // Sfondo scuro
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+    // --- Panel dimensions ---
+    const panelW = Math.min(vw - 32, 480);
+    const panelH = 280;
+    const panelX = (vw - panelW) / 2;
+    const panelY = (vh - panelH) / 2;
+
+    // Backdrop blur overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
     ctx.fillRect(0, 0, vw, vh);
 
-    // Titolo
+    // Panel background
+    const panelGrad = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
+    panelGrad.addColorStop(0, 'rgba(18, 18, 36, 0.98)');
+    panelGrad.addColorStop(1, 'rgba(10, 10, 24, 0.98)');
+    ctx.fillStyle = panelGrad;
+    ctx.beginPath();
+    ctx.roundRect(panelX, panelY, panelW, panelH, 16);
+    ctx.fill();
+
+    // Panel border (animated neon glow)
+    const t = (Date.now() / 1000);
+    const glowAlpha = 0.5 + 0.3 * Math.sin(t * 2);
+    ctx.strokeStyle = `rgba(255, 200, 60, ${glowAlpha})`;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(255, 200, 60, 0.5)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.roundRect(panelX, panelY, panelW, panelH, 16);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Title
     ctx.fillStyle = '#ffcc44';
-    ctx.font = 'bold 28px Arial';
+    ctx.font = `bold ${Math.round(panelW * 0.058)}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('🐱 SCEGLI LIVELLO', vw / 2, vh / 2 - 100);
+    ctx.fillText('🐱  SCEGLI LIVELLO', vw / 2, panelY + 44);
 
-    // Bottoni livello
-    const levels = Object.keys(LEVEL_THEMES).map(Number);
-    const btnW = 180;
-    const btnH = 50;
-    const gap = 18;
-    const totalW = levels.length * btnW + (levels.length - 1) * gap;
-    const startX = (vw - totalW) / 2;
-    const btnY = vh / 2 - 30;
+    // Thin divider under title
+    ctx.strokeStyle = 'rgba(255, 200, 60, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 24, panelY + 56);
+    ctx.lineTo(panelX + panelW - 24, panelY + 56);
+    ctx.stroke();
 
-    for (let i = 0; i < levels.length; i++) {
-        const lvl = levels[i];
-        const theme = LEVEL_THEMES[lvl];
-        const bx = startX + i * (btnW + gap);
+    // --- Button grid: row1 = LV1 LV2 LV3, row2 = LV4 LV5 (centered) ---
+    const levels = Object.keys(LEVEL_THEMES).map(Number); // [1,2,3,4,5]
 
-        // Sfondo bottone
-        const isCurrentLevel = lvl === CONFIG.level;
-        ctx.fillStyle = isCurrentLevel ? 'rgba(100, 180, 100, 0.35)' : 'rgba(40, 40, 60, 0.7)';
-        ctx.beginPath();
-        ctx.roundRect(bx, btnY, btnW, btnH, 8);
-        ctx.fill();
+    // Level accent colors for each theme
+    const LEVEL_COLORS = {
+        1: { main: '#f59e42', glow: 'rgba(245,158,66,0.35)' },
+        2: { main: '#4caf91', glow: 'rgba(76,175,145,0.35)' },
+        3: { main: '#e05c5c', glow: 'rgba(224,92,92,0.35)' },
+        4: { main: '#9b7de8', glow: 'rgba(155,125,232,0.35)' },
+        5: { main: '#44aaff', glow: 'rgba(68,170,255,0.35)' }
+    };
 
-        // Bordo
-        ctx.strokeStyle = isCurrentLevel ? '#66aa66' : 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+    const row1 = levels.slice(0, 3); // [1,2,3]
+    const row2 = levels.slice(3);    // [4,5]
 
-        // Testo
-        ctx.fillStyle = isCurrentLevel ? '#aaffaa' : '#ccccdd';
-        ctx.font = 'bold 14px Arial';
-        ctx.fillText('LV.' + lvl, bx + btnW / 2, btnY + 20);
+    const gap = 12;
+    const btnH = 62;
+    const row1Y = panelY + 72;
+    const row2Y = row1Y + btnH + gap;
 
-        ctx.fillStyle = isCurrentLevel ? '#88cc88' : '#8888aa';
-        ctx.font = '13px Arial';
-        ctx.fillText(theme.name, bx + btnW / 2, btnY + 38);
-    }
+    const buttons = [];
 
-    // Istruzioni chiusura
-    ctx.fillStyle = '#555';
-    ctx.font = '13px Arial';
-    const closeMsg = IS_MOBILE ? 'Tocca fuori per chiudere' : 'ESC o clicca fuori per chiudere';
-    ctx.fillText(closeMsg, vw / 2, btnY + btnH + 40);
+    const drawRow = (rowLevels, rowY) => {
+        const btnW = Math.floor((panelW - gap * (rowLevels.length + 1)) / rowLevels.length);
+        const rowTotalW = rowLevels.length * btnW + (rowLevels.length - 1) * gap;
+        const rowStartX = panelX + (panelW - rowTotalW) / 2;
+
+        for (let i = 0; i < rowLevels.length; i++) {
+            const lvl = rowLevels[i];
+            const theme = LEVEL_THEMES[lvl];
+            const accent = LEVEL_COLORS[lvl];
+            const bx = rowStartX + i * (btnW + gap);
+            const isCurrent = lvl === CONFIG.level;
+
+            // Button background
+            ctx.fillStyle = isCurrent ? `rgba(${hexToRgb(accent.main)}, 0.22)` : 'rgba(30, 30, 50, 0.8)';
+            ctx.beginPath();
+            ctx.roundRect(bx, rowY, btnW, btnH, 10);
+            ctx.fill();
+
+            // Button border
+            if (isCurrent) {
+                ctx.strokeStyle = accent.main;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = accent.main;
+                ctx.shadowBlur = 10;
+            } else {
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                ctx.lineWidth = 1.5;
+                ctx.shadowBlur = 0;
+            }
+            ctx.beginPath();
+            ctx.roundRect(bx, rowY, btnW, btnH, 10);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Color dot
+            ctx.fillStyle = accent.main;
+            ctx.beginPath();
+            ctx.arc(bx + 14, rowY + 18, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Level number
+            ctx.fillStyle = isCurrent ? accent.main : '#ccccdd';
+            ctx.font = 'bold 15px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('LV.' + lvl, bx + btnW / 2, rowY + 26);
+
+            // Level name
+            ctx.fillStyle = isCurrent ? '#ffffff' : '#8888aa';
+            ctx.font = '12px Arial';
+            ctx.fillText(theme.name, bx + btnW / 2, rowY + 47);
+
+            // "IN GIOCO" badge
+            if (isCurrent) {
+                const badgeW = 56;
+                const badgeH = 16;
+                const badgeX = bx + btnW - badgeW - 6;
+                const badgeY = rowY + 5;
+                ctx.fillStyle = accent.main;
+                ctx.beginPath();
+                ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 9px Arial';
+                ctx.fillText('IN GIOCO', badgeX + badgeW / 2, badgeY + 11);
+            }
+
+            buttons.push({ lvl, x: bx, y: rowY, w: btnW, h: btnH });
+        }
+    };
+
+    drawRow(row1, row1Y);
+    drawRow(row2, row2Y);
+
+    // Close hint
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(120,120,140,0.7)';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    const closeMsg = IS_MOBILE ? '✕  Tocca fuori per chiudere' : '✕  ESC o clicca fuori per chiudere';
+    ctx.fillText(closeMsg, vw / 2, panelY + panelH - 14);
 
     ctx.textAlign = 'left';
 
-    // Salva coordinate per hit-test (usate nel click handler)
-    drawLevelSelector._buttons = levels.map((lvl, i) => ({
-        lvl,
-        x: startX + i * (btnW + gap),
-        y: btnY,
-        w: btnW,
-        h: btnH
-    }));
+    // Save for hit-test
+    drawLevelSelector._buttons = buttons;
+    drawLevelSelector._panelX = panelX;
+    drawLevelSelector._panelY = panelY;
+    drawLevelSelector._panelW = panelW;
+    drawLevelSelector._panelH = panelH;
+}
+
+// Helper: convert hex color to "r,g,b" string for rgba()
+function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `${r},${g},${b}`;
 }
 
 function handleLevelSelectorClick(cx, cy) {
@@ -1397,8 +2015,14 @@ function handleLevelSelectorClick(cx, cy) {
             return true;
         }
     }
-    // Click fuori → chiudi
-    easterEggOpen = false;
+    // Click fuori dal pannello → chiudi
+    const px = drawLevelSelector._panelX || 0;
+    const py = drawLevelSelector._panelY || 0;
+    const pw = drawLevelSelector._panelW || CONFIG.canvasWidth;
+    const ph = drawLevelSelector._panelH || CONFIG.canvasHeight;
+    if (cx < px || cx > px + pw || cy < py || cy > py + ph) {
+        easterEggOpen = false;
+    }
     return true;
 }
 

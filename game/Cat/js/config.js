@@ -28,7 +28,7 @@ const CONFIG = {
     time: 0,
     score: 0,
     level: 1,
-    maxLevel: 4,
+    maxLevel: 5,
     levelTransition: false,
     levelTransitionTimer: 0,
     

@@ -12,7 +12,7 @@ class Platform {
         this.color = this.getColor();
         this.windows = this.generateWindows();
         
-        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster' || type === 'barrier' || type === 'steam-vent' || type === 'puddle');
+        this.isOneWay = (type === 'building' || type === 'fire-escape' || type === 'railing' || type === 'dumpster' || type === 'barrier' || type === 'steam-vent' || type === 'puddle' || type === 'quantum');
         this.roofOnly = (type === 'building');
     }
 
@@ -26,7 +26,8 @@ class Platform {
             'steam-vent': '#cc5500',
             'puddle': '#0a0c14',
             'roof': '#0e0e18',
-            'ground': '#141416'
+            'ground': '#141416',
+            'quantum': '#0a1028'
         };
         return colors[this.type] || '#151520';
     }
@@ -82,11 +83,66 @@ class Platform {
             case 'ground':
                 this.drawGround(ctx);
                 break;
+            case 'quantum':
+                this.drawQuantumPlatform(ctx);
+                break;
+        }
+    }
+
+    drawQuantumPlatform(ctx) {
+        const t = CONFIG.time;
+        const pulse = Math.sin(t * 0.06 + this.x * 0.01) * 0.5 + 0.5;
+
+        // Corpo solido — lastra di metallo scuro
+        const grad = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+        grad.addColorStop(0, `rgba(30, 60, 120, ${0.85 + pulse * 0.1})`);
+        grad.addColorStop(0.4, `rgba(15, 30, 70, 0.9)`);
+        grad.addColorStop(1, `rgba(8, 15, 40, 0.95)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Bordo superiore luminoso — effetto neon
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = `rgba(80, 160, 255, ${0.7 + pulse * 0.3})`;
+        ctx.strokeStyle = `rgba(80, 160, 255, ${0.8 + pulse * 0.2})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.width, this.y);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Bordi laterali sottili
+        ctx.strokeStyle = `rgba(40, 100, 200, 0.5)`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x, this.y + this.height);
+        ctx.moveTo(this.x + this.width, this.y);
+        ctx.lineTo(this.x + this.width, this.y + this.height);
+        ctx.stroke();
+
+        // Circuiti decorativi sul top
+        ctx.strokeStyle = `rgba(60, 140, 255, ${0.25 + pulse * 0.15})`;
+        ctx.lineWidth = 1;
+        const step = Math.max(20, Math.floor(this.width / 6));
+        for (let sx = this.x + 10; sx < this.x + this.width - 10; sx += step) {
+            ctx.beginPath();
+            ctx.moveTo(sx, this.y + 4);
+            ctx.lineTo(sx + 6, this.y + 4);
+            ctx.lineTo(sx + 6, this.y + this.height - 2);
+            ctx.stroke();
         }
     }
 
     drawBuilding(ctx) {
-        // Gradiente edificio
+        // Livello 5: edifici in stile quantum neon
+        if (CONFIG.level === 5) {
+            this._drawQuantumBuilding(ctx);
+            return;
+        }
+
+        // Gradiente edificio (tutti gli altri livelli)
         const buildingGradient = ctx.createLinearGradient(this.x, this.y, this.x + this.width, this.y);
         buildingGradient.addColorStop(0, '#141420');
         buildingGradient.addColorStop(0.1, '#181825');
@@ -193,6 +249,102 @@ class Platform {
                 ctx.closePath();
                 ctx.fill();
             }
+        }
+    }
+
+    _drawQuantumBuilding(ctx) {
+        const t = CONFIG.time;
+        const pulse = Math.sin(t * 0.04 + this.x * 0.008) * 0.5 + 0.5;
+
+        // Corpo — gradiente blu scuro
+        const grad = ctx.createLinearGradient(this.x, this.y, this.x + this.width, this.y + this.height);
+        grad.addColorStop(0, '#05091a');
+        grad.addColorStop(0.3, '#07101f');
+        grad.addColorStop(0.7, '#050d1c');
+        grad.addColorStop(1, '#030810');
+        ctx.fillStyle = grad;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Bordi laterali sottili neon
+        ctx.strokeStyle = `rgba(30,80,180,0.55)`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+        // Cornice tetto neon
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = `rgba(60,140,255,${0.5 + pulse * 0.4})`;
+        ctx.strokeStyle = `rgba(60,140,255,${0.6 + pulse * 0.35})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.x - 2, this.y - 2);
+        ctx.lineTo(this.x + this.width + 2, this.y - 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Dettagli tetto (antenna + piattaforma)
+        ctx.fillStyle = '#0c1830';
+        ctx.fillRect(this.x - 3, this.y - 8, this.width + 6, 9);
+        ctx.fillStyle = `rgba(40,100,200,0.7)`;
+        ctx.fillRect(this.x - 3, this.y - 9, this.width + 6, 2);
+
+        // Antenna
+        const antX = this.x + this.width * 0.75;
+        ctx.fillStyle = '#1a3060';
+        ctx.fillRect(antX - 2, this.y - 28, 3, 20);
+        ctx.fillStyle = `rgba(80,180,255,${0.6 + pulse * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(antX - 1, this.y - 29, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(80,180,255,0.9)';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Finestre — stile blu neon
+        for (const win of this.windows) {
+            const wx = this.x + win.x;
+            const wy = this.y + win.y;
+
+            // Cornice
+            ctx.fillStyle = '#060d20';
+            ctx.fillRect(wx - 2, wy - 2, 34, 44);
+
+            if (win.lit) {
+                // Glow azzurro
+                const glow = ctx.createRadialGradient(wx + 15, wy + 20, 0, wx + 15, wy + 20, 45);
+                glow.addColorStop(0, 'rgba(60,140,255,0.2)');
+                glow.addColorStop(0.5, 'rgba(40,100,220,0.06)');
+                glow.addColorStop(1, 'transparent');
+                ctx.fillStyle = glow;
+                ctx.fillRect(wx - 18, wy - 14, 66, 66);
+
+                // Vetro illuminato azzurro
+                const wGrad = ctx.createLinearGradient(wx, wy, wx, wy + 40);
+                wGrad.addColorStop(0, `rgba(80,160,255,${0.7 + pulse * 0.25})`);
+                wGrad.addColorStop(0.4, `rgba(40,100,220,${0.5 + pulse * 0.2})`);
+                wGrad.addColorStop(1, 'rgba(20,60,160,0.8)');
+                ctx.fillStyle = wGrad;
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = 'rgba(80,160,255,0.7)';
+            } else {
+                ctx.fillStyle = '#030a18';
+                ctx.shadowBlur = 0;
+            }
+            ctx.fillRect(wx, wy, 30, 40);
+            ctx.shadowBlur = 0;
+
+            // Griglia finestra
+            ctx.strokeStyle = 'rgba(20,60,140,0.6)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(wx + 15, wy); ctx.lineTo(wx + 15, wy + 40);
+            ctx.moveTo(wx, wy + 20); ctx.lineTo(wx + 30, wy + 20);
+            ctx.stroke();
+
+            // Cornice bordo
+            ctx.strokeStyle = '#0d2050';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(wx, wy, 30, 40);
         }
     }
 
