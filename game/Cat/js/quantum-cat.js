@@ -975,29 +975,58 @@ class QuantumCat {
         ctx.textAlign = 'right';
         ctx.fillText('QUANTUM CAT — FASE ' + this.phase + '/3', panelX + panelW - pad, panelY + (isMobile ? 11 : 13));
 
-        // Cuori blu (9 cuori = maxHp)
-        const heartSize = isMobile ? 10 : 14;
-        const heartSpacing = isMobile ? 13 : 17;
-        ctx.font = heartSize + 'px Arial';
-
-        // Allinea a destra — parti dall'ultimo cuore
+        // Cuori boss — disegnati come forme canvas, allineati a destra
+        const heartSize = isMobile ? 7 : 10;   // raggio (stesso sistema del player HUD)
+        const heartSpacing = isMobile ? 16 : 20;
         const totalHearts = this.maxHp;
-        const rowStartX = panelX + panelW - pad - 8;
+        const phaseColors = ['#4488ff', '#aa44ff', '#ff4488'];
+        const activeColor = phaseColors[this.phase - 1];
+
+        // Punto di ancoraggio: bordo destro del pannello
+        const rowRightX = panelX + panelW - pad - heartSize;
+        const heartBaseY = panelY + (isMobile ? 22 : 27);
 
         for (let i = 0; i < totalHearts; i++) {
-            const hx = rowStartX - i * heartSpacing;
-            const hy = panelY + (isMobile ? 24 : 30);
-            if (totalHearts - i <= this.hp) {
-                // Cuore pieno — blu con glow pulsante
-                const phaseColors = ['#4488ff', '#aa44ff', '#ff4488'];
-                ctx.shadowBlur = isMobile ? 4 : 6;
-                ctx.shadowColor = phaseColors[this.phase - 1];
-                ctx.fillStyle = phaseColors[this.phase - 1];
-            } else {
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#0d1530';
+            // Cuori allineati a destra → i=0 è il più a destra
+            const hx = rowRightX - i * heartSpacing;
+            const hy = heartBaseY;
+            const filled = (totalHearts - i) <= this.hp;
+            const s = heartSize;
+
+            ctx.save();
+            ctx.translate(hx, hy);
+
+            if (filled) {
+                ctx.shadowBlur = isMobile ? 4 : 7;
+                ctx.shadowColor = activeColor;
             }
-            ctx.fillText('❤', hx, hy);
+
+            ctx.beginPath();
+            ctx.moveTo(0, s * 0.4);
+            ctx.bezierCurveTo(-s * 0.2, s * 0.05, -s, -s * 0.15, -s, -s * 0.6);
+            ctx.bezierCurveTo(-s, -s * 1.1, -s * 0.4, -s * 1.2, 0, -s * 0.85);
+            ctx.bezierCurveTo(s * 0.4, -s * 1.2, s, -s * 1.1, s, -s * 0.6);
+            ctx.bezierCurveTo(s, -s * 0.15, s * 0.2, s * 0.05, 0, s * 0.4);
+            ctx.closePath();
+
+            if (filled) {
+                ctx.fillStyle = activeColor;
+                ctx.fill();
+                // piccolo riflesso
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.beginPath();
+                ctx.ellipse(-s * 0.3, -s * 0.65, s * 0.25, s * 0.15, -0.4, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = 'rgba(20,30,60,0.8)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(60,100,180,0.2)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            ctx.restore();
         }
         ctx.shadowBlur = 0;
 
