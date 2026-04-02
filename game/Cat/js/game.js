@@ -683,18 +683,41 @@ function drawUI() {
     ctx.font = isMobile ? 'bold 9px Arial' : 'bold 11px Arial';
     ctx.fillText('LV.' + CONFIG.level + ' - ' + theme.name, pad + 8, pad + (isMobile ? 11 : 13));
     
-    // Vite — più piccole su mobile
-    const heartSize = isMobile ? 10 : 14;
-    const heartSpacing = isMobile ? 13 : 17;
-    ctx.font = heartSize + 'px Arial';
+    // Vite — disegnate come forme canvas (niente emoji, rendering uniforme)
+    const heartSize = isMobile ? 7 : 10;  // raggio del cuore
+    const heartSpacing = isMobile ? 16 : 20;
+    const heartBaseX = pad + 8 + heartSize;
+    const heartBaseY = pad + (isMobile ? 22 : 27);
     for (let i = 0; i < 9; i++) {
-        if (i < cat.lives) {
-            ctx.fillStyle = '#aa3333';
-            ctx.fillText('❤', pad + 8 + i * heartSpacing, pad + (isMobile ? 24 : 30));
+        const hx = heartBaseX + i * heartSpacing;
+        const hy = heartBaseY;
+        const filled = i < cat.lives;
+        const s = heartSize;
+        ctx.save();
+        ctx.translate(hx, hy);
+        ctx.beginPath();
+        ctx.moveTo(0, s * 0.4);
+        ctx.bezierCurveTo(-s * 0.2, s * 0.05, -s, -s * 0.15, -s, -s * 0.6);
+        ctx.bezierCurveTo(-s, -s * 1.1, -s * 0.4, -s * 1.2, 0, -s * 0.85);
+        ctx.bezierCurveTo(s * 0.4, -s * 1.2, s, -s * 1.1, s, -s * 0.6);
+        ctx.bezierCurveTo(s, -s * 0.15, s * 0.2, s * 0.05, 0, s * 0.4);
+        ctx.closePath();
+        if (filled) {
+            ctx.fillStyle = '#cc2222';
+            ctx.fill();
+            // piccolo riflesso
+            ctx.fillStyle = 'rgba(255,150,150,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(-s * 0.3, -s * 0.65, s * 0.25, s * 0.15, -0.4, 0, Math.PI * 2);
+            ctx.fill();
         } else {
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillText('❤', pad + 8 + i * heartSpacing, pad + (isMobile ? 24 : 30));
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
         }
+        ctx.restore();
     }
     
     // Score
@@ -773,13 +796,24 @@ function drawMobileControls() {
     ctx.strokeStyle = 'rgba(200,170,100,0.18)';
     ctx.stroke();
 
-    // Direction hints (small arrows) — ambra
-    ctx.fillStyle = 'rgba(200,170,100,0.3)';
-    ctx.font = 'bold 14px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('◀', joy.baseX - joy.radius + 12, joy.baseY);
-    ctx.fillText('▶', joy.baseX + joy.radius - 12, joy.baseY);
+    // Direction hints — drawn triangles (no emoji rendering issues)
+    ctx.fillStyle = 'rgba(200,170,100,0.28)';
+    const arrowSize = 7;
+    const arrowInset = joy.radius - 14;
+    // Left arrow
+    ctx.beginPath();
+    ctx.moveTo(joy.baseX - arrowInset,          joy.baseY);
+    ctx.lineTo(joy.baseX - arrowInset + arrowSize, joy.baseY - arrowSize * 0.7);
+    ctx.lineTo(joy.baseX - arrowInset + arrowSize, joy.baseY + arrowSize * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    // Right arrow
+    ctx.beginPath();
+    ctx.moveTo(joy.baseX + arrowInset,          joy.baseY);
+    ctx.lineTo(joy.baseX + arrowInset - arrowSize, joy.baseY - arrowSize * 0.7);
+    ctx.lineTo(joy.baseX + arrowInset - arrowSize, joy.baseY + arrowSize * 0.7);
+    ctx.closePath();
+    ctx.fill();
 
     // Stick (moveable thumb)
     const stickPulse = joy.pressed ? 0.45 : 0.18;
