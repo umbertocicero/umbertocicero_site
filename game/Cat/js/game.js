@@ -567,71 +567,94 @@ function drawMobileControls() {
     // ── JOYSTICK BASE ──
     ctx.beginPath();
     ctx.arc(joy.baseX, joy.baseY, joy.radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillStyle = 'rgba(40,35,28,0.12)';
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.strokeStyle = 'rgba(200,170,100,0.18)';
     ctx.stroke();
 
-    // Direction hints (small arrows)
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    // Direction hints (small arrows) — ambra
+    ctx.fillStyle = 'rgba(200,170,100,0.3)';
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('◀', joy.baseX - joy.radius + 12, joy.baseY);
     ctx.fillText('▶', joy.baseX + joy.radius - 12, joy.baseY);
-    ctx.fillText('▲', joy.baseX, joy.baseY - joy.radius + 12);
-    ctx.fillText('▼', joy.baseX, joy.baseY + joy.radius - 12);
 
     // Stick (moveable thumb)
-    const stickGlow = joy.pressed ? 0.35 : 0.15;
+    const stickPulse = joy.pressed ? 0.45 : 0.18;
     ctx.beginPath();
     ctx.arc(joy.stickX, joy.stickY, joy.stickRadius, 0, Math.PI * 2);
     const stickGrad = ctx.createRadialGradient(
         joy.stickX, joy.stickY, 0,
         joy.stickX, joy.stickY, joy.stickRadius
     );
-    stickGrad.addColorStop(0, `rgba(255,255,255,${stickGlow + 0.15})`);
-    stickGrad.addColorStop(0.7, `rgba(255,255,255,${stickGlow})`);
-    stickGrad.addColorStop(1, `rgba(255,255,255,${stickGlow * 0.4})`);
+    stickGrad.addColorStop(0, `rgba(60,50,40,${stickPulse + 0.15})`);
+    stickGrad.addColorStop(0.7, `rgba(40,35,28,${stickPulse})`);
+    stickGrad.addColorStop(1, `rgba(25,22,18,${stickPulse * 0.4})`);
     ctx.fillStyle = stickGrad;
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = `rgba(255,255,255,${stickGlow + 0.1})`;
+    ctx.strokeStyle = `rgba(200,170,100,${stickPulse + 0.08})`;
     ctx.stroke();
 
-    // ── JUMP BUTTON (single, big) ──
+    // ── JUMP BUTTON — zampa stilizzata ──
     const jmpPulse = jmp.pressed ? 0.55 : (0.18 + Math.sin(t * 0.08) * 0.04);
     const jmpR = jmp.radius + (jmp.pressed ? 4 : 0);
+    const jx = jmp.x;
+    const jy = jmp.y;
 
     // Flash on tap
     if (jmp.flash > 0) {
         jmp.flash--;
         ctx.beginPath();
-        ctx.arc(jmp.x, jmp.y, jmpR + 14, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(100,200,255,${jmp.flash * 0.06})`;
+        ctx.arc(jx, jy, jmpR + 14, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,220,150,${jmp.flash * 0.06})`;
         ctx.fill();
     }
 
+    // Cerchio base — tono ambra scuro, coerente col gioco
     ctx.beginPath();
-    ctx.arc(jmp.x, jmp.y, jmpR, 0, Math.PI * 2);
-    const jmpGrad = ctx.createRadialGradient(jmp.x, jmp.y, 0, jmp.x, jmp.y, jmpR);
-    jmpGrad.addColorStop(0, `rgba(80,180,255,${jmpPulse + 0.1})`);
-    jmpGrad.addColorStop(0.6, `rgba(60,140,220,${jmpPulse})`);
-    jmpGrad.addColorStop(1, `rgba(40,100,180,${jmpPulse * 0.5})`);
+    ctx.arc(jx, jy, jmpR, 0, Math.PI * 2);
+    const jmpGrad = ctx.createRadialGradient(jx, jy, 0, jx, jy, jmpR);
+    jmpGrad.addColorStop(0, `rgba(60,50,40,${jmpPulse + 0.12})`);
+    jmpGrad.addColorStop(0.6, `rgba(40,35,28,${jmpPulse})`);
+    jmpGrad.addColorStop(1, `rgba(25,22,18,${jmpPulse * 0.5})`);
     ctx.fillStyle = jmpGrad;
     ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = `rgba(120,200,255,${jmpPulse + 0.08})`;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(200,170,100,${jmpPulse + 0.06})`;
     ctx.stroke();
 
-    // Jump label
-    ctx.globalAlpha = jmp.pressed ? 0.95 : 0.65;
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${jmp.pressed ? 26 : 22}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⬆', jmp.x, jmp.y - 1);
+    // Icona zampa di gatto — minimal, disegnata con path
+    ctx.save();
+    ctx.translate(jx, jy);
+    const pawScale = jmp.pressed ? 1.15 : 1.0;
+    ctx.scale(pawScale, pawScale);
+    ctx.globalAlpha = jmp.pressed ? 0.95 : 0.6;
+
+    const pawColor = 'rgba(255,220,150,0.85)';
+    ctx.fillStyle = pawColor;
+
+    // Cuscinetto centrale (grande, ovale)
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 10, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dita (4 cerchietti sopra)
+    const toes = [
+        { x: -10, y: -6, r: 5 },
+        { x: -3.5, y: -11, r: 5.5 },
+        { x: 4.5,  y: -11, r: 5.5 },
+        { x: 11,  y: -6, r: 5 }
+    ];
+    for (const toe of toes) {
+        ctx.beginPath();
+        ctx.arc(toe.x, toe.y, toe.r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.restore();
 
     ctx.restore();
 }
@@ -1435,7 +1458,7 @@ function init() {
             easterEggTaps = 0;
         }
 
-        if (gameOver || gameWon) {
+        if (gameOver || gameWon || CONFIG.levelTransition) {
             clickRestart = true;
         }
     });
@@ -1467,7 +1490,7 @@ function init() {
             }
         }
 
-        if (gameOver || gameWon) {
+        if (gameOver || gameWon || CONFIG.levelTransition) {
             clickRestart = true;
             e.preventDefault();
         }

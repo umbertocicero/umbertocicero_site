@@ -172,27 +172,17 @@ function setupMobileControls() {
             const joy = TOUCH_CTRL.joy;
 
             if (touch.identifier === joy.touchId) {
-                // Clamp stick within radius
+                // Clamp stick to horizontal axis only
                 const dx = p.x - joy.baseX;
-                const dy = p.y - joy.baseY;
-                const d  = Math.hypot(dx, dy);
                 const maxR = joy.radius;
-                if (d > maxR) {
-                    joy.stickX = joy.baseX + (dx / d) * maxR;
-                    joy.stickY = joy.baseY + (dy / d) * maxR;
-                } else {
-                    joy.stickX = p.x;
-                    joy.stickY = p.y;
-                }
+                const clampedDx = Math.max(-maxR, Math.min(dx, maxR));
+                joy.stickX = joy.baseX + clampedDx;
+                joy.stickY = joy.baseY;  // bloccato orizzontale
 
-                // Map to KEYS with a dead-zone of 0.25
-                const nx = (joy.stickX - joy.baseX) / maxR;
-                const ny = (joy.stickY - joy.baseY) / maxR;
-
+                // Map to KEYS — solo sinistra/destra
+                const nx = clampedDx / maxR;
                 KEYS.left  = nx < -0.25;
                 KEYS.right = nx > 0.25;
-                KEYS.up    = ny < -0.45;   // push up on stick → climb up
-                KEYS.down  = ny > 0.45;
             }
         }
     }, { passive: false });

@@ -32,6 +32,9 @@ class Enemy {
         this.tailWag = 0;
         this.barkTimer = 0;
         this.growlPhase = 0;
+        
+        // Anti-flicker: cooldown per evitare inversioni rapide di direzione
+        this.facingCooldown = 0;
     }
     
     update(cat, platforms) {
@@ -40,6 +43,7 @@ class Enemy {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         this.growlPhase += 0.1;
+        if (this.facingCooldown > 0) this.facingCooldown--;
         
         switch(this.state) {
             case 'patrol':
@@ -133,7 +137,16 @@ class Enemy {
     
     chase(cat) {
         const dx = cat.x - this.x;
-        this.facing = dx > 0 ? 1 : -1;
+        // Dead zone: non invertire se il gatto è quasi alla stessa X
+        // + cooldown: almeno 20 frame tra un'inversione e l'altra
+        const deadZone = 25;
+        if (this.facingCooldown <= 0) {
+            const newFacing = dx > deadZone ? 1 : dx < -deadZone ? -1 : this.facing;
+            if (newFacing !== this.facing) {
+                this.facing = newFacing;
+                this.facingCooldown = 20; // ~0.33 sec prima di poter reinvertire
+            }
+        }
         this.vx = this.facing * this.chaseSpeed;
     }
     
