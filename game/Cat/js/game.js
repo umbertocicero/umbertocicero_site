@@ -1569,16 +1569,19 @@ function gameLoop() {
     
     ctx.restore();
 
-    // Vignette
+    // Vignette — centrata sul gatto (in screen space)
     const vw = CONFIG.canvasWidth;
     const vh = CONFIG.canvasHeight;
+    const catScreenX = cat ? (cat.x + cat.width  / 2 - CONFIG.cameraX) : vw / 2;
+    const catScreenY = cat ? (cat.y + cat.height / 2 - CONFIG.cameraY) : vh / 2;
+    const vigRadius  = Math.max(vw, vh) * 0.85;
     const vignette = ctx.createRadialGradient(
-        vw/2, vh/2, vh/4,
-        vw/2, vh/2, vh
+        catScreenX, catScreenY, vigRadius * 0.2,
+        catScreenX, catScreenY, vigRadius
     );
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(0.6, 'rgba(0, 0, 0, 0.3)');
-    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.75)');
+    vignette.addColorStop(0.55, 'rgba(0, 0, 0, 0.25)');
+    vignette.addColorStop(1,    'rgba(0, 0, 0, 0.80)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, vw, vh);
     
