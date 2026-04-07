@@ -235,21 +235,9 @@ class Platform {
         ctx.fillStyle = '#1e1e28';
         ctx.fillRect(this.x - 2, this.y + this.height - 8, this.width + 4, 3);
         
-        // Neve sui tetti (Livello 3 - Inverno)
-        if (CONFIG.level === 3) {
-            this.drawSnowLayer(ctx, this.x - 2, this.y - 10, this.width + 4, 10);
-            // Ghiaccioli sotto la cornice
-            ctx.fillStyle = '#bcc5d8';
-            for (let ix = this.x + 8; ix < this.x + this.width - 8; ix += 12 + Math.sin(ix) * 5) {
-                const icicleH = 6 + Math.sin(ix * 0.3) * 4;
-                ctx.beginPath();
-                ctx.moveTo(ix, this.y - 3);
-                ctx.lineTo(ix + 2, this.y - 3);
-                ctx.lineTo(ix + 1, this.y - 3 + icicleH);
-                ctx.closePath();
-                ctx.fill();
-            }
-        }
+        // Level-specific overlays (snow on roofs, etc.)
+        if (typeof currentLevel !== 'undefined' && currentLevel)
+            currentLevel.drawPlatformExtras(ctx, this);
     }
 
     _drawQuantumBuilding(ctx) {
@@ -754,35 +742,8 @@ class Platform {
             ctx.fillRect(this.x + i, this.y + 35, 50, 4);
         }
         
-        // Neve a terra (Livello 3 - Inverno)
-        if (CONFIG.level === 3) {
-            this.drawSnowLayer(ctx, this.x, this.y - 3, this.width, 8);
-            // Cumuli di neve qua e là
-            ctx.fillStyle = '#ccd2e0';
-            for (let i = 80; i < this.width; i += 200 + Math.sin(i) * 50) {
-                const moundW = 30 + Math.sin(i * 0.5) * 15;
-                const moundH = 6 + Math.sin(i * 0.3) * 3;
-                ctx.beginPath();
-                ctx.ellipse(this.x + i, this.y - 1, moundW, moundH, 0, Math.PI, 0);
-                ctx.fill();
-            }
-        }
-
-        // Bagnato a terra (Livello 4 - La Fuga)
-        if (CONFIG.level === 4) {
-            // Sheen lucido sull'asfalto bagnato
-            ctx.fillStyle = 'rgba(80, 100, 140, 0.06)';
-            ctx.fillRect(this.x, this.y, this.width, 12);
-            
-            // Riflessi intermittenti (effetto bagnato)
-            for (let i = 30; i < this.width; i += 60 + Math.sin(i * 0.2) * 30) {
-                const rw = 20 + Math.sin(i * 0.5) * 10;
-                const shimmer = Math.sin(CONFIG.time * 0.03 + i * 0.1) * 0.04 + 0.04;
-                ctx.fillStyle = `rgba(120, 140, 180, ${shimmer})`;
-                ctx.beginPath();
-                ctx.ellipse(this.x + i, this.y + 3, rw, 2, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
+        // Level-specific overlays (snow on ground, wet sheen, etc.)
+        if (typeof currentLevel !== 'undefined' && currentLevel)
+            currentLevel.drawPlatformExtras(ctx, this);
     }
 }

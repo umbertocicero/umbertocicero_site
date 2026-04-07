@@ -38,12 +38,16 @@ const CatAudio = (() => {
 
     // ── Load one sound into a buffer ─────────────────────────────────────
     function _loadSound(name, url) {
+        // Capture the context synchronously (while still inside the gesture call stack)
+        // so the async .then() reuses the already-unlocked context instead of trying
+        // to create a new one after the gesture has expired.
+        const ctx = _ensureCtx();
         return fetch(url)
             .then(r => {
                 if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
                 return r.arrayBuffer();
             })
-            .then(buf => _ensureCtx().decodeAudioData(buf))
+            .then(buf => ctx.decodeAudioData(buf))
             .then(decoded => {
                 _buffers[name] = decoded;
                 // Flush any calls that arrived before the buffer was ready

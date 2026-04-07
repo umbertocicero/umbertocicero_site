@@ -61,6 +61,8 @@ let cranes = [];
 let snowflakes = [];
 let steamParticles = [];
 let lifePickups = [];
+let magnetPickups = [];
+let magnetTimer = 0;        // frames remaining for active magnet
 let raindrops = [];
 let rainSplashes = [];
 let rivalCat = null;
@@ -82,427 +84,57 @@ let easterEggTimeout = 0;
 let easterEggOpen = false;
 
 // ============================================
-// LEVEL THEMES
+// LEVEL REGISTRY — maps level number → Level class
 // ============================================
-const LEVEL_THEMES = {
-    1: {
-        name: 'Il Vicolo',
-        skyTop: '#030308',
-        skyMid: '#080812',
-        skyBot: '#0e0e18',
-        buildingBase: '#141420',
-        buildingLight: '#181825',
-        groundColor: '#131316',
-        lampColor: { r: 220, g: 180, b: 120 },
-        lampIntensity: 0.8,
-        moonColor: '#9999aa',
-        starAlpha: 0.15,
-        enemyCount: 5,
-        enemySpeed: 2,
-        enemyChaseSpeed: 3.5,
-        fogAlpha: 0
-    },
-    2: {
-        name: 'Cantiere',
-        skyTop: '#020210',
-        skyMid: '#0a0a20',
-        skyBot: '#10101a',
-        buildingBase: '#10101a',
-        buildingLight: '#141422',
-        groundColor: '#0e0e14',
-        lampColor: { r: 200, g: 160, b: 100 },
-        lampIntensity: 0.7,
-        moonColor: '#7777aa',
-        starAlpha: 0.1,
-        enemyCount: 7,
-        enemySpeed: 2.5,
-        enemyChaseSpeed: 4,
-        fogAlpha: 0.06
-    },
-    3: {
-        name: 'Inverno',
-        skyTop: '#050810',
-        skyMid: '#0a1018',
-        skyBot: '#101822',
-        buildingBase: '#121820',
-        buildingLight: '#161c28',
-        groundColor: '#0e1218',
-        lampColor: { r: 180, g: 200, b: 240 },
-        lampIntensity: 0.7,
-        moonColor: '#ccddee',
-        starAlpha: 0.2,
-        enemyCount: 9,
-        enemySpeed: 2.5,
-        enemyChaseSpeed: 4,
-        fogAlpha: 0.05,
-        snow: true,
-        iceFriction: 0.95
-    },
-    4: {
-        name: 'La Fuga',
-        skyTop: '#050208',
-        skyMid: '#0a0510',
-        skyBot: '#0e0815',
-        buildingBase: '#0c0a14',
-        buildingLight: '#100e18',
-        groundColor: '#0a080e',
-        lampColor: { r: 180, g: 140, b: 120 },
-        lampIntensity: 0.5,
-        moonColor: '#cc6644',
-        starAlpha: 0.1,
-        enemyCount: 10,
-        enemySpeed: 3,
-        enemyChaseSpeed: 4.5,
-        fogAlpha: 0.12,
-        rain: true,
-        pudbleFriction: 0.94
-    },
-    5: {
-        name: 'Quantum',
-        skyTop: '#010108',
-        skyMid: '#02020e',
-        skyBot: '#030314',
-        buildingBase: '#04040f',
-        buildingLight: '#07071a',
-        groundColor: '#03030a',
-        lampColor: { r: 80, g: 140, b: 255 },
-        lampIntensity: 0.6,
-        moonColor: '#4466dd',
-        starAlpha: 0.25,
-        enemyCount: 0,        // nessun cane — solo il boss
-        enemySpeed: 0,
-        enemyChaseSpeed: 0,
-        fogAlpha: 0.08,
-        isBossFight: true
-    }
+const LEVEL_REGISTRY = {
+    1: Level1,
+    2: Level2,
+    3: Level3,
+    4: Level4,
+    5: Level5
 };
 
+/** Active level instance — set by createLevel() */
+let currentLevel = null;
+
+/** Instantiate and store the level for CONFIG.level. */
+function createLevel() {
+    if (currentLevel) currentLevel.cleanup();
+    const LevelClass = LEVEL_REGISTRY[CONFIG.level] || Level1;
+    currentLevel = new LevelClass();
+}
+
 function getTheme() {
-    return LEVEL_THEMES[CONFIG.level] || LEVEL_THEMES[1];
+    return currentLevel ? currentLevel.theme : new Level1().theme;
 }
 
-// ============================================
-// BUILDING DATA (generata per livello)
-// ============================================
-function generateBuildingData() {
-    const data = [];
-    const level = CONFIG.level;
-    const numBuildings = 14 + level * 2;
-    let x = 0;
-    
-    for (let i = 0; i < numBuildings; i++) {
-        const gap = 30 + Math.random() * 30;
-        const width = 160 + Math.random() * 80;
-        const baseHeight = 300 + Math.random() * 200;
-        // Edifici più alti nei livelli avanzati
-        const height = baseHeight + level * 30;
-        
-        data.push({ x: x, width: Math.floor(width), height: Math.floor(height) });
-        x += width + gap;
-    }
-    
-    // Aggiorna dimensione mondo
-    CONFIG.worldWidth = Math.max(4000, x + 200);
-    
-    return data;
-}
-
+// currentBuildingData is still kept as a global so that
+// spawnLifePickup / findSafeSpawn can read it from game.js.
 let currentBuildingData = [];
 
 // ============================================
-// CITY GENERATION
+// CITY GENERATION — delegates to the active level
 // ============================================
 function generateCity() {
-    const theme = getTheme();
-    
-    // Init quantum grid for level 5
+    createLevel();
+
+    // Level 5 uses a quantum grid background
     if (CONFIG.level === 5) {
         quantumGrid = new QuantumGrid();
-        generateBossArena();
-        return;
-    }
-    
-    quantumGrid = null;
-    currentBuildingData = generateBuildingData();
-
-    // Buildings
-    for (const b of currentBuildingData) {
-        platforms.push(new Platform(b.x, CONFIG.worldHeight - 50 - b.height, b.width, b.height, 'building'));
-    }
-
-    // Ground
-    platforms.push(new Platform(0, CONFIG.worldHeight - 50, CONFIG.worldWidth, 100, 'ground'));
-
-    // Dumpsters / Barriers / Steam vents - tipo dipende dal livello
-    let obstacleType, obstacleW, obstacleH;
-    if (CONFIG.level === 2) {
-        obstacleType = 'barrier'; obstacleW = 90; obstacleH = 45;
-    } else if (CONFIG.level === 3) {
-        obstacleType = 'steam-vent'; obstacleW = 40; obstacleH = 60;
     } else {
-        obstacleType = 'dumpster'; obstacleW = 80; obstacleH = 50;
-    }
-    const dumpsterSpacing = Math.max(250, 450 - CONFIG.level * 40);
-    for (let x = 100; x < CONFIG.worldWidth - 200; x += dumpsterSpacing + Math.random() * 100) {
-        const plat = new Platform(x, CONFIG.worldHeight - 50 - obstacleH, obstacleW, obstacleH, obstacleType);
-        platforms.push(plat);
-        // Genera particelle di vapore per ogni steam-vent
-        if (obstacleType === 'steam-vent') {
-            for (let s = 0; s < 5; s++) {
-                steamParticles.push(new SteamParticle(x + obstacleW / 2, CONFIG.worldHeight - 50 - obstacleH - 5));
-            }
-        }
-    }
-    
-    // Gru (solo livello 2 - Cantiere)
-    if (CONFIG.level === 2) {
-        const craneSpacing = 600 + Math.random() * 200;
-        for (let cx = 300; cx < CONFIG.worldWidth - 400; cx += craneSpacing + Math.random() * 300) {
-            const craneHeight = 300 + Math.random() * 200;
-            const crane = new Crane(cx, CONFIG.worldHeight - 50, craneHeight);
-            cranes.push(crane);
-            // Aggiungi la piattaforma mobile del braccio alle platforms
-            platforms.push(crane.getPlatform());
-        }
+        quantumGrid = null;
     }
 
-    // Fire escapes
-    for (let i = 0; i < currentBuildingData.length; i++) {
-        const b = currentBuildingData[i];
-        if (b.height > 300 && Math.random() > 0.3) {
-            const floors = Math.floor(b.height / 85);
-            const feX = b.x + b.width - 100;
-            const fireEscape = new FireEscapeStructure(feX, CONFIG.worldHeight - 50, b.height, Math.min(floors, 7));
-            fireEscapes.push(fireEscape);
-            
-            for (const p of fireEscape.getPlatforms()) {
-                platforms.push(new Platform(p.x, p.y, p.width, p.height, 'fire-escape'));
-            }
-        }
-    }
+    // Let the level populate all global arrays
+    const buildingData = currentLevel.generateCity();
 
-    // Lamps
-    for (let x = 100; x < CONFIG.worldWidth; x += 320 + Math.random() * 60) {
-        lamps.push(new Lamp(x, CONFIG.worldHeight - 150));
-    }
-
-    // Stars
-    for (let i = 0; i < 100; i++) stars.push(new Star());
-
-    // Particles / Snowflakes
-    if (CONFIG.level === 3) {
-        for (let i = 0; i < 200; i++) snowflakes.push(new Snowflake());
-        for (let i = 0; i < 10; i++) particles.push(new Particle());
-    } else {
-        for (let i = 0; i < 30; i++) particles.push(new Particle());
-    }
-    
-    // Pioggia (Livello 4 - La Fuga)
-    if (CONFIG.level === 4) {
-        for (let i = 0; i < 350; i++) raindrops.push(new Raindrop());
-        // Pozze d'acqua a terra — scivolose
-        for (let x = 150; x < CONFIG.worldWidth - 200; x += 200 + Math.random() * 250) {
-            const pw = 60 + Math.random() * 80;
-            const ph = 6 + Math.random() * 4;
-            const puddleY = CONFIG.worldHeight - 50 - ph + 2;
-            platforms.push(new Platform(x, puddleY, pw, ph, 'puddle'));
-        }
-        // Gatto rivale — spawna dall'altra parte del mondo
-        const rivalX = CONFIG.worldWidth - 200;
-        const rivalY = CONFIG.worldHeight - 90;
-        rivalCat = new RivalCat(rivalX, rivalY);
-    }
-    
-    // Food
-    generateFood();
-    
-    // Enemies
-    generateEnemies();
+    // Keep currentBuildingData in sync for spawnLifePickup / findSafeSpawn
+    currentBuildingData = Array.isArray(buildingData) ? buildingData : [];
 }
 
-// ============================================
-// BOSS ARENA - Livello 5
-// ============================================
-function generateBossArena() {
-    // Mondo più corto: arena circoscritta
-    CONFIG.worldWidth = 2400;
-    platforms.length = 0;
 
-    // Ground
-    platforms.push(new Platform(0, CONFIG.worldHeight - 50, CONFIG.worldWidth, 100, 'ground'));
 
-    // Edifici laterali — pareti dell'arena
-    platforms.push(new Platform(0, CONFIG.worldHeight - 50 - 400, 120, 400, 'building'));
-    platforms.push(new Platform(CONFIG.worldWidth - 120, CONFIG.worldHeight - 50 - 400, 120, 400, 'building'));
 
-    // Piattaforme centrali — 3 livelli simmetrici
-    const groundY = CONFIG.worldHeight - 50;
-    const arenaW = CONFIG.worldWidth;
-
-    // Livello 1 (basso) — più larghe per maggiore visibilità
-    platforms.push(new Platform(arenaW * 0.2 - 80,  groundY - 130, 200, 16, 'quantum'));
-    platforms.push(new Platform(arenaW * 0.5 - 100, groundY - 130, 200, 16, 'quantum'));
-    platforms.push(new Platform(arenaW * 0.8 - 80,  groundY - 130, 200, 16, 'quantum'));
-
-    // Livello 2 (medio)
-    platforms.push(new Platform(arenaW * 0.15 - 70, groundY - 260, 180, 16, 'quantum'));
-    platforms.push(new Platform(arenaW * 0.5 - 90,  groundY - 260, 180, 16, 'quantum'));
-    platforms.push(new Platform(arenaW * 0.85 - 70, groundY - 260, 180, 16, 'quantum'));
-
-    // Livello 3 (alto)
-    platforms.push(new Platform(arenaW * 0.35 - 80, groundY - 390, 180, 16, 'quantum'));
-    platforms.push(new Platform(arenaW * 0.65 - 80, groundY - 390, 180, 16, 'quantum'));
-
-    // Edifici di sfondo (decorativi)
-    platforms.push(new Platform(130, groundY - 350, 200, 350, 'building'));
-    platforms.push(new Platform(arenaW * 0.45 - 100, groundY - 300, 200, 300, 'building'));
-    platforms.push(new Platform(arenaW - 330, groundY - 350, 200, 350, 'building'));
-
-    // Lamps — a terra (palo appoggiato al ground)
-    for (let x = 200; x < arenaW - 100; x += 350) {
-        lamps.push(new Lamp(x, groundY - 100));
-    }
-
-    // Stars (dense — spazio)
-    for (let i = 0; i < 180; i++) stars.push(new Star());
-
-    // Particelle quantum (più di quelle normali)
-    for (let i = 0; i < 60; i++) particles.push(new Particle());
-
-    // Cibo — nessuno: vittoria tramite boss
-    // Spawn il boss al centro-destra
-    const bossX = arenaW * 0.65;
-    const bossY = groundY - 90;
-    quantumCat = new QuantumCat(bossX, bossY);
-
-    // Portali fissi iniziali: uno a sinistra, uno a destra
-    const p1 = new Portal(150, groundY - 165);
-    const p2 = new Portal(arenaW - 180, groundY - 165);
-    p1.linkedPortal = p2;
-    p2.linkedPortal = p1;
-    portals.push(p1, p2);
-
-    // Intro tutorial — 5 secondi
-    bossIntroTimer = 300;
-
-    // Orb iniziali: 3 sparse nell'arena
-    _spawnQuantumOrb();
-    _spawnQuantumOrb();
-    _spawnQuantumOrb();
-
-    // Nessun cibo → la barra progresso non viene usata
-    // Vittoria: sconfiggere il boss attraverso i portali
-}
-
-// Spawna una coppia di portali in posizioni pseudo-random dell'arena
-function _spawnBossPortalPair() {
-    const groundY = CONFIG.worldHeight - 50;
-    const arenaW = CONFIG.worldWidth;
-
-    // Posizioni candidate (allineate alle piattaforme quantum)
-    const candidates = [
-        { x: 160,              y: groundY - 165 },
-        { x: arenaW * 0.2 - 80,  y: groundY - 165 },
-        { x: arenaW * 0.5 - 100, y: groundY - 165 },
-        { x: arenaW * 0.8 - 80,  y: groundY - 165 },
-        { x: arenaW - 200,     y: groundY - 165 },
-        { x: arenaW * 0.15 - 70, y: groundY - 295 },
-        { x: arenaW * 0.5 - 90,  y: groundY - 295 },
-        { x: arenaW * 0.85 - 70, y: groundY - 295 },
-        { x: arenaW * 0.35 - 80, y: groundY - 425 },
-        { x: arenaW * 0.65 - 80, y: groundY - 425 },
-    ];
-
-    // Shuffle and pick 2 different spots
-    const shuffled = candidates.sort(() => Math.random() - 0.5);
-    const spot1 = shuffled[0];
-    const spot2 = shuffled[1];
-
-    const ttl = 300 + Math.floor(Math.random() * 200); // 5-8 sec
-    const pa = new Portal(spot1.x, spot1.y);
-    const pb = new Portal(spot2.x, spot2.y);
-    pa.linkedPortal = pb;
-    pb.linkedPortal = pa;
-    pa.life = ttl;
-    pb.life = ttl;
-    portals.push(pa, pb);
-}
-
-// Spawna una QuantumOrb in posizione casuale dell'arena
-function _spawnQuantumOrb() {
-    const groundY = CONFIG.worldHeight - 50;
-    const arenaW = CONFIG.worldWidth;
-    // Posizioni candidate: a terra + sulle piattaforme
-    const spots = [
-        { x: arenaW * 0.12, y: groundY - 40 },
-        { x: arenaW * 0.30, y: groundY - 40 },
-        { x: arenaW * 0.55, y: groundY - 40 },
-        { x: arenaW * 0.78, y: groundY - 40 },
-        { x: arenaW * 0.2 - 60,  y: groundY - 170 },
-        { x: arenaW * 0.5 - 80,  y: groundY - 170 },
-        { x: arenaW * 0.8 - 60,  y: groundY - 170 },
-        { x: arenaW * 0.15 - 50, y: groundY - 300 },
-        { x: arenaW * 0.5 - 70,  y: groundY - 300 },
-        { x: arenaW * 0.85 - 50, y: groundY - 300 },
-    ];
-    // Evita dove c'è già un'orb
-    const free = spots.filter(s => !quantumOrbs.some(
-        o => o.active && !o.thrown && Math.abs(o.x - s.x) < 80
-    ));
-    const spot = free.length ? free[Math.floor(Math.random() * free.length)] : spots[0];
-    quantumOrbs.push(new QuantumOrb(spot.x, spot.y));
-}
-
-// ============================================
-// FOOD GENERATION
-// ============================================
-function generateFood() {
-    // Cibo a terra
-    for (let x = 130; x < CONFIG.worldWidth - 200; x += 350 + Math.random() * 150) {
-        foods.push(createRandomFood(x, CONFIG.worldHeight - 70));
-    }
-    
-    // Cibo sulle scale antincendio
-    for (const fe of fireEscapes) {
-        for (const p of fe.getPlatforms()) {
-            if (Math.random() > 0.5) {
-                foods.push(createRandomFood(p.x + 20 + Math.random() * 40, p.y - 25));
-            }
-        }
-    }
-    
-    // Cibo sui tetti
-    for (const b of currentBuildingData) {
-        if (Math.random() > 0.4) {
-            const roofY = CONFIG.worldHeight - 50 - b.height - 25;
-            foods.push(createRandomFood(b.x + 30 + Math.random() * (b.width - 60), roofY));
-        }
-    }
-}
-
-// ============================================
-// ENEMY GENERATION (scalato per livello)
-// ============================================
-function generateEnemies() {
-    const theme = getTheme();
-    
-    // Zona sicura attorno allo spawn (primo edificio)
-    const safeZoneEnd = currentBuildingData.length > 0 
-        ? currentBuildingData[0].x + currentBuildingData[0].width + 50 
-        : 400;
-    
-    // Cani SOLO a terra - NON sui tetti, NON nella zona di spawn
-    const spacing = Math.max(300, CONFIG.worldWidth / (theme.enemyCount + 2));
-    for (let i = 0; i < theme.enemyCount; i++) {
-        const x = safeZoneEnd + 100 + i * spacing + Math.random() * 100;
-        if (x < CONFIG.worldWidth - 200) {
-            const enemy = new Enemy(x, CONFIG.worldHeight - 82, 120 + Math.random() * 100);
-            enemy.speed = theme.enemySpeed;
-            enemy.chaseSpeed = theme.enemyChaseSpeed;
-            enemies.push(enemy);
-        }
-    }
-}
 
 // ============================================
 // CAMERA
@@ -772,6 +404,175 @@ function drawUI() {
 }
 
 // ============================================
+// MINIMAP — mappa in basso a sinistra
+// ============================================
+function drawMinimap() {
+    if (!cat) return;
+
+    const isMobile = IS_MOBILE;
+
+    // Dimensioni pannello (più piccola su mobile)
+    const mapW = isMobile ? 110 : 150;
+    const mapH = isMobile ? 44  : 58;
+    const pad  = isMobile ? 6   : 10;
+
+    // Posizione: sotto il pannello HUD (LV / cuori / score)
+    const hudH = isMobile ? 42 : 55;   // altezza panel HUD (da drawUI)
+    const mx   = pad;
+    const my   = pad + hudH + (isMobile ? 4 : 6);
+
+    const worldW = CONFIG.worldWidth;
+    const worldH = CONFIG.worldHeight;
+
+    // Scala mondo → minimap
+    const scaleX = mapW / worldW;
+    const scaleY = mapH / worldH;
+
+    // Sfondo semitrasparente
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.beginPath();
+    ctx.roundRect(mx, my, mapW, mapH, 5);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Bordo sottile
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(mx, my, mapW, mapH, 5);
+    ctx.stroke();
+
+    // Clip alla mappa
+    ctx.beginPath();
+    ctx.roundRect(mx, my, mapW, mapH, 5);
+    ctx.clip();
+
+    // ── Livello 5: portali, orb, boss ──────────────────────
+    if (CONFIG.level === 5) {
+
+        // Portali
+        for (const p of portals) {
+            if (!p.active) continue;
+            const px = mx + p.x * scaleX;
+            const py = my + p.y * scaleY;
+            const color = p.isVictory ? '#44ff88' : '#44aaff';
+            ctx.fillStyle = color;
+            // pulsa
+            const r = 3 + Math.sin(CONFIG.time * 0.12) * 1;
+            ctx.beginPath();
+            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.fill();
+            // halo
+            ctx.fillStyle = p.isVictory ? 'rgba(68,255,136,0.22)' : 'rgba(68,170,255,0.18)';
+            ctx.beginPath();
+            ctx.arc(px, py, r + 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Quantum Orbs
+        for (const orb of quantumOrbs) {
+            if (!orb.active || orb.collected) continue;
+            const ox = mx + orb.x * scaleX;
+            const oy = my + orb.y * scaleY;
+            ctx.fillStyle = 'rgba(120,200,255,0.9)';
+            ctx.beginPath();
+            ctx.arc(ox, oy, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Boss (rosso)
+        if (quantumCat && !quantumCat.defeated) {
+            const bx = mx + (quantumCat.x + quantumCat.width  / 2) * scaleX;
+            const by = my + (quantumCat.y + quantumCat.height / 2) * scaleY;
+            const br = 3.5 + Math.sin(CONFIG.time * 0.1) * 1;
+            ctx.fillStyle = 'rgba(255,60,60,0.9)';
+            ctx.beginPath();
+            ctx.arc(bx, by, br, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,60,60,0.25)';
+            ctx.beginPath();
+            ctx.arc(bx, by, br + 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+    } else {
+        // ── Livelli 1-4: cibo non raccolto e life pickup ────
+
+        // Cibo non raccolto (giallo piccolo)
+        for (const food of foods) {
+            if (food.collected) continue;
+            const fx = mx + food.x * scaleX;
+            const fy = my + food.y * scaleY;
+            ctx.fillStyle = 'rgba(255,200,50,0.75)';
+            ctx.beginPath();
+            ctx.arc(fx, fy, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Life pickup (cuoricino rosa)
+        for (const lp of lifePickups) {
+            if (!lp.active) continue;
+            const lx = mx + (lp.x + lp.width  / 2) * scaleX;
+            const ly = my + (lp.y + lp.height / 2) * scaleY;
+            const pulse = 2.5 + Math.sin(CONFIG.time * 0.1) * 0.8;
+            ctx.fillStyle = 'rgba(255,80,120,0.9)';
+            ctx.beginPath();
+            ctx.arc(lx, ly, pulse, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Magnet pickup (ciano)
+        for (const mp of magnetPickups) {
+            if (!mp.active) continue;
+            const mlx = mx + (mp.x + mp.width  / 2) * scaleX;
+            const mly = my + (mp.y + mp.height / 2) * scaleY;
+            const mpulse = 2.5 + Math.sin(CONFIG.time * 0.14) * 0.8;
+            ctx.fillStyle = 'rgba(40,220,255,0.9)';
+            ctx.beginPath();
+            ctx.arc(mlx, mly, mpulse, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Rival cat (livello 4 — arancione)
+        if (rivalCat) {
+            const rx = mx + (rivalCat.x + 15) * scaleX;
+            const ry = my + (rivalCat.y + 20) * scaleY;
+            ctx.fillStyle = 'rgba(255,140,30,0.85)';
+            ctx.beginPath();
+            ctx.arc(rx, ry, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // ── Gatto protagonista — punto bianco con alone ─────────
+    const cx = mx + (cat.x + cat.width  / 2) * scaleX;
+    const cy = my + (cat.y + cat.height / 2) * scaleY;
+    // alone
+    ctx.fillStyle = 'rgba(255,220,120,0.25)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fill();
+    // punto
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ── Viewport rect (zona visibile) ───────────────────────
+    const vrX = mx + CONFIG.cameraX * scaleX;
+    const vrY = my + CONFIG.cameraY * scaleY;
+    const vrW = CONFIG.canvasWidth  * scaleX;
+    const vrH = CONFIG.canvasHeight * scaleY;
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(vrX, vrY, vrW, vrH);
+
+    ctx.restore();
+}
+
+// ============================================
 // DRAW MOBILE CONTROLS — Virtual Joystick + Buttons
 // ============================================
 function drawMobileControls() {
@@ -937,7 +738,7 @@ function drawLevelComplete() {
             if (CONFIG.level < CONFIG.maxLevel) {
                 ctx.fillStyle = '#668899';
                 ctx.font = '20px Arial';
-                const nextTheme = LEVEL_THEMES[CONFIG.level + 1];
+                const nextTheme = (new LEVEL_REGISTRY[CONFIG.level + 1]()).theme;
                 ctx.fillText('Prossimo: ' + nextTheme.name, vw/2, vh/2 + 40);
             }
         }
@@ -1043,6 +844,8 @@ function nextLevel() {
     snowflakes = [];
     steamParticles = [];
     lifePickups = [];
+    magnetPickups = [];
+    magnetTimer = 0;
     raindrops = [];
     rainSplashes = [];
     rivalCat = null;
@@ -1089,6 +892,8 @@ function restart() {
     snowflakes = [];
     steamParticles = [];
     lifePickups = [];
+    magnetPickups = [];
+    magnetTimer = 0;
     raindrops = [];
     rainSplashes = [];
     rivalCat = null;
@@ -1206,180 +1011,29 @@ function gameLoop() {
     for (const enemy of enemies) enemy.update(cat, platforms);
     for (const ghost of ghosts) ghost.update();
     for (const lp of lifePickups) lp.update();
+    for (const mp of magnetPickups) mp.update();
     for (const crane of cranes) crane.update();
     for (const sf of snowflakes) sf.update();
     for (const sp of steamParticles) sp.update();
     
-    // Pioggia (Livello 4)
+    // Pioggia update (rain drops tick every frame; splash management is in Level4.updateExtras)
     for (const rd of raindrops) rd.update();
-    for (let i = rainSplashes.length - 1; i >= 0; i--) {
-        rainSplashes[i].update();
-        if (rainSplashes[i].life <= 0) rainSplashes.splice(i, 1);
-    }
-    // Genera splash random sulle superfici
-    if (CONFIG.level === 4 && CONFIG.time % 2 === 0) {
-        const splX = CONFIG.cameraX + Math.random() * CONFIG.canvasWidth;
-        const groundY = CONFIG.worldHeight - 50;
-        rainSplashes.push(new RainSplash(splX, groundY));
-    }
     
-    // Gatto rivale (Livello 4)
-    if (rivalCat) {
-        rivalCat.update(cat, platforms);
-    }
+    // (rival cat update is handled by Level4.updateExtras)
     
-    // ── LIVELLO 5: Boss Fight ──
-    if (CONFIG.level === 5) {
-        // Intro countdown — boss non attacca e updates sono bloccati
-        if (bossIntroTimer > 0) {
-            bossIntroTimer--;
-        } else {
-        // Aggiorna boss
-        if (quantumCat && !quantumCat.defeated) {
-            quantumCat.update(cat, platforms, portals);
-
-            // Spawn portali quando il boss viene "danneggiato" dall'avvicinarsi (ogni fase)
-            bossPortalSpawnTimer++;
-            const portalSpawnInterval = quantumCat.phase === 1 ? 400 : quantumCat.phase === 2 ? 280 : 180;
-            if (bossPortalSpawnTimer >= portalSpawnInterval) {
-                bossPortalSpawnTimer = 0;
-                _spawnBossPortalPair();
-            }
-
-            // Danno da proiettili del boss
-            if (quantumCat.checkProjectileHit(cat)) {
-                if (cat.takeDamage()) {
-                    ghosts.push(new GhostCat(cat.x + cat.width / 2, cat.y));
-                    cat.vy = -7;
-                    CatAudio.play('ouch', 0.45);
-                    if (cat.lives <= 0) gameOver = true;
-                }
-            }
-
-            // Danno da contatto col boss
-            if (quantumCat.checkBodyHit(cat)) {
-                if (cat.takeDamage()) {
-                    ghosts.push(new GhostCat(cat.x + cat.width / 2, cat.y));
-                    cat.vy = -9;
-                    cat.vx = (cat.x > quantumCat.x) ? 7 : -7;
-                    CatAudio.play('ouch', 0.45);
-                    if (cat.lives <= 0) gameOver = true;
-                }
-            }
+    // ── Level-specific extras update (rivals, boss fight, portals…) ──
+    if (currentLevel) {
+        const extras = currentLevel.updateExtras({
+            cat, ghosts, portals, portalBursts, quantumOrbs, catHoldsOrb,
+            KEYS, CONFIG, CatAudio
+        });
+        if (extras.gameOver)        gameOver = true;
+        if (extras.levelTransition) {
+            CONFIG.levelTransition = true;
+            CONFIG.levelTransitionTimer = 0;
         }
-
-        // Aggiorna portali
-        for (let i = portals.length - 1; i >= 0; i--) {
-            portals[i].update();
-            if (!portals[i].active) portals.splice(i, 1);
-        }
-
-        // Teletrasporto gatto attraverso portale
-        for (const portal of portals) {
-            if (portal.checkEntry(cat)) {
-                // Portale vittoria — non teletrasporta, triggera fine livello
-                if (portal.isVictory) {
-                    portalBursts.push(new PortalBurst(
-                        portal.x + portal.width / 2,
-                        portal.y + portal.height / 2,
-                        true
-                    ));
-                    portal.useCooldown = 60;
-                    CONFIG.levelTransition = true;
-                    CONFIG.levelTransitionTimer = 0;
-                    CONFIG.score += CONFIG.level * 200;
-                    break;
-                }
-
-                // Portale normale — teletrasporta
-                const burstPos = portal.teleportCat(cat);
-                portalBursts.push(new PortalBurst(burstPos.x, burstPos.y, false));
-
-                // Colpisce il boss se l'uscita è vicina a lui (<300px)
-                if (quantumCat && !quantumCat.defeated) {
-                    const exit = portal.linkedPortal;
-                    if (exit) {
-                        const exitCx = exit.x + exit.width / 2;
-                        const bossCx = quantumCat.x + quantumCat.width / 2;
-                        if (Math.abs(exitCx - bossCx) < 300) {
-                            if (quantumCat.takeDamage()) {
-                                _spawnBossPortalPair();
-                                portalBursts.push(new PortalBurst(
-                                    quantumCat.x + quantumCat.width / 2,
-                                    quantumCat.y + quantumCat.height / 2
-                                ));
-                            }
-                        }
-                    }
-                }
-                break;
-            }
-        }
-
-        // Aggiorna portal bursts
-        for (let i = portalBursts.length - 1; i >= 0; i--) {
-            portalBursts[i].update();
-            if (portalBursts[i].done) portalBursts.splice(i, 1);
-        }
-
-        // ── QUANTUM ORBS ──
-        for (let i = quantumOrbs.length - 1; i >= 0; i--) {
-            const orb = quantumOrbs[i];
-            orb.update(cat, quantumCat);
-
-            // Raccogli orb
-            if (!catHoldsOrb && orb.checkPickup(cat)) {
-                orb.collected = true;
-                catHoldsOrb = true;
-            }
-
-            // Orb colpisce il boss
-            if (orb.hitBoss && quantumCat && !quantumCat.defeated) {
-                if (quantumCat.takeDamage()) {
-                    portalBursts.push(new PortalBurst(
-                        quantumCat.x + quantumCat.width / 2,
-                        quantumCat.y + quantumCat.height / 2
-                    ));
-                    CONFIG.score += 50;
-                }
-            }
-
-            if (!orb.active) {
-                if (orb.collected) catHoldsOrb = false;
-                quantumOrbs.splice(i, 1);
-            }
-        }
-
-        // Respawn orb se ne rimangono meno di 2 nell'arena
-        const orbsOnGround = quantumOrbs.filter(o => !o.collected && !o.thrown && o.active).length;
-        if (orbsOnGround < 2 && CONFIG.time % 180 === 0) {
-            _spawnQuantumOrb();
-        }
-
-        // Lancia orb con SPACE (solo se il gatto tiene un'orb)
-        if (catHoldsOrb && (KEYS.space || KEYS.up)) {
-            const held = quantumOrbs.find(o => o.collected && o.active);
-            if (held && quantumCat && !quantumCat.defeated) {
-                held.throwAt(cat, quantumCat);
-                catHoldsOrb = false;
-                CatAudio.play('ball_fire', 0.45);
-            }
-        }
-
-        // Boss sconfitto → spawna portale della vittoria
-        if (quantumCat && quantumCat.defeated) {
-            const victoryAlreadySpawned = portals.some(p => p.isVictory);
-            if (!victoryAlreadySpawned) {
-                const vx = quantumCat.x + quantumCat.width / 2 - 15;
-                const vy = quantumCat.y - 80;
-                const vPortal = new Portal(vx, vy);
-                vPortal.isVictory = true;
-                vPortal.linkedPortal = null;
-                vPortal.active = true;
-                portals.push(vPortal);
-            }
-        }
-        } // fine else bossIntroTimer
+        if (extras.score)           CONFIG.score += extras.score;
+        if (typeof extras.catHoldsOrb !== 'undefined') catHoldsOrb = extras.catHoldsOrb;
     }
     
     // Pulisci fantasmi esauriti
@@ -1391,13 +1045,19 @@ function gameLoop() {
     for (let i = lifePickups.length - 1; i >= 0; i--) {
         if (!lifePickups[i].active) lifePickups.splice(i, 1);
     }
+    // Pulisci calamite scadute
+    for (let i = magnetPickups.length - 1; i >= 0; i--) {
+        if (!magnetPickups[i].active) magnetPickups.splice(i, 1);
+    }
     
-    // Spawn vite a tempo
+    // Spawn vite + calamite a tempo
     lifeSpawnTimer++;
-    const spawnInterval = Math.max(400, 900 - CONFIG.level * 100); // Più frequenti nei livelli alti
-    if (lifeSpawnTimer >= spawnInterval && cat.lives < 9) {
+    const spawnInterval = Math.max(400, 900 - CONFIG.level * 100);
+    if (lifeSpawnTimer >= spawnInterval) {
         lifeSpawnTimer = 0;
-        spawnLifePickup();
+        if (cat.lives < 9) spawnLifePickup();
+        // Calamita: 45% di probabilità, indipendente dal numero di vite
+        if (Math.random() < 0.45) spawnMagnetPickup();
     }
     
     // Check life pickup collection
@@ -1407,6 +1067,42 @@ function gameLoop() {
                 cat.lives++;
                 lp.active = false;
                 CatAudio.play('heart', 0.4);
+            }
+        }
+    }
+
+    // Check magnet pickup collection
+    for (const mp of magnetPickups) {
+        if (mp.active && mp.checkCollision(cat)) {
+            magnetTimer = 600; // 10 secondi @ 60fps
+            mp.active = false;
+            CatAudio.play('sfx_point', 0.35);
+        }
+    }
+
+    // Magnet attraction — attrae il cibo non raccolto verso il gatto
+    if (magnetTimer > 0 && CONFIG.level !== 5) {
+        magnetTimer--;
+        const MAGNET_RANGE  = 120;  // ~altezza tra piattaforme
+        const MAGNET_SPEED  = 7;
+        const catCX = cat.x + cat.width  / 2;
+        const catCY = cat.y + cat.height / 2;
+        for (const food of foods) {
+            if (food.collected) continue;
+            const foodCX = food.x + food.width  / 2;
+            const foodCY = food.y + food.height / 2;
+            const dx = catCX - foodCX;
+            const dy = catCY - foodCY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < MAGNET_RANGE && dist > 1) {
+                const speed = MAGNET_SPEED * (1 - dist / MAGNET_RANGE) + 1;
+                food.x += (dx / dist) * speed;
+                food.y += (dy / dist) * speed;
+                // Auto-collect when close enough
+                if (dist < 18) {
+                    food.collect();
+                    CatAudio.play('sfx_point', 0.2);
+                }
             }
         }
     }
@@ -1502,6 +1198,9 @@ function gameLoop() {
     // Life pickups
     for (const lp of lifePickups) lp.draw(ctx);
     
+    // Magnet pickups
+    for (const mp of magnetPickups) mp.draw(ctx);
+    
     // Food
     for (const food of foods) food.draw(ctx);
     
@@ -1518,26 +1217,53 @@ function gameLoop() {
     for (const rd of raindrops) rd.draw(ctx);
     for (const rs of rainSplashes) rs.draw(ctx);
     
-    // Rival Cat (gatto antagonista livello 4)
-    if (rivalCat) rivalCat.draw(ctx);
-    
-    // Portali (livello 5)
-    for (const portal of portals) portal.draw(ctx);
-    
-    // Portal bursts
-    for (const pb of portalBursts) pb.draw(ctx);
-    
-    // Quantum Orbs (livello 5)
-    for (const orb of quantumOrbs) orb.draw(ctx);
-    
-    // Quantum Cat boss (livello 5)
-    if (quantumCat) quantumCat.draw(ctx);
+    // Level-specific actors (rival, portals, orbs, boss)
+    if (currentLevel) currentLevel.drawExtras(ctx);
     
     // Enemies
     for (const enemy of enemies) enemy.draw(ctx);
     
     // Cat
     cat.draw(ctx);
+
+    // Calamita attiva — icona sulla testa del gatto
+    if (magnetTimer > 0) {
+        const t = CONFIG.time;
+        const headX = cat.x + cat.width  / 2;
+        const headY = cat.y - 6;
+        const pulse = 0.8 + Math.sin(t * 0.18) * 0.2;
+        const pct   = magnetTimer / 600;
+
+        // Glow azzurro-ciano attorno alla testa
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const glowR = 28 + Math.sin(t * 0.1) * 4;
+        const glowG = ctx.createRadialGradient(headX, headY - 12, 0, headX, headY - 12, glowR);
+        glowG.addColorStop(0, `rgba(80,220,255,${pulse * 0.30})`);
+        glowG.addColorStop(1, 'transparent');
+        ctx.fillStyle = glowG;
+        ctx.beginPath();
+        ctx.arc(headX, headY - 12, glowR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Disegna la calamita sopra la testa
+        ctx.save();
+        ctx.translate(headX, headY - 22);
+        ctx.globalAlpha = 0.9 * pulse;
+        _drawMagnetIcon(ctx, 0, 0, 11);
+        ctx.globalAlpha = 1;
+
+        // Barra timer sotto la calamita
+        const bw = 26;
+        const bh = 3;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(-bw / 2, 14, bw, bh);
+        const barColor = pct > 0.35 ? '#22ddff' : '#ff8833';
+        ctx.fillStyle = barColor;
+        ctx.fillRect(-bw / 2, 14, bw * pct, bh);
+        ctx.restore();
+    }
 
     // Orb tenuta dal gatto (livello 5)
     if (CONFIG.level === 5 && catHoldsOrb) {
@@ -1587,6 +1313,7 @@ function gameLoop() {
     
     // UI
     drawUI();
+    drawMinimap();
     
     // Boss health bar (Livello 5)
     if (CONFIG.level === 5 && quantumCat) {
@@ -1710,6 +1437,147 @@ class LifePickup {
                cat.x + cat.width > this.x &&
                cat.y < this.y + this.height &&
                cat.y + cat.height > this.y;
+    }
+}
+
+// ============================================
+// MAGNET PICKUP - Calamita: attrae il cibo vicino
+// ============================================
+
+/** Helper: disegna un'icona di calamita a U centrata in (cx, cy) con raggio r */
+function _drawMagnetIcon(ctx, cx, cy, r) {
+    // U shape
+    ctx.lineWidth = r * 0.32;
+    ctx.lineCap   = 'round';
+    ctx.strokeStyle = '#cc2233';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.62, Math.PI, 0);
+    ctx.stroke();
+    // Left arm
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.62, cy);
+    ctx.lineTo(cx - r * 0.62, cy + r * 0.55);
+    ctx.stroke();
+    // Right arm
+    ctx.beginPath();
+    ctx.moveTo(cx + r * 0.62, cy);
+    ctx.lineTo(cx + r * 0.62, cy + r * 0.55);
+    ctx.stroke();
+    // Pole tips — alternating red/blue
+    ctx.fillStyle = '#cc2233';
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.62, cy + r * 0.55, r * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#2255cc';
+    ctx.beginPath();
+    ctx.arc(cx + r * 0.62, cy + r * 0.55, r * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+class MagnetPickup {
+    constructor(x, y) {
+        this.x        = x;
+        this.y        = y;
+        this.width    = 26;
+        this.height   = 26;
+        this.active   = true;
+        this.lifetime = 600;   // 10 sec
+        this.timer    = 0;
+        this.bobOffset = Math.random() * Math.PI * 2;
+    }
+
+    update() {
+        if (!this.active) return;
+        this.timer++;
+        this.bobOffset += 0.07;
+        if (this.timer >= this.lifetime) this.active = false;
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        const remaining = this.lifetime - this.timer;
+        if (remaining < 150 && Math.floor(this.timer / 8) % 2 === 0) return;
+
+        const bobY = Math.sin(this.bobOffset) * 4;
+        const cx   = this.x + this.width  / 2;
+        const cy   = this.y + this.height / 2 + bobY;
+        const pulse = 0.5 + Math.sin(this.bobOffset * 2) * 0.3;
+
+        // Glow ciano
+        const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 38);
+        glow.addColorStop(0,   `rgba(40, 210, 255, ${pulse * 0.45})`);
+        glow.addColorStop(0.4, `rgba(20, 160, 220, ${pulse * 0.20})`);
+        glow.addColorStop(1,   'transparent');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 38, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Field lines (4 archi concentrici verso il basso)
+        ctx.save();
+        ctx.translate(cx, cy);
+        for (let i = 1; i <= 3; i++) {
+            const fr = 7 + i * 6;
+            const fa = 0.22 - i * 0.05;
+            ctx.strokeStyle = `rgba(40,200,255,${fa * pulse})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, 4, fr, 0.1, Math.PI - 0.1);
+            ctx.stroke();
+        }
+
+        // Icona calamita
+        _drawMagnetIcon(ctx, 0, -2, 11);
+        ctx.restore();
+
+        // Timer bar
+        const bw  = 22;
+        const bh  = 3;
+        const bx  = cx - bw / 2;
+        const by  = cy + 16;
+        const pct = remaining / this.lifetime;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = pct > 0.3 ? '#22ddff' : '#ff8833';
+        ctx.fillRect(bx, by, bw * pct, bh);
+    }
+
+    checkCollision(cat) {
+        return cat.x < this.x + this.width  &&
+               cat.x + cat.width  > this.x  &&
+               cat.y < this.y + this.height &&
+               cat.y + cat.height > this.y;
+    }
+}
+
+function spawnMagnetPickup() {
+    if (CONFIG.level === 5) return; // non usata nell'arena boss
+    const locations = [];
+
+    for (let i = 1; i < currentBuildingData.length; i++) {
+        const b = currentBuildingData[i];
+        locations.push({
+            x: b.x + 30 + Math.random() * (b.width - 60),
+            y: CONFIG.worldHeight - 50 - b.height - 30
+        });
+    }
+    for (const fe of fireEscapes) {
+        for (const p of fe.getPlatforms()) {
+            locations.push({ x: p.x + 10 + Math.random() * 30, y: p.y - 30 });
+        }
+    }
+    for (let x = 400; x < CONFIG.worldWidth - 300; x += 600) {
+        let tooClose = false;
+        for (const e of enemies) {
+            if (Math.abs(e.x - x) < 200) { tooClose = true; break; }
+        }
+        if (!tooClose) locations.push({ x, y: CONFIG.worldHeight - 75 });
+    }
+
+    if (locations.length > 0) {
+        const loc = locations[Math.floor(Math.random() * locations.length)];
+        magnetPickups.push(new MagnetPickup(loc.x, loc.y));
     }
 }
 
@@ -1956,7 +1824,7 @@ function drawLevelSelector() {
     ctx.stroke();
 
     // --- Button grid: row1 = LV1 LV2 LV3, row2 = LV4 LV5 (centered) ---
-    const levels = Object.keys(LEVEL_THEMES).map(Number); // [1,2,3,4,5]
+    const levels = Object.keys(LEVEL_REGISTRY).map(Number); // [1,2,3,4,5]
 
     // Level accent colors for each theme
     const LEVEL_COLORS = {
@@ -1984,7 +1852,7 @@ function drawLevelSelector() {
 
         for (let i = 0; i < rowLevels.length; i++) {
             const lvl = rowLevels[i];
-            const theme = LEVEL_THEMES[lvl];
+            const theme = (new LEVEL_REGISTRY[lvl]()).theme;
             const accent = LEVEL_COLORS[lvl];
             const bx = rowStartX + i * (btnW + gap);
             const isCurrent = lvl === CONFIG.level;
