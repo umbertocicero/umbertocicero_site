@@ -348,3 +348,26 @@ function getMinorNation(code) {
     };
 }
 function getNation(code) { return NATIONS[code] || getMinorNation(code); }
+
+/* ── Build global adjacency map from declared neighbor lists ──
+   This creates a symmetric graph: if A lists B as neighbor, B also knows A.
+   This is critical for expansion through conquered minor territories. */
+const ADJACENCY = (() => {
+    const adj = {};
+    SVG_IDS.forEach(c => adj[c] = new Set());
+
+    /* Seed from all NATIONS neighbor lists */
+    Object.entries(NATIONS).forEach(([code, nation]) => {
+        (nation.neighbors || []).forEach(nb => {
+            if (adj[code]) adj[code].add(nb);
+            if (adj[nb]) adj[nb].add(code);
+        });
+    });
+
+    /* Convert Sets to frozen arrays for fast iteration */
+    const result = {};
+    SVG_IDS.forEach(c => result[c] = [...(adj[c] || [])]);
+    return result;
+})();
+
+function getNeighborsOf(code) { return ADJACENCY[code] || []; }

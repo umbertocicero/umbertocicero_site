@@ -100,14 +100,19 @@ const AI = (() => {
             const nn = state.nations[nc];
             if (!nn || !nn.alive || nc === code) return;
             const nPow = GameEngine.calcMilitary(nc, 'atk');
+            const nDefPow = GameEngine.calcMilitary(nc, 'def');
             const nTerr = GameEngine.getTerritoryCount(nc);
             const rel = GameEngine.getRelation(code, nc);
 
             if (nPow > myDefPow * 1.2 && rel < 0) {
                 threats.push({ code: nc, power: nPow, relation: rel });
             }
-            if (myAtkPow > nPow * 1.3 && rel < 20) {
-                opportunities.push({ code: nc, power: nPow, relation: rel, terr: nTerr });
+
+            /* Easier opportunity threshold — especially in late game */
+            const lateGameBonus = state.turn > 50 ? 0.2 : 0;
+            const isAlly = GameEngine.isAlly(code, nc);
+            if (!isAlly && myAtkPow > nDefPow * (1.0 + lateGameBonus)) {
+                opportunities.push({ code: nc, power: nDefPow, relation: rel, terr: nTerr });
             }
         });
 
@@ -119,13 +124,16 @@ const AI = (() => {
             const t = GameEngine.getTerritoryCount(c);
             if (t > maxTerr) { maxTerr = t; dominant = c; }
         });
-        const dominantThreat = maxTerr > SVG_IDS.length * 0.25; // someone owns >25%
+        const dominantThreat = maxTerr > SVG_IDS.length * 0.20; // lowered from 25% to 20%
+
+        /* Late-game restlessness: scales from 0 at turn 50 to 1.0 at turn 200+ */
+        const restlessness = Math.min(1.0, Math.max(0, (state.turn - 50) / 150));
 
         return {
             myTerrCount, myAtkPow, myDefPow, myWealth,
             enemies, allies, threats, opportunities,
             dominant, dominantThreat, maxTerr,
-            neighborOwners, atWar
+            neighborOwners, atWar, restlessness
         };
     }
 
@@ -186,9 +194,10 @@ const AI = (() => {
         /* Coalition against dominant nation */
         if (situation.dominantThreat && situation.dominant !== code) {
             const dom = situation.dominant;
-            /* Declare war on dominant if strong enough */
-            if (!GameEngine.isAtWar(code, dom) && profile.aggression > 0.3) {
-                if (Math.random() < 0.3) {
+            /* Declare war on dominant — higher chance in late game */
+            if (!GameEngine.isAtWar(code, dom) && profile.aggression > 0.2) {
+                const coalitionChance = 0.3 + situation.restlessness * 0.3;
+                if (Math.random() < coalitionChance) {
                     GameEngine.ensureWar(code, dom);
                     actions.push({ type:'war_declare', nation:code, target:dom });
                 }
@@ -226,24 +235,29 @@ const AI = (() => {
             }
         });
 
-        /* Peace proposals: tired of war after 5+ turns */
+        /* Peace proposals: tired of war — but harder in late game */
         situation.enemies.forEach(enemy => {
             const war = state.wars.find(w =>
                 (w.attacker === code && w.defender === enemy) ||
                 (w.attacker === enemy && w.defender === code));
-            if (war && (state.turn - war.turn) > 5 && profile.diplomacy > 0.4) {
-                if (Math.random() < 0.25) {
+            /* War must last longer before peace: 5 turns early → 15+ late game */
+            const minWarTurns = Math.round(5 + situation.restlessness * 10);
+            if (war && (state.turn - war.turn) > minWarTurns && profile.diplomacy > 0.4) {
+                /* Peace chance reduced in late game */
+                const peaceChance = 0.25 * (1 - situation.restlessness * 0.6);
+                if (Math.random() < peaceChance) {
                     GameEngine.makePeace(code, enemy);
                     actions.push({ type:'peace', nation:code, target:enemy });
                 }
             }
         });
 
-        /* Betrayal: opportunists may break alliances */
-        if (profile.aggression > 0.5 && Math.random() < 0.05) {
+        /* Betrayal: opportunists may break alliances (more likely in late game) */
+        const betrayChance = 0.05 + situation.restlessness * 0.1;
+        if (profile.aggression > 0.3 && Math.random() < betrayChance) {
             const weakAlly = situation.allies.find(a => {
                 const ap = GameEngine.calcMilitary(a, 'def');
-                return ap < situation.myAtkPow * 0.4;
+                return ap < situation.myAtkPow * 0.6; // easier threshold (was 0.4)
             });
             if (weakAlly) {
                 GameEngine.breakAlliance(code, weakAlly);
@@ -259,22 +273,31 @@ const AI = (() => {
         const actions = [];
         const state = GameEngine.getState();
         const n = state.nations[code];
+        const restless = situation.restlessness; // 0-1, grows over turns
 
-        /* Already at war? Attack enemy territories */
+        /* Already at war? Attack enemy territories (multiple attacks per turn!) */
         if (situation.enemies.length > 0) {
-            const enemy = situation.enemies[Math.floor(Math.random() * situation.enemies.length)];
-            const targets = findAttackTargets(code, enemy);
-            if (targets.length > 0 && situation.myAtkPow > 10) {
-                const target = targets[Math.floor(Math.random() * targets.length)];
-                const result = GameEngine.attack(code, target);
-                if (result) {
-                    actions.push({ type:'attack', nation:code, target, result });
+            const maxAttacks = 1 + Math.floor(restless * 2); // 1 early, up to 3 late
+            let attacksMade = 0;
+
+            for (const enemy of situation.enemies) {
+                if (attacksMade >= maxAttacks) break;
+                const targets = findAttackTargets(code, enemy);
+                if (targets.length > 0 && situation.myAtkPow > 5) {
+                    /* Pick best target: prefer weak defenders or strategic */
+                    const target = targets[Math.floor(Math.random() * targets.length)];
+                    const result = GameEngine.attack(code, target);
+                    if (result) {
+                        actions.push({ type:'attack', nation:code, target, result });
+                        attacksMade++;
+                    }
                 }
             }
         }
 
-        /* Expansion: attack weaker neighbors */
-        if (profile.expansion > Math.random() && situation.opportunities.length > 0) {
+        /* Expansion: attack weaker neighbors (main expansion driver) */
+        const expansionChance = profile.expansion + restless * 0.4; // grows over time
+        if (expansionChance > Math.random() && situation.opportunities.length > 0) {
             /* Sort by weakest first */
             situation.opportunities.sort((a, b) => a.power - b.power);
             const victim = situation.opportunities[0];
@@ -297,17 +320,33 @@ const AI = (() => {
             }
         }
 
-        /* Aggressive profile: chance to start a new war */
-        if (profile.aggression > 0.5 && situation.enemies.length < 2 && Math.random() < profile.aggression * 0.15) {
-            /* Pick a neighbor with negative relations */
+        /* Late-game aggression: even "peaceful" nations get aggressive over time */
+        const warChance = (profile.aggression + restless * 0.35) * 0.25;
+        if (situation.enemies.length < 2 && Math.random() < warChance) {
+            /* Pick a neighbor — prefer those with negative relations, but accept any non-ally */
             const potentialTargets = situation.neighborOwners.filter(nc => {
+                if (GameEngine.isAlly(code, nc) || GameEngine.isAtWar(code, nc)) return false;
+                if (!state.nations[nc]?.alive) return false;
+                /* In late game, attack even neutral neighbors */
                 const rel = GameEngine.getRelation(code, nc);
-                return rel < -10 && !GameEngine.isAlly(code, nc) && !GameEngine.isAtWar(code, nc);
+                return rel < (30 - restless * 50); // threshold drops from 30 to -20 over time
             });
             if (potentialTargets.length > 0) {
-                const tgt = potentialTargets[Math.floor(Math.random() * potentialTargets.length)];
+                /* Prefer weaker targets */
+                potentialTargets.sort((a, b) =>
+                    GameEngine.calcMilitary(a, 'def') - GameEngine.calcMilitary(b, 'def'));
+                const tgt = potentialTargets[0];
                 GameEngine.ensureWar(code, tgt);
                 actions.push({ type:'war_declare', nation:code, target:tgt });
+
+                /* Immediately attack if possible */
+                const targets = findAttackTargets(code, tgt);
+                if (targets.length > 0) {
+                    const result = GameEngine.attack(code, targets[0]);
+                    if (result) {
+                        actions.push({ type:'attack', nation:code, target:targets[0], result });
+                    }
+                }
             }
         }
 
@@ -334,26 +373,18 @@ const AI = (() => {
     /* Find territories of enemy adjacent to attacker's territory */
     function findAttackTargets(attackerCode, enemyCode) {
         const state = GameEngine.getState();
-        const myTerritories = Object.entries(state.territories)
-            .filter(([, o]) => o === attackerCode).map(([c]) => c);
+        const myTerritories = new Set(
+            Object.entries(state.territories)
+                .filter(([, o]) => o === attackerCode).map(([c]) => c)
+        );
         const enemyTerritories = Object.entries(state.territories)
             .filter(([, o]) => o === enemyCode).map(([c]) => c);
 
-        /* Adjacency check: use nation neighbors data */
-        const attackerNation = state.nations[attackerCode];
-        const neighbors = new Set(attackerNation.neighbors || []);
-        /* Also add all territory codes we border (owned territories' original neighbors) */
-        myTerritories.forEach(t => {
-            const tBase = getNation(t);
-            if (tBase.neighbors) tBase.neighbors.forEach(nb => neighbors.add(nb));
-        });
-
+        /* Use global ADJACENCY map: an enemy territory is a valid target if
+           any of our owned territories is its neighbor (symmetric check) */
         return enemyTerritories.filter(et => {
-            /* Direct neighbor or neighboring territory */
-            if (neighbors.has(et)) return true;
-            /* Check if any of our territories neighbor this enemy territory */
-            const etBase = getNation(et);
-            return (etBase.neighbors || []).some(nb => myTerritories.includes(nb));
+            const neighbors = getNeighborsOf(et);
+            return neighbors.some(nb => myTerritories.has(nb));
         });
     }
 

@@ -501,6 +501,24 @@ const GameEngine = (() => {
         state.phase = 'player';
         /* Collect resources for player */
         collectResources(state.player);
+
+        /* Relations decay: positive relations slowly drift toward 0 every 5 turns
+           This prevents permanent peace stalemates */
+        if (state.turn % 5 === 0) {
+            Object.keys(state.nations).forEach(code => {
+                const n = state.nations[code];
+                if (!n || !n.alive) return;
+                Object.keys(n.relations).forEach(other => {
+                    const r = n.relations[other];
+                    if (r > 5) n.relations[other] = Math.max(0, r - 3);
+                    /* Negative relations also slowly recover unless at war */
+                    else if (r < -5 && !isAtWar(code, other)) {
+                        n.relations[other] = Math.min(0, r + 2);
+                    }
+                });
+            });
+        }
+
         emit('game', `📅 Turno ${state.turn}`);
     }
 
@@ -524,14 +542,21 @@ const GameEngine = (() => {
     function getNeighborOwners(code) {
         const n = state.nations[code];
         if (!n) return [];
-        const neighbors = n.neighbors || [];
         const owners = new Set();
-        neighbors.forEach(nb => {
-            const owner = state.territories[nb];
-            if (owner && owner !== code) owners.add(owner);
+
+        /* Gather ALL territories this nation currently owns */
+        const myTerritories = Object.entries(state.territories)
+            .filter(([, o]) => o === code).map(([c]) => c);
+
+        /* For each owned territory, use global ADJACENCY map */
+        myTerritories.forEach(tCode => {
+            const neighbors = getNeighborsOf(tCode);
+            neighbors.forEach(nb => {
+                const owner = state.territories[nb];
+                if (owner && owner !== code) owners.add(owner);
+            });
         });
-        /* Also add nations who own territories adjacent by SVG proximity */
-        /* (for minor states not in neighbors list) */
+
         return [...owners];
     }
 
