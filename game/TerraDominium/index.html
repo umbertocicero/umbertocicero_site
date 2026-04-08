@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TerraDominium — Global Strategy Game</title>
+    <link rel="stylesheet" href="terra-dominium.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- ═══════════════════ INTRO SCREEN ═══════════════════ -->
+    <div id="intro-screen">
+        <div class="intro-bg-canvas" id="intro-bg"></div>
+        <div class="intro-content">
+            <h1 class="game-title">TERRA<span>DOMINIUM</span></h1>
+            <p class="game-subtitle">GLOBAL STRATEGIC WARFARE</p>
+            <div class="intro-buttons">
+                <button id="btn-new-game" class="btn-main">⚔️ NUOVA PARTITA</button>
+                <button id="btn-how-to" class="btn-secondary">📖 COME SI GIOCA</button>
+            </div>
+            <p class="disclaimer">Simulazione ludica — non rappresenta istruzioni operative reali.</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════ NATION SELECT ═══════════════════ -->
+    <div id="nation-select-screen" class="hidden">
+        <div class="nation-select-header">
+            <h2>SCEGLI LA TUA NAZIONE</h2>
+            <p>Seleziona una nazione per iniziare la conquista globale</p>
+        </div>
+        <div id="nation-grid" class="nation-grid"></div>
+        <div id="nation-preview" class="nation-preview hidden">
+            <div class="preview-header">
+                <span id="preview-flag" class="preview-flag"></span>
+                <h3 id="preview-name"></h3>
+            </div>
+            <div class="preview-stats" id="preview-stats"></div>
+            <button id="btn-start-game" class="btn-main">🚀 INIZIA CONQUISTA</button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════ TUTORIAL OVERLAY ═══════════════════ -->
+    <div id="tutorial-overlay" class="hidden">
+        <div class="tutorial-content">
+            <h2>📖 COME SI GIOCA</h2>
+            <div class="tutorial-steps">
+                <div class="tut-step">
+                    <span class="tut-icon">🌍</span>
+                    <h4>1. Scegli la Nazione</h4>
+                    <p>Ogni nazione ha risorse uniche: petrolio, gas, terre rare, oro, diamanti. Controlla asset strategici come lo Stretto di Hormuz o il Canale di Panama.</p>
+                </div>
+                <div class="tut-step">
+                    <span class="tut-icon">💰</span>
+                    <h4>2. Gestisci l'Economia</h4>
+                    <p>Le risorse generano entrate ogni turno. Investi in tecnologie militari, costruisci eserciti, aerei, navi, missili e droni.</p>
+                </div>
+                <div class="tut-step">
+                    <span class="tut-icon">⚔️</span>
+                    <h4>3. Conquista Territori</h4>
+                    <p>Attacca nazioni nemiche con le tue forze. Ogni unità ha forza, raggio d'azione e costo. La risoluzione è probabilistica con bonus tattici.</p>
+                </div>
+                <div class="tut-step">
+                    <span class="tut-icon">🤖</span>
+                    <h4>4. L'AI Reagisce</h4>
+                    <p>Le nazioni nemiche si difendono, formano alleanze, contrattaccano. L'escalation nucleare ha conseguenze devastanti globali.</p>
+                </div>
+                <div class="tut-step">
+                    <span class="tut-icon">🏆</span>
+                    <h4>5. Domina il Mondo</h4>
+                    <p>Conquista il 70% dei territori o controlla tutti gli asset strategici per vincere. Attento all'economia: senza risorse, crolla tutto.</p>
+                </div>
+            </div>
+            <button id="btn-close-tutorial" class="btn-main">CHIUDI</button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════ GAME SCREEN ═══════════════════ -->
+    <div id="game-screen" class="hidden">
+        <!-- TOP HUD BAR -->
+        <div id="top-hud">
+            <div class="hud-left">
+                <span id="hud-nation-flag" class="hud-flag"></span>
+                <span id="hud-nation-name" class="hud-name"></span>
+                <span id="hud-turn" class="hud-turn">Turno 1</span>
+            </div>
+            <div class="hud-resources" id="hud-resources"></div>
+            <div class="hud-right">
+                <button id="btn-end-turn" class="btn-hud">⏭️ FINE TURNO</button>
+                <button id="btn-economy" class="btn-hud">📊 ECONOMIA</button>
+                <button id="btn-tech-tree" class="btn-hud">🔬 TECH</button>
+                <button id="btn-diplomacy" class="btn-hud">🤝 DIPLOMAZIA</button>
+            </div>
+        </div>
+
+        <!-- MAP CONTAINER -->
+        <div id="map-container">
+            <!-- SVG will be injected here by MapRenderer -->
+            <!-- Animation overlay -->
+            <canvas id="fx-canvas"></canvas>
+            <!-- Tooltip -->
+            <div id="map-tooltip" class="map-tooltip hidden"></div>
+        </div>
+
+        <!-- LEFT PANEL: Selected Territory -->
+        <div id="left-panel" class="side-panel hidden">
+            <div class="panel-header">
+                <h3 id="panel-territory-name">—</h3>
+                <span id="panel-territory-owner" class="panel-owner"></span>
+                <button class="panel-close" id="btn-close-left">✕</button>
+            </div>
+            <div id="panel-resources" class="panel-section"></div>
+            <div id="panel-strategic" class="panel-section"></div>
+            <div id="panel-military" class="panel-section"></div>
+            <div class="panel-actions" id="panel-actions"></div>
+        </div>
+
+        <!-- RIGHT PANEL: Battle Log & Events -->
+        <div id="right-panel" class="side-panel">
+            <div class="panel-header">
+                <h3>📋 EVENTI</h3>
+                <button class="panel-close" id="btn-toggle-right">◀</button>
+            </div>
+            <div id="event-log" class="event-log"></div>
+        </div>
+
+        <!-- BOTTOM PANEL: Military quick bar -->
+        <div id="bottom-panel">
+            <div id="military-bar" class="military-bar"></div>
+        </div>
+
+        <!-- BATTLE POPUP -->
+        <div id="battle-popup" class="popup hidden">
+            <div class="popup-content battle-content">
+                <h3>⚔️ BATTAGLIA</h3>
+                <div id="battle-display"></div>
+                <button id="btn-close-battle" class="btn-main">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- TECH TREE POPUP -->
+        <div id="tech-popup" class="popup hidden">
+            <div class="popup-content tech-content">
+                <h3>🔬 ALBERO TECNOLOGICO</h3>
+                <div id="tech-tree-display"></div>
+                <button id="btn-close-tech" class="btn-main">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- DIPLOMACY POPUP -->
+        <div id="diplomacy-popup" class="popup hidden">
+            <div class="popup-content diplomacy-content">
+                <h3>🤝 DIPLOMAZIA</h3>
+                <div id="diplomacy-display"></div>
+                <button id="btn-close-diplomacy" class="btn-main">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- PRODUCTION POPUP -->
+        <div id="production-popup" class="popup hidden">
+            <div class="popup-content production-content">
+                <h3>🏭 PRODUCI UNITÀ</h3>
+                <div id="production-display"></div>
+                <button id="btn-close-production" class="btn-main">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- ECONOMY POPUP -->
+        <div id="economy-popup" class="popup hidden">
+            <div class="popup-content economy-content">
+                <h3>📊 PANORAMICA ECONOMICA</h3>
+                <div id="economy-display"></div>
+                <button id="btn-close-economy" class="btn-main">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- TRADE POPUP -->
+        <div id="trade-popup" class="popup hidden">
+            <div class="popup-content trade-content">
+                <h3>💱 SCAMBIA RISORSE</h3>
+                <div class="trade-display"></div>
+                <button class="btn-main" onclick="document.getElementById('trade-popup').classList.add('hidden')">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- GAME OVER -->
+        <div id="gameover-popup" class="popup hidden">
+            <div class="popup-content gameover-content">
+                <h2 id="gameover-title"></h2>
+                <p id="gameover-text"></p>
+                <div id="gameover-stats"></div>
+                <button id="btn-restart" class="btn-main">🔄 RICOMINCIA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS (modular) -->
+    <script src="js/data.js"></script>
+    <script src="js/map-renderer.js"></script>
+    <script src="js/game-engine.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/animations.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
