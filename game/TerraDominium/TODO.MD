@@ -22,3 +22,5 @@ boundig box per la mappa. fa si che il resto sia tutto del colore del mare fuori
 aggiungere il tempo, il turno ad esempio un anno.
 
 quando si perde, far vedere sulla sidebar quanto è grosso l'esercito di una nazione e quante risorse ha.
+
+rcollando in altro, la sidebar degli eventi, questa smette di riportarmi all'ultimo evento, per riornare all'ultimo evento devo cliccare un apposito pulsante con scitto live.
