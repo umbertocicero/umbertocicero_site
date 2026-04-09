@@ -26,6 +26,7 @@
     <!-- ═══════════════════ NATION SELECT ═══════════════════ -->
     <div id="nation-select-screen" class="hidden">
         <div class="nation-select-header">
+            <button id="btn-back-to-intro" class="btn-back">← INDIETRO</button>
             <h2>SCEGLI LA TUA NAZIONE</h2>
             <p>Seleziona una nazione per iniziare la conquista globale</p>
         </div>
@@ -87,6 +88,7 @@
             <div class="hud-resources" id="hud-resources"></div>
             <div class="hud-right">
                 <button id="btn-end-turn" class="btn-hud">⏭️ FINE TURNO</button>
+                <button id="btn-autoplay" class="btn-hud" title="Auto-play: l'IA gioca al posto tuo">⏩ AUTO</button>
                 <button id="btn-economy" class="btn-hud">📊 ECONOMIA</button>
                 <button id="btn-tech-tree" class="btn-hud">🔬 TECH</button>
                 <button id="btn-diplomacy" class="btn-hud">🤝 DIPLOMAZIA</button>
@@ -119,9 +121,15 @@
         <div id="right-panel" class="side-panel">
             <div class="panel-header">
                 <h3>📋 EVENTI</h3>
-                <button class="panel-close" id="btn-toggle-right">◀</button>
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <button class="panel-btn" id="btn-fullscreen-events" title="Schermo intero">⛶</button>
+                    <button class="panel-close" id="btn-toggle-right">◀</button>
+                </div>
             </div>
-            <div id="event-log" class="event-log"></div>
+            <div style="position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                <div id="event-log" class="event-log"></div>
+                <button id="btn-live" class="btn-live hidden">🔴 LIVE</button>
+            </div>
         </div>
 
         <!-- BOTTOM PANEL: Military quick bar -->

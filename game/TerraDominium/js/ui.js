@@ -12,6 +12,7 @@ const UI = (() => {
         cacheElements();
         bindButtons();
         setupMapCallbacks();
+        setupEventLog();
     }
 
     function cacheElements() {
@@ -39,10 +40,12 @@ const UI = (() => {
 
     function bindButtons() {
         click('btn-new-game', showNationSelect);
+        click('btn-back-to-intro', backToIntro);
         click('btn-how-to', () => show('tutorial-overlay'));
         click('btn-close-tutorial', () => hide('tutorial-overlay'));
         click('btn-start-game', startGameFromSelect);
         click('btn-end-turn', endTurn);
+        click('btn-autoplay', startAutoPlay);
         click('btn-tech-tree', showTechTree);
         click('btn-diplomacy', showDiplomacy);
         click('btn-economy', showEconomy);
@@ -140,6 +143,12 @@ const UI = (() => {
         hide('intro-screen');
         show('nation-select-screen');
         renderNationGrid();
+    }
+
+    function backToIntro() {
+        hide('nation-select-screen');
+        hide('nation-preview');
+        show('intro-screen');
     }
 
     function renderNationGrid() {
@@ -264,41 +273,151 @@ const UI = (() => {
             legend.className = 'map-legend';
             const mapCont = els['map-container'];
             if (mapCont) mapCont.appendChild(legend);
+
+            /* Delegate click on legend items */
+            legend.addEventListener('click', (e) => {
+                const item = e.target.closest('.legend-item[data-code]');
+                if (item && !item.classList.contains('legend-dead')) {
+                    showNationDetail(item.dataset.code);
+                }
+            });
         }
 
-        /* Show top nations by territory count (top 10 + player) */
+        /* Count territories per nation */
         const nationCounts = {};
         Object.values(state.territories).forEach(owner => {
             nationCounts[owner] = (nationCounts[owner] || 0) + 1;
         });
 
-        const sorted = Object.entries(nationCounts)
-            .filter(([code]) => state.nations[code]?.alive)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 12);
+        /* All major nations sorted by territory count */
+        const allNations = Object.keys(NATIONS)
+            .map(code => ({ code, count: nationCounts[code] || 0, alive: state.nations[code]?.alive }))
+            .sort((a, b) => b.count - a.count);
 
-        /* Always include player at top */
-        const playerInList = sorted.some(([c]) => c === state.player);
+        /* Always show player first */
+        const playerIdx = allNations.findIndex(n => n.code === state.player);
+        if (playerIdx > 0) {
+            const [p] = allNations.splice(playerIdx, 1);
+            allNations.unshift(p);
+        }
 
         let html = '<div class="legend-title">🗺️ NAZIONI</div>';
 
-        if (!playerInList) {
-            const pn = state.nations[state.player];
-            const pTerr = nationCounts[state.player] || 0;
-            html += `<div class="legend-item legend-player"><div class="legend-swatch" style="background:${pn.color}"></div><span>${pn.flag} ${pn.name}</span><span class="legend-count">${pTerr}</span></div>`;
-        }
-
-        sorted.forEach(([code, count]) => {
+        allNations.forEach(({ code, count, alive }) => {
             const n = state.nations[code];
             if (!n) return;
             const isPlayer = code === state.player;
             const atWar = GameEngine.isAtWar(state.player, code);
             const isAlly = GameEngine.isAlly(state.player, code);
-            let cls = isPlayer ? 'legend-player' : atWar ? 'legend-enemy' : isAlly ? 'legend-ally' : '';
-            html += `<div class="legend-item ${cls}"><div class="legend-swatch" style="background:${n.color}"></div><span>${n.flag} ${n.name}</span><span class="legend-count">${count}</span></div>`;
+            let cls = !alive ? 'legend-dead' : isPlayer ? 'legend-player' : atWar ? 'legend-enemy' : isAlly ? 'legend-ally' : '';
+            html += `<div class="legend-item ${cls}" data-code="${code}"><div class="legend-swatch" style="background:${n.color}"></div><span>${n.flag} ${n.name}</span><span class="legend-count">${count}</span></div>`;
         });
 
         legend.innerHTML = html;
+    }
+
+    /* ════════════════ NATION DETAIL (from legend click) ════════════════ */
+    function showNationDetail(code) {
+        const state = GameEngine.getState();
+        if (!state) return;
+        const n = state.nations[code];
+        if (!n) return;
+
+        show('left-panel');
+
+        const isPlayer = code === state.player;
+        const atWar = GameEngine.isAtWar(state.player, code);
+        const isAlly = GameEngine.isAlly(state.player, code);
+        const rel = isPlayer ? '—' : GameEngine.getRelation(state.player, code);
+
+        /* Header */
+        els['panel-territory-name'].textContent = `${n.flag} ${n.name}`;
+
+        let badge = '';
+        if (isPlayer) badge = `<span style="background:rgba(0,229,255,0.2);color:#00e5ff;padding:2px 8px;border-radius:3px;font-size:0.75rem;">👑 LA TUA NAZIONE</span>`;
+        else if (atWar) badge = `<span style="background:rgba(255,23,68,0.2);color:#ff1744;padding:2px 8px;border-radius:3px;font-size:0.75rem;">⚔️ IN GUERRA</span>`;
+        else if (isAlly) badge = `<span style="background:rgba(0,230,118,0.2);color:#00e676;padding:2px 8px;border-radius:3px;font-size:0.75rem;">🤝 ALLEATO</span>`;
+        else badge = `<span style="color:var(--text-dim);font-size:0.75rem;">Relazione: ${rel}</span>`;
+        els['panel-territory-owner'].innerHTML = badge;
+
+        /* ── Territories ── */
+        const myTerritories = [];
+        Object.entries(state.territories).forEach(([tCode, owner]) => {
+            if (owner === code) myTerritories.push(tCode);
+        });
+
+        let resHtml = `<h4>🌍 TERRITORI (${myTerritories.length})</h4>`;
+        if (myTerritories.length === 0) {
+            resHtml += `<div class="res-row"><span style="color:var(--text-dim)">Nessun territorio</span></div>`;
+        } else {
+            /* Group: show original + conquered separately */
+            const originalTerr = NATIONS[code]?.territories || [];
+            const conquered = myTerritories.filter(t => !originalTerr.includes(t));
+            const original = myTerritories.filter(t => originalTerr.includes(t));
+
+            if (original.length > 0) {
+                resHtml += `<div style="font-size:0.6rem;color:var(--text-dim);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px;">Originali (${original.length})</div>`;
+                original.forEach(t => {
+                    const tb = getNation(t);
+                    resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;"><span>${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}</span></div>`;
+                });
+            }
+            if (conquered.length > 0) {
+                resHtml += `<div style="font-size:0.6rem;color:var(--gold);margin:6px 0 2px;text-transform:uppercase;letter-spacing:1px;">⚔ Conquistati (${conquered.length})</div>`;
+                conquered.forEach(t => {
+                    const tb = getNation(t);
+                    resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;"><span>${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}</span></div>`;
+                });
+            }
+        }
+        els['panel-resources'].innerHTML = resHtml;
+
+        /* ── Resources ── */
+        let stratHtml = `<h4>💰 RISORSE</h4>`;
+        if (isPlayer || isAlly || atWar) {
+            const rKeys = ['money','oil','steel','rareEarth','uranium','food'];
+            rKeys.forEach(key => {
+                const val = n.res[key] || 0;
+                const r = RESOURCES[key];
+                if (r) stratHtml += `<div class="res-row"><span>${r.icon} ${r.name}</span><span class="val">${val}</span></div>`;
+            });
+        } else {
+            stratHtml += `<div class="res-row"><span style="color:var(--text-dim)">Intelligence non disponibile</span></div>`;
+        }
+        els['panel-strategic'].innerHTML = stratHtml;
+
+        /* ── Military ── */
+        let milHtml = `<h4>🪖 ESERCITO</h4>`;
+        const totalAtk = GameEngine.calcMilitary(code, 'atk');
+        const totalDef = GameEngine.calcMilitary(code, 'def');
+        const totalUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
+
+        milHtml += `<div class="res-row" style="font-weight:600;"><span>⚔️ ATK: ${totalAtk} | 🛡️ DEF: ${totalDef} | 🪖 ${totalUnits}</span></div>`;
+
+        if (isPlayer || atWar || isAlly) {
+            Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
+                const count = n.army[key] || 0;
+                if (count > 0) {
+                    milHtml += `<div class="res-row" style="font-size:0.7rem;"><span>${ut.icon} ${ut.name}</span><span class="val">${count}</span></div>`;
+                }
+            });
+        }
+        els['panel-military'].innerHTML = milHtml;
+
+        /* ── Actions (diplomacy shortcuts) ── */
+        let actHtml = '';
+        if (!isPlayer) {
+            if (atWar) {
+                actHtml += `<button class="btn-action btn-move" onclick="UI.doPeace('${code}');">🕊️ Negozia Pace</button>`;
+            } else if (isAlly) {
+                actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${code}');">💔 Rompi Alleanza</button>`;
+            } else {
+                actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">🤝 Alleanza</button>`;
+                actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">🔥 Dichiara Guerra</button>`;
+            }
+            actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">🕵️ Spia (30💰)</button>`;
+        }
+        els['panel-actions'].innerHTML = actHtml;
     }
 
     function updateMilitaryBar() {
@@ -509,11 +628,10 @@ const UI = (() => {
         const atkN = state.nations[result.attacker];
         const defN = state.nations[result.defender];
 
-        /* Build unit breakdown showing BEFORE → AFTER with losses */
-        function unitBreakdown(armyBefore, armyAfter) {
-            let h = '';
-            let totalBefore = 0;
-            let totalLost = 0;
+        /* Compact unit summary: returns { rows, totalBefore, totalLost } */
+        function unitRows(armyBefore, armyAfter) {
+            let rows = [];
+            let totalBefore = 0, totalLost = 0;
             Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
                 const before = armyBefore[key] || 0;
                 const after  = armyAfter[key]  || 0;
@@ -521,45 +639,57 @@ const UI = (() => {
                     const lost = before - after;
                     totalBefore += before;
                     totalLost += lost;
-                    h += `<div class="battle-unit-row">`;
-                    h += `<span>${ut.icon} ${ut.name}</span>`;
-                    h += `<span class="battle-unit-count">${before}`;
-                    if (lost > 0) h += ` <span class="battle-loss">(-${lost})</span>`;
-                    h += `</span></div>`;
+                    rows.push({ icon: ut.icon, before, lost });
                 }
             });
-            return { html: h, totalBefore, totalLost };
+            return { rows, totalBefore, totalLost };
         }
 
         const atkBefore = result.atkArmyBefore || atkN.army;
         const defBefore = result.defArmyBefore || (defN ? defN.army : {});
-        const atkBreak = unitBreakdown(atkBefore, atkN.army);
-        const defBreak = unitBreakdown(defBefore, defN ? defN.army : {});
-
-        let html = `<div class="battle-sides">`;
-
-        /* Attacker side */
-        html += `<div class="battle-side attacker">`;
-        html += `<h4 style="color:var(--accent2)">${atkN.flag} ${atkN.name}</h4>`;
-        html += `<div class="battle-units">${atkBreak.html}</div>`;
-        html += `<div class="battle-unit-total">⚔ ATK: ${result.atkPow} | Perdite: ${atkBreak.totalLost} unità</div>`;
-        html += `<div style="font-size:0.7rem;color:var(--text-dim);margin-top:2px;">Totale schierati: ${atkBreak.totalBefore}</div>`;
-        html += `</div>`;
-
-        /* Defender side */
-        html += `<div class="battle-side defender">`;
-        html += `<h4 style="color:var(--accent3)">${defN?.flag || '🏳️'} ${defN?.name || '?'}</h4>`;
-        html += `<div class="battle-units">${defBreak.html}</div>`;
-        html += `<div class="battle-unit-total">🛡 DEF: ${result.defPow} | Perdite: ${defBreak.totalLost} unità</div>`;
-        html += `<div style="font-size:0.7rem;color:var(--text-dim);margin-top:2px;">Totale difesa: ${defBreak.totalBefore}</div>`;
-        html += `</div>`;
-
-        html += `</div>`;
+        const atk = unitRows(atkBefore, atkN.army);
+        const def = unitRows(defBefore, defN ? defN.army : {});
 
         /* Territory name */
         const tBase = getNation(result.territory);
-        html += `<div style="text-align:center;font-size:0.75rem;color:var(--text-dim);margin:8px 0;">Territorio: ${tBase.flag||''} ${tBase.name||result.territory.toUpperCase()}</div>`;
+        const tName = tBase.flag ? `${tBase.flag} ${tBase.name}` : result.territory.toUpperCase();
 
+        /* Build compact two-column layout */
+        let html = `<div class="btl-territory">${tName}</div>`;
+        html += `<div class="btl-grid">`;
+
+        /* Attacker column */
+        html += `<div class="btl-col btl-atk">`;
+        html += `<div class="btl-nation">${atkN.flag} ${atkN.name}</div>`;
+        html += `<div class="btl-units">`;
+        atk.rows.forEach(r => {
+            html += `<span class="btl-u">${r.icon}${r.before}`;
+            if (r.lost > 0) html += `<em>-${r.lost}</em>`;
+            html += `</span>`;
+        });
+        html += `</div>`;
+        html += `<div class="btl-pow">⚔ ${result.atkPow} <span class="btl-dim">| -${atk.totalLost}/${atk.totalBefore}</span></div>`;
+        html += `</div>`;
+
+        /* VS divider */
+        html += `<div class="btl-vs">VS</div>`;
+
+        /* Defender column */
+        html += `<div class="btl-col btl-def">`;
+        html += `<div class="btl-nation">${defN?.flag || '🏳️'} ${defN?.name || '?'}</div>`;
+        html += `<div class="btl-units">`;
+        def.rows.forEach(r => {
+            html += `<span class="btl-u">${r.icon}${r.before}`;
+            if (r.lost > 0) html += `<em>-${r.lost}</em>`;
+            html += `</span>`;
+        });
+        html += `</div>`;
+        html += `<div class="btl-pow">🛡 ${result.defPow} <span class="btl-dim">| -${def.totalLost}/${def.totalBefore}</span></div>`;
+        html += `</div>`;
+
+        html += `</div>`; /* close btl-grid */
+
+        /* Result banner */
         html += `<div class="battle-result ${result.success ? 'win' : 'lose'}">`;
         html += result.success ? '✅ VITTORIA — Territorio conquistato!' : '❌ SCONFITTA — Ritirata!';
         html += `</div>`;
@@ -572,7 +702,10 @@ const UI = (() => {
         const state = GameEngine.getState();
         if (!state) return;
         GameEngine.addSanction(state.player, targetCode);
+        const tn = state.nations[targetCode];
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🚫 <span class="evt-action">Sanzioni su</span> ${fmtNation(tn)}` });
         updateHUD();
+        hide('diplomacy-popup');
     }
 
     /* ════════════════ PRODUCTION ════════════════ */
@@ -766,7 +899,7 @@ const UI = (() => {
     function doPeace(code) {
         const state = GameEngine.getState();
         GameEngine.makePeace(state.player, code);
-        showDiplomacy();
+        hide('diplomacy-popup');
         updateHUD();
         MapRenderer.colourAllTerritories();
     }
@@ -775,12 +908,12 @@ const UI = (() => {
         const state = GameEngine.getState();
         const rel = GameEngine.getRelation(state.player, code);
         if (rel < -10) {
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${state.nations[code]?.flag} ${code.toUpperCase()} rifiuta l'alleanza (relazione troppo bassa: ${rel})` });
-            showDiplomacy();
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(state.nations[code])} <span class="evt-action">rifiuta alleanza (${rel})</span>` });
+            hide('diplomacy-popup');
             return;
         }
         GameEngine.makeAlliance(state.player, code);
-        showDiplomacy();
+        hide('diplomacy-popup');
     }
 
     /* ══ NEW DIPLOMATIC ACTIONS ══ */
@@ -797,21 +930,21 @@ const UI = (() => {
         }
         GameEngine.ensureWar(state.player, targetCode);
         const tn = state.nations[targetCode];
-        addEventToLog({ turn: state.turn, type:'battle', msg:`🔥 Hai dichiarato guerra a ${tn?.flag||''} ${tn?.name||targetCode.toUpperCase()}!` });
+        addEventToLog({ turn: state.turn, type:'battle', msg:`🔥 <span class="evt-action">Guerra dichiarata a</span> ${fmtNation(tn)}` });
         MapRenderer.colourAllTerritories();
         updateHUD();
         /* Refresh any open panel */
         const sel = MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
-        showDiplomacy();
+        hide('diplomacy-popup');
     }
 
     function doBreakAlliance(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
         GameEngine.breakAlliance(state.player, targetCode);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💔 Hai rotto l'alleanza con ${state.nations[targetCode]?.flag||''} ${targetCode.toUpperCase()}` });
-        showDiplomacy();
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💔 <span class="evt-action">Alleanza rotta con</span> ${fmtNation(state.nations[targetCode])}` });
+        hide('diplomacy-popup');
     }
 
     function doNonAggression(targetCode) {
@@ -820,8 +953,8 @@ const UI = (() => {
         /* Simulate non-aggression pact as +15 relation boost */
         GameEngine.adjustRelation(state.player, targetCode, 15);
         GameEngine.adjustRelation(targetCode, state.player, 15);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 Patto di non-aggressione con ${state.nations[targetCode]?.flag||''} ${targetCode.toUpperCase()} (+15 relazione)` });
-        showDiplomacy();
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">Patto con</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(+15)</span>` });
+        hide('diplomacy-popup');
     }
 
     function doEmbargo(targetCode) {
@@ -834,9 +967,9 @@ const UI = (() => {
             n.res.money = Math.max(0, n.res.money - 20);
             n.res.oil = Math.max(0, n.res.oil - 10);
         }
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`⛔ Embargo commerciale imposto su ${state.nations[targetCode]?.flag||''} ${targetCode.toUpperCase()} (-20💰, -10🛢️)` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`⛔ <span class="evt-action">Embargo su</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(-20💰 -10🛢️)</span>` });
         updateHUD();
-        showDiplomacy();
+        hide('diplomacy-popup');
     }
 
     function doTradeResources(targetCode) {
@@ -846,7 +979,8 @@ const UI = (() => {
         const tn = state.nations[targetCode];
         if (!pn || !tn) return;
 
-        /* Show trade popup */
+        /* Close diplomacy first, then show trade popup */
+        hide('diplomacy-popup');
         show('trade-popup');
         let html = `<div style="text-align:center;margin-bottom:12px;"><span style="font-size:2rem">${pn.flag}</span> ↔️ <span style="font-size:2rem">${tn.flag}</span></div>`;
         html += `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:12px;text-align:center;">Scambia risorse con ${tn.name}. Il successo dipende dalla relazione.</div>`;
@@ -893,7 +1027,7 @@ const UI = (() => {
         /* Trade acceptance: based on relations */
         const acceptChance = Math.max(0.1, (rel + 100) / 200 * 0.8 + 0.2);
         if (Math.random() > acceptChance) {
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${tn.flag} ${tn.name} rifiuta lo scambio` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">rifiuta scambio</span>` });
             hide('trade-popup');
             return;
         }
@@ -905,7 +1039,7 @@ const UI = (() => {
         GameEngine.adjustRelation(state.player, targetCode, 5);
         GameEngine.adjustRelation(targetCode, state.player, 5);
 
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💱 Scambio con ${tn.flag} ${tn.name} completato (+5 relazione)` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💱 <span class="evt-action">Scambio con</span> ${fmtNation(tn)} <span class="evt-action">(+5)</span>` });
         hide('trade-popup');
         updateHUD();
     }
@@ -928,13 +1062,13 @@ const UI = (() => {
             pn.res.money += tribute;
             tn.res.money = Math.max(0, tn.res.money - tribute);
             GameEngine.adjustRelation(targetCode, state.player, -20);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💰 ${tn.flag} ${tn.name} paga un tributo di ${tribute} fondi! (relazione -20)` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💰 ${fmtNation(tn)} <span class="evt-action">paga ${tribute} fondi (-20)</span>` });
         } else {
             GameEngine.adjustRelation(targetCode, state.player, -15);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${tn.flag} ${tn.name} rifiuta il tributo con sdegno! (relazione -15)` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">rifiuta tributo (-15)</span>` });
         }
         updateHUD();
-        showDiplomacy();
+        hide('diplomacy-popup');
     }
 
     function doSpyMission(targetCode) {
@@ -956,16 +1090,17 @@ const UI = (() => {
 
         if (Math.random() < chance) {
             /* Show detailed info */
-            let intel = `🕵️ INTEL su ${tn.flag} ${tn.name}:\n`;
-            intel += `💰${tn.res.money} 🛢️${tn.res.oil} 🔩${tn.res.steel} ☢️${tn.res.uranium}\n`;
+            let intel = `🕵️ <span class="evt-action">INTEL su</span> ${fmtNation(tn)}: `;
+            intel += `💰${tn.res.money} 🛢️${tn.res.oil} 🔩${tn.res.steel} ☢️${tn.res.uranium} `;
             const totalUnits = Object.values(tn.army).reduce((a,b) => a+b, 0);
-            intel += `🪖 ${totalUnits} unità totali | ATK:${GameEngine.calcMilitary(targetCode,'atk')} DEF:${GameEngine.calcMilitary(targetCode,'def')}`;
+            intel += `🪖${totalUnits} ⚔${GameEngine.calcMilitary(targetCode,'atk')} 🛡${GameEngine.calcMilitary(targetCode,'def')}`;
             addEventToLog({ turn: state.turn, type:'tech', msg: intel });
         } else {
             GameEngine.adjustRelation(targetCode, state.player, -25);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ Spia catturata in ${tn.flag} ${tn.name}! Relazione -25` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ <span class="evt-action">Spia catturata in</span> ${fmtNation(tn)} <span class="evt-action">(-25)</span>` });
         }
         updateHUD();
+        hide('diplomacy-popup');
     }
 
     function doNukeStrike(targetTerritory) {
@@ -1090,17 +1225,18 @@ const UI = (() => {
 
     /* ════════════════ END TURN / AI PHASE ════════════════ */
     let aiTurnBusy = false;
-    let spectatorMode = false;   // true when player has lost all territories
-    let spectatorStop = false;   // true when user clicks stop or someone wins
+    let autoPlayMode = false;   // true when auto-advancing (both alive or dead)
+    let playerDead   = false;   // true when player lost all territories
+    let autoPlayStop = false;   // true when user pauses or game ends
 
-    /* Speed multiplier for delays: 1 = normal, 0.5 = spectator fast-but-smooth */
-    function dly(ms) { return delay(spectatorMode ? Math.round(ms * 0.5) : ms); }
+    /* Speed multiplier for delays: 1 = normal, 0.5 = autoplay */
+    function dly(ms) { return delay(autoPlayMode ? Math.round(ms * 0.5) : ms); }
 
     async function endTurn() {
         const state = GameEngine.getState();
         if (!state || state.gameOver || aiTurnBusy) return;
-        /* In normal mode, must be player phase; in spectator mode, skip check */
-        if (!spectatorMode && state.phase !== 'player') return;
+        /* In normal mode, must be player phase; in autoplay, skip check */
+        if (!autoPlayMode && state.phase !== 'player') return;
         aiTurnBusy = true;
 
         /* Clear previous turn's missile trail traces */
@@ -1144,7 +1280,7 @@ const UI = (() => {
                     MapRenderer.colourAllTerritories();
                     Animations.spawnConquerFX(act.target);
                 }
-                await dly(spectatorMode ? 900 : 500);
+                await dly(autoPlayMode ? 900 : 500);
             } else if (act.type === 'nuke' && act.result) {
                 const _nkA = state.nations[act.result.attacker || act.nation];
                 const _nkD = state.nations[act.result.defender || act.target];
@@ -1152,15 +1288,15 @@ const UI = (() => {
                 const _nkDI = { code: act.target, name: _nkD?.name, flag: _nkD?.flag, color: _nkD?.color };
                 Animations.spawnNukeFX(act.nation, act.target, _nkAI, _nkDI);
                 MapRenderer.colourAllTerritories();
-                await dly(spectatorMode ? 1200 : 700);
+                await dly(autoPlayMode ? 1200 : 700);
             } else if (act.type === 'war_declare') {
-                MapRenderer.flashTerritory(act.target, '#ff4400', spectatorMode ? 400 : 500);
-                await dly(spectatorMode ? 500 : 300);
+                MapRenderer.flashTerritory(act.target, '#ff4400', autoPlayMode ? 400 : 500);
+                await dly(autoPlayMode ? 500 : 300);
             } else if (act.type === 'alliance' || act.type === 'peace') {
                 await dly(150);
             } else if (act.type === 'betray') {
-                MapRenderer.flashTerritory(act.target, '#ff00ff', spectatorMode ? 400 : 500);
-                await dly(spectatorMode ? 500 : 300);
+                MapRenderer.flashTerritory(act.target, '#ff00ff', autoPlayMode ? 400 : 500);
+                await dly(autoPlayMode ? 500 : 300);
             } else {
                 await dly(100);
             }
@@ -1184,15 +1320,20 @@ const UI = (() => {
         if (victor) {
             showGameOver(victor);
             aiTurnBusy = false;
-            spectatorStop = true;
+            autoPlayStop = true;
             return;
         }
 
         /* Check if player was eliminated this turn */
-        if (!spectatorMode) {
+        if (!playerDead) {
             const playerTerr = GameEngine.getTerritoryCount(state.player);
             if (playerTerr === 0) {
-                enterSpectatorMode();
+                playerDead = true;
+                addEventToLog({ turn: state.turn, type:'nuke',
+                    msg: `💀 <strong>${state.nations[state.player]?.flag||''} ${state.nations[state.player]?.name||'Tu'} È STATO ELIMINATO!</strong> Modalità spettatore attiva.`
+                });
+                if (!autoPlayMode) startAutoPlay();
+                else updateAutoPlayBanner();
             }
         }
 
@@ -1202,137 +1343,186 @@ const UI = (() => {
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
 
-        /* Re-enable end-turn button (if not spectator) */
-        if (!spectatorMode && btnEnd) { btnEnd.disabled = false; btnEnd.style.opacity = '1'; }
+        /* Re-enable end-turn button if not in autoplay */
+        if (!autoPlayMode && btnEnd) { btnEnd.disabled = false; btnEnd.style.opacity = '1'; }
 
         aiTurnBusy = false;
 
-        /* In spectator mode, auto-advance to next turn */
-        if (spectatorMode && !spectatorStop) {
+        /* In autoplay mode, auto-advance to next turn */
+        if (autoPlayMode && !autoPlayStop) {
             await delay(800);
             endTurn();
         }
     }
 
-    /* ── SPECTATOR MODE: player eliminated, watch AI play ── */
-    function enterSpectatorMode() {
-        spectatorMode = true;
-        Animations.setSpeed(1.8);  // faster missiles in spectator
-        const state = GameEngine.getState();
-        const pn = state.nations[state.player];
+    /* ═══ AUTOPLAY: works both when alive and when dead ═══ */
+    function startAutoPlay() {
+        autoPlayMode = true;
+        autoPlayStop = false;
+        Animations.setSpeed(1.8);
+        showAutoPlayBanner();
 
-        addEventToLog({ turn: state.turn, type:'nuke',
-            msg: `💀 <strong>${pn?.flag||''} ${pn?.name||'Tu'} È STATO ELIMINATO!</strong> Ora sei uno spettatore.`
-        });
+        /* Hide end-turn and autoplay buttons */
+        const btnEnd = els['btn-end-turn'];
+        if (btnEnd) btnEnd.style.display = 'none';
+        const btnAuto = document.getElementById('btn-autoplay');
+        if (btnAuto) btnAuto.style.display = 'none';
 
-        /* Show spectator banner */
+        /* If not already running, kick off a turn */
+        if (!aiTurnBusy) endTurn();
+    }
+
+    function stopAutoPlay() {
+        autoPlayMode = false;
+        autoPlayStop = true;
+        Animations.setSpeed(1);
+
+        /* If player is still alive, restore controls */
+        if (!playerDead) {
+            const btnEnd = els['btn-end-turn'];
+            if (btnEnd) { btnEnd.style.display = ''; btnEnd.disabled = false; btnEnd.style.opacity = '1'; }
+            const btnAuto = document.getElementById('btn-autoplay');
+            if (btnAuto) btnAuto.style.display = '';
+        }
+
+        hideAutoPlayBanner();
+    }
+
+    function showAutoPlayBanner() {
         let banner = document.getElementById('spectator-banner');
         if (!banner) {
             banner = document.createElement('div');
             banner.id = 'spectator-banner';
-            banner.innerHTML = `
-                <div class="spectator-inner">
-                    <h2>💀 SEI STATO ELIMINATO</h2>
-                    <p>Ora puoi solo guardare. Il gioco continua automaticamente.</p>
-                    <div class="spectator-btns">
-                        <button id="btn-spectator-stop" class="btn-main btn-sm">⏸ PAUSA</button>
-                        <button id="btn-spectator-restart" class="btn-main btn-sm" style="background:var(--red)">🔄 RICOMINCIA</button>
-                    </div>
-                </div>`;
             document.body.appendChild(banner);
+        }
+        updateAutoPlayBanner();
+        banner.classList.remove('hidden');
+    }
 
-            document.getElementById('btn-spectator-stop').addEventListener('click', () => {
-                spectatorStop = !spectatorStop;
-                const btn = document.getElementById('btn-spectator-stop');
-                if (spectatorStop) {
+    function updateAutoPlayBanner() {
+        const banner = document.getElementById('spectator-banner');
+        if (!banner) return;
+
+        /* Remove old classes, set new one */
+        banner.classList.remove('banner-dead', 'banner-auto', 'hidden');
+
+        if (playerDead) {
+            banner.classList.add('banner-dead');
+            banner.innerHTML = `
+                <span class="spectator-label">💀 ELIMINATO — Modalità spettatore</span>
+                <div class="spectator-btns">
+                    <button id="btn-auto-toggle" class="btn-sm">⏸ PAUSA</button>
+                    <button id="btn-auto-restart" class="btn-sm btn-stop">🔄 RICOMINCIA</button>
+                </div>`;
+            document.getElementById('btn-auto-toggle').addEventListener('click', () => {
+                autoPlayStop = !autoPlayStop;
+                const btn = document.getElementById('btn-auto-toggle');
+                if (autoPlayStop) {
                     btn.textContent = '▶ RIPRENDI';
                 } else {
                     btn.textContent = '⏸ PAUSA';
-                    endTurn(); /* Resume auto-play */
+                    endTurn();
                 }
             });
-            document.getElementById('btn-spectator-restart').addEventListener('click', () => location.reload());
+            document.getElementById('btn-auto-restart').addEventListener('click', () => location.reload());
+        } else {
+            banner.classList.add('banner-auto');
+            banner.innerHTML = `
+                <span class="spectator-label">⏩ AUTO-PLAY attivo</span>
+                <div class="spectator-btns">
+                    <button id="btn-auto-stop" class="btn-sm">⏹ TORNA A GIOCARE</button>
+                </div>`;
+            document.getElementById('btn-auto-stop').addEventListener('click', () => {
+                stopAutoPlay();
+            });
         }
-        banner.classList.remove('hidden');
+    }
 
-        /* Hide player action controls */
-        const btnEnd = els['btn-end-turn'];
-        if (btnEnd) btnEnd.style.display = 'none';
-        const panelActions = els['panel-actions'];
-        if (panelActions) panelActions.style.display = 'none';
+    function hideAutoPlayBanner() {
+        const banner = document.getElementById('spectator-banner');
+        if (banner) banner.classList.add('hidden');
     }
 
     /* ── Log AI actions directly to the event log (right panel) ── */
+    /* Helper: wrap flag + name in styled spans for the event log */
+    function fmtNation(n) {
+        if (!n) return `<span class="evt-flag" style="background:#607d8b"></span><span class="evt-nation">?</span>`;
+        return `<span class="evt-flag" style="background:${n.color||'#607d8b'}"></span><span class="evt-nation">${n.name}</span>`;
+    }
+
     function logAIAction(action, state) {
         const n = state.nations[action.nation];
         if (!n) return;
 
-        function tgtInfo(code) {
+        function tgt(code) {
             const dn = state.nations[code];
-            if (dn) return `${dn.flag} ${dn.name}`;
+            if (dn) return fmtNation(dn);
             const ow = state.territories[code];
             const own = state.nations[ow];
-            if (own) return `${own.flag} ${own.name}`;
-            return `🏳️ ${code.toUpperCase()}`;
+            if (own) return fmtNation(own);
+            return `<span class="evt-flag" style="background:#607d8b"></span><span class="evt-nation">${code.toUpperCase()}</span>`;
         }
 
+        const me = fmtNation(n);
         let msg = '';
         let type = 'game';
 
         switch (action.type) {
             case 'attack': {
-                const tgt = tgtInfo(action.target);
                 const ok = action.result?.success;
-                const atkDef = action.result ? `ATK:${action.result.atkStr||'?'} vs DEF:${action.result.defStr||'?'}` : '';
-                msg = `${ok ? '✅' : '❌'} <strong>${n.flag} ${n.name}</strong> attacca 🏴 ${tgt} a ${action.target.toUpperCase()} — ${atkDef} → ${ok ? '<strong>VITTORIA</strong>' : 'SCONFITTA'}`;
-                if (action.result?.conquered) msg += ' 🏴 CONQUISTATO';
+                const icon = ok ? '✅' : '❌';
+                const res = ok
+                    ? `<span class="evt-result win">VITTORIA</span>`
+                    : `<span class="evt-result lose">SCONFITTA</span>`;
+                msg = `${icon} ${me} → ${tgt(action.target)} ${res}`;
+                if (action.result?.conquered) msg += ' 🏴';
                 type = 'battle';
                 break;
             }
             case 'war_declare': {
-                msg = `🔥 <strong>${n.flag} ${n.name}</strong> ⚔→ ${tgtInfo(action.target)} — DICHIARA GUERRA!`;
+                msg = `🔥 ${me} <span class="evt-action">dichiara guerra a</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'alliance': {
-                msg = `🤝 ${n.flag} ${n.name} ↔ ${tgtInfo(action.target)} — ALLEANZA`;
+                msg = `🤝 ${me} <span class="evt-action">alleanza con</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'peace': {
-                msg = `🕊️ ${n.flag} ${n.name} ↔ ${tgtInfo(action.target)} — PACE`;
+                msg = `🕊️ ${me} <span class="evt-action">pace con</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'nuke': {
-                msg = `☢️ <strong>${n.flag} ${n.name}</strong> 💥→ ${tgtInfo(action.target)} — NUCLEARE!`;
+                msg = `☢️ ${me} <span class="evt-action">nucleare su</span> ${tgt(action.target)}`;
                 type = 'nuke';
                 break;
             }
             case 'sanction': {
-                msg = `🚫 ${n.flag} ${n.name} sanziona ${tgtInfo(action.target)}`;
+                msg = `🚫 ${me} <span class="evt-action">sanziona</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'build': {
                 const ut = UNIT_TYPES[action.unit];
-                msg = `🏭 ${n.flag} ${n.name} produce ${ut?.icon || ''}  ${ut?.name || action.unit}`;
+                msg = `🏭 ${me} <span class="evt-action">+</span>${ut?.icon || ''} ${ut?.name || action.unit}`;
                 type = 'resource';
                 break;
             }
             case 'research': {
                 const tech = TECHNOLOGIES.find(t => t.id === action.tech);
-                msg = `🔬 ${n.flag} ${n.name} ricerca ${tech?.icon || ''} ${tech?.name || action.tech}`;
+                msg = `🔬 ${me} <span class="evt-action">ricerca</span> ${tech?.icon || ''} ${tech?.name || action.tech}`;
                 type = 'tech';
                 break;
             }
             case 'betray': {
-                msg = `💔 <strong>${n.flag} ${n.name}</strong> 💀→ ${tgtInfo(action.target)} — TRADIMENTO!`;
+                msg = `💔 ${me} <span class="evt-action">tradisce</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             default: {
-                msg = `${n.flag} ${n.name}: ${action.type}`;
+                msg = `${me}: ${action.type}`;
             }
         }
 
@@ -1345,13 +1535,67 @@ const UI = (() => {
             const remaining = GameEngine.getTerritoryCount ? GameEngine.getTerritoryCount(defender) : -1;
             if (remaining === 0) {
                 addEventToLog({ turn: state.turn, type:'battle',
-                    msg: `💀 🏴 ${dN?.flag||''} ${dN?.name||defender} è stato eliminata!`
+                    msg: `💀 ${fmtNation(dN)} <span class="evt-action">è stata eliminata!</span>`
                 });
             }
         }
     }
 
     /* ════════════════ EVENT LOG ════════════════ */
+    let evtAutoScroll = true;
+
+    function setupEventLog() {
+        const log = els['event-log'];
+        if (!log) return;
+
+        /* Scroll detection: if user scrolls up, pause auto-scroll */
+        log.addEventListener('scroll', () => {
+            const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+            if (atBottom && !evtAutoScroll) {
+                evtAutoScroll = true;
+                hideLiveBtn();
+            } else if (!atBottom && evtAutoScroll) {
+                evtAutoScroll = false;
+                showLiveBtn();
+            }
+        });
+
+        /* LIVE button */
+        const btnLive = document.getElementById('btn-live');
+        if (btnLive) {
+            btnLive.addEventListener('click', () => {
+                evtAutoScroll = true;
+                log.scrollTop = log.scrollHeight;
+                hideLiveBtn();
+            });
+        }
+
+        /* Fullscreen toggle */
+        const btnFS = document.getElementById('btn-fullscreen-events');
+        if (btnFS) {
+            btnFS.addEventListener('click', () => {
+                const panel = els['right-panel'];
+                if (!panel) return;
+                panel.classList.toggle('evt-fullscreen');
+                btnFS.textContent = panel.classList.contains('evt-fullscreen') ? '✖' : '⛶';
+            });
+        }
+
+        /* Panel toggle (collapse) */
+        const btnToggle = document.getElementById('btn-toggle-right');
+        if (btnToggle) {
+            btnToggle.addEventListener('click', () => {
+                const panel = els['right-panel'];
+                if (!panel) return;
+                panel.classList.remove('evt-fullscreen');
+                panel.classList.toggle('hidden');
+            });
+        }
+    }
+
+    function showLiveBtn() { const b = document.getElementById('btn-live'); if (b) b.classList.remove('hidden'); }
+    function hideLiveBtn() { const b = document.getElementById('btn-live'); if (b) b.classList.add('hidden'); }
+
     function addEventToLog(entry) {
         const log = els['event-log'];
         if (!log) return;
@@ -1361,21 +1605,51 @@ const UI = (() => {
             tech: 'evt-tech', nuke: 'evt-nuke', game: ''
         };
 
+        /* Determine if event involves the player or an ally */
+        let ownerClass = '';
+        const state = GameEngine.getState();
+        if (state && entry.msg) {
+            const pn = state.nations[state.player];
+            if (pn) {
+                const pName = pn.name;
+                if (entry.msg.includes(pName)) {
+                    ownerClass = 'evt-mine';
+                } else {
+                    /* Check allies */
+                    const majorCodes = Object.keys(NATIONS);
+                    for (const c of majorCodes) {
+                        if (c !== state.player && GameEngine.isAlly(state.player, c)) {
+                            const an = state.nations[c];
+                            if (an && entry.msg.includes(an.name)) {
+                                ownerClass = 'evt-ally';
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         const div = document.createElement('div');
-        div.className = `event-item ${typeMap[entry.type] || ''}`;
+        div.className = `event-item ${typeMap[entry.type] || ''} ${ownerClass}`.trim();
         div.innerHTML = `<span class="evt-turn">T${entry.turn}</span> ${entry.msg}`;
         log.appendChild(div);
-        log.scrollTop = log.scrollHeight;
 
-        /* Keep max 100 entries */
-        while (log.children.length > 100) log.removeChild(log.firstChild);
+        /* Auto-scroll only if in LIVE mode */
+        if (evtAutoScroll) {
+            log.scrollTop = log.scrollHeight;
+        } else {
+            showLiveBtn();
+        }
+
+        /* Keep max 150 entries */
+        while (log.children.length > 150) log.removeChild(log.firstChild);
     }
 
     /* ════════════════ GAME OVER ════════════════ */
     function showGameOver(victor) {
-        /* Hide spectator banner if present */
-        const specBanner = document.getElementById('spectator-banner');
-        if (specBanner) specBanner.classList.add('hidden');
+        /* Hide autoplay banner if present */
+        hideAutoPlayBanner();
 
         show('gameover-popup');
         const state = GameEngine.getState();
@@ -1386,7 +1660,7 @@ const UI = (() => {
             els['gameover-title'].textContent = '🏆 HAI VINTO!';
             els['gameover-title'].style.color = 'var(--gold)';
             els['gameover-text'].textContent = `${n.flag} ${n.name} domina il mondo!`;
-        } else if (spectatorMode) {
+        } else if (playerDead) {
             els['gameover-title'].textContent = `🏆 ${n.flag} ${n.name} HA VINTO!`;
             els['gameover-title'].style.color = 'var(--accent)';
             els['gameover-text'].textContent = `${n.flag} ${n.name} ha conquistato il dominio globale al turno ${state.turn}.`;
@@ -1434,6 +1708,8 @@ const UI = (() => {
         doNukeStrike,
         doPeaceFromPanel,
         doAllyFromPanel,
-        addEventToLog
+        addEventToLog,
+        startAutoPlay,
+        stopAutoPlay
     };
 })();
