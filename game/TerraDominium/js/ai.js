@@ -97,12 +97,40 @@ const AI = (() => {
             .filter(a => a.a === code || a.b === code)
             .map(a => a.a === code ? a.b : a.a);
 
-        /* Find neighbors and their power */
+        /* Find neighbors: land adjacency + sea/air/missile reachable nations */
         const neighborOwners = GameEngine.getNeighborOwners(code);
         const threats = [];
         const opportunities = [];
 
-        neighborOwners.forEach(nc => {
+        /* Build a broader set: land neighbors PLUS nations reachable by sea/air/missile */
+        const reachableOwners = new Set(neighborOwners);
+        if (typeof canReachTerritory === 'function') {
+            const atkArmy = n.army || {};
+            const hasNavy = (atkArmy.navy || 0) > 0 || (atkArmy.submarine || 0) > 0;
+            const hasAir  = (atkArmy.bomber || 0) > 0 || (atkArmy.drone || 0) > 0 || (atkArmy.fighter || 0) > 0;
+            const hasMissiles = (atkArmy.cruiseMissile || 0) > 0 || (atkArmy.ballisticMissile || 0) > 0;
+            const hasLongRange = hasNavy || hasAir || hasMissiles;
+
+            /* If we have long-range capability, scan other alive nations */
+            if (hasLongRange) {
+                Object.keys(state.nations).forEach(nc => {
+                    if (nc === code || reachableOwners.has(nc)) return;
+                    const nn = state.nations[nc];
+                    if (!nn || !nn.alive) return;
+                    /* Check if at least one of their territories is reachable */
+                    const enemyTerr = Object.entries(state.territories)
+                        .filter(([, o]) => o === nc).map(([c]) => c);
+                    /* Sample up to 5 territories for performance */
+                    const sample = enemyTerr.length <= 5 ? enemyTerr : enemyTerr.slice(0, 5);
+                    for (const et of sample) {
+                        const reach = canReachTerritory(code, et, atkArmy);
+                        if (reach.reachable) { reachableOwners.add(nc); break; }
+                    }
+                });
+            }
+        }
+
+        reachableOwners.forEach(nc => {
             const nn = state.nations[nc];
             if (!nn || !nn.alive || nc === code) return;
             const nPow = GameEngine.calcMilitary(nc, 'atk');
@@ -145,7 +173,8 @@ const AI = (() => {
             myTerrCount, myAtkPow, myDefPow, myWealth,
             enemies, allies, threats, opportunities,
             dominant, dominantThreat, maxTerr,
-            neighborOwners, atWar, restlessness,
+            neighborOwners, reachableOwners: [...reachableOwners],
+            atWar, restlessness,
             homelandLost, homelandEnemy, homeland
         };
     }
@@ -232,8 +261,8 @@ const AI = (() => {
                     actions.push({ type:'war_declare', nation:code, target:dom });
                 }
             }
-            /* Seek alliance with other threatened nations */
-            situation.neighborOwners.forEach(nc => {
+            /* Seek alliance with other threatened nations (includes overseas) */
+            (situation.reachableOwners || situation.neighborOwners).forEach(nc => {
                 if (nc !== dom && !GameEngine.isAlly(code, nc) && state.nations[nc]?.alive) {
                     const ncRel = GameEngine.getRelation(nc, dom);
                     if (ncRel < -10 && Math.random() < profile.diplomacy * 0.4) {
@@ -311,7 +340,8 @@ const AI = (() => {
             const peaceTurns = state.turn - lastWarTurn;
             /* After 8+ turns of peace, increasing chance to start a war */
             if (peaceTurns > 8 && Math.random() < 0.15 + situation.restlessness * 0.3) {
-                const potVictims = situation.neighborOwners.filter(nc =>
+                /* Use reachableOwners (includes sea/air/missile targets, not just land) */
+                const potVictims = (situation.reachableOwners || situation.neighborOwners).filter(nc =>
                     !GameEngine.isAlly(code, nc) && !GameEngine.isAtWar(code, nc) && state.nations[nc]?.alive);
                 if (potVictims.length > 0) {
                     potVictims.sort((a, b) => GameEngine.calcMilitary(a, 'def') - GameEngine.calcMilitary(b, 'def'));
@@ -413,8 +443,8 @@ const AI = (() => {
         /* Late-game aggression: even "peaceful" nations get aggressive over time */
         const warChance = (profile.aggression + restless * 0.35) * 0.25;
         if (situation.enemies.length < 2 && Math.random() < warChance) {
-            /* Pick a neighbor — prefer those with negative relations, but accept any non-ally */
-            const potentialTargets = situation.neighborOwners.filter(nc => {
+            /* Pick a reachable target — prefer those with negative relations, but accept any non-ally */
+            const potentialTargets = (situation.reachableOwners || situation.neighborOwners).filter(nc => {
                 if (GameEngine.isAlly(code, nc) || GameEngine.isAtWar(code, nc)) return false;
                 if (!state.nations[nc]?.alive) return false;
                 /* In late game, attack even neutral neighbors */
@@ -457,8 +487,8 @@ const AI = (() => {
             }
         }
 
-        /* ── OPPORTUNISTIC: attack defenseless neighbors (0 army) regardless of other wars ── */
-        situation.neighborOwners.forEach(nc => {
+        /* ── OPPORTUNISTIC: attack defenseless nations (0 army) regardless of other wars ── */
+        (situation.reachableOwners || situation.neighborOwners).forEach(nc => {
             if (GameEngine.isAlly(code, nc) || nc === code) return;
             const nn = state.nations[nc];
             if (!nn || !nn.alive) return;
