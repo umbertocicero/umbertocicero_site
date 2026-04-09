@@ -88,3 +88,5 @@ Migliora la resa visiva degli attacchi in modo realistico e leggibile. Gli attac
 
 **Prompt:**
 Modfica la logica, si attaccare le nazioni non confinanti solo se si hanno missili o droni o altri strimenti, o via mare se sono collegate tramite mare. altrimenti dare un allert che dice che non è attabile e con quale motivazione. via terra con i mezzi è possibile se ci sono navi che li trasportano attraversio il male, o se sono confinanti.
+
+sembra siano tutte senza esercito dopo un po, probabilmente non si riesce a creare abbastanza agevolemnte o muoiono troppo facilmente. migliora la logica

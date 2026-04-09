@@ -159,7 +159,7 @@ const DevLog = (() => {
         if (!snapshot) return;
         const s = snapshot;
 
-        console.groupCollapsed(
+        console.group(
             `%c═══ TURNO ${s.turn} (Anno ${s.year}) ═══  ` +
             `%c${s.alive} nazioni | ${s.wars} guerre | ${s.alliances} alleanze | ` +
             `Stabilità: ${s.stability}%  %c${s.stall.noActivity ? '⚠️ NESSUNA ATTIVITÀ' : ''}`,

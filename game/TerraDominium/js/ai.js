@@ -228,14 +228,33 @@ const AI = (() => {
         }
 
         /* Seek allies among neighbors with good relations */
-        if (profile.diplomacy > 0.5 && situation.allies.length < 3) {
+        if (profile.diplomacy > 0.3 && situation.allies.length < 3) {
             situation.neighborOwners.forEach(nc => {
                 if (GameEngine.isAlly(code, nc) || GameEngine.isAtWar(code, nc)) return;
+                if (!state.nations[nc]?.alive) return;
                 const rel = GameEngine.getRelation(code, nc);
-                if (rel > 20 && Math.random() < profile.diplomacy * 0.2) {
+                /* Lower threshold: relations > 5 (was 20) and higher chance */
+                if (rel > 5 && Math.random() < profile.diplomacy * 0.35) {
                     GameEngine.makeAlliance(code, nc);
                     actions.push({ type:'alliance', nation:code, target:nc });
                 }
+            });
+        }
+
+        /* Enemy-of-my-enemy: ally with nations that share a common enemy */
+        if (situation.enemies.length > 0 && situation.allies.length < 4) {
+            situation.enemies.forEach(enemy => {
+                const enemyWars = GameEngine.getWarsFor(enemy);
+                enemyWars.forEach(w => {
+                    const otherFighter = w.attacker === enemy ? w.defender : w.attacker;
+                    if (otherFighter === code) return;
+                    if (!state.nations[otherFighter]?.alive) return;
+                    if (GameEngine.isAlly(code, otherFighter) || GameEngine.isAtWar(code, otherFighter)) return;
+                    if (Math.random() < 0.25 * profile.diplomacy) {
+                        GameEngine.makeAlliance(code, otherFighter);
+                        actions.push({ type:'alliance', nation:code, target:otherFighter });
+                    }
+                });
             });
         }
 
@@ -420,6 +439,28 @@ const AI = (() => {
                 }
             }
         }
+
+        /* ── OPPORTUNISTIC: attack defenseless neighbors (0 army) regardless of other wars ── */
+        situation.neighborOwners.forEach(nc => {
+            if (GameEngine.isAlly(code, nc) || nc === code) return;
+            const nn = state.nations[nc];
+            if (!nn || !nn.alive) return;
+            const nDefPow = GameEngine.calcMilitary(nc, 'def');
+            /* Target has very weak or no army */
+            if (nDefPow < 5 && situation.myAtkPow > 10) {
+                const targets = findAttackTargets(code, nc);
+                if (targets.length > 0) {
+                    if (!GameEngine.isAtWar(code, nc)) {
+                        GameEngine.ensureWar(code, nc);
+                        actions.push({ type:'war_declare', nation:code, target:nc });
+                    }
+                    const result = GameEngine.attack(code, targets[0]);
+                    if (result) {
+                        actions.push({ type:'attack', nation:code, target:targets[0], result });
+                    }
+                }
+            }
+        });
 
         return actions;
     }

@@ -528,6 +528,18 @@ const GameEngine = (() => {
         /* Collect resources for player */
         collectResources(state.player);
 
+        /* ── Dynamic global stability ──
+           Wars drag it down, peace slowly restores it.
+           More wars = faster decline. Nukes already -25 per use. */
+        const warCount = state.wars.length;
+        const aliveCount = Object.values(state.nations).filter(n => n.alive).length;
+        const warRatio = aliveCount > 0 ? warCount / aliveCount : 0;
+        /* Each turn: wars pull stability down, baseline drifts up */
+        const warDrag = Math.min(8, warRatio * 6);      // 0-8% drop per turn from wars
+        const peaceDrift = warCount === 0 ? 3 : 0.5;    // recovers faster if no wars at all
+        state.globalStability = Math.max(0, Math.min(100,
+            state.globalStability - warDrag + peaceDrift));
+
         /* Relations decay: positive relations slowly drift toward 0 every 5 turns
            This prevents permanent peace stalemates */
         if (state.turn % 5 === 0) {

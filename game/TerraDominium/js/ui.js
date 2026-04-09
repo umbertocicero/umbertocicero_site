@@ -1174,7 +1174,7 @@ const UI = (() => {
                 <div class="spy-header">
                     <div class="spy-flag" style="background:${tn.color||'#607d8b'};width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">${tn.flag||'🏳️'}</div>
                     <div>
-                        <div class="spy-nation-name" style="font-size:1.2rem;font-weight:700;color:#fff;">${tn.name}</div>
+                        <div class="spy-nation-name" style="font-size:1.2rem;font-weight:700;color:#fff;">${tn.name || targetCode.toUpperCase()}</div>
                         <div style="font-size:0.85rem;color:#90a4ae;">🌍 ${terrCount} territori · ⚔${atkPow} ATK · 🛡${defPow} DEF · 🪖${totalUnits} unità</div>
                     </div>
                 </div>
