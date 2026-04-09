@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — Map Renderer  (SVG Inline)
+   GeoDominion — Map Renderer  (SVG Inline)
    Fetches the real-world SVG, injects it, colours territories,
    handles zoom/pan, hover/click, centroid computation.
    ═══════════════════════════════════════════════════════ */
@@ -127,7 +127,7 @@ const MapRenderer = (() => {
            This avoids querySelector/getElementById issues after
            DOMParser + adoptNode which can break ID lookup tables. */
         const allGroups = svgEl.querySelectorAll('g');
-        console.log(`[TerraDominium] Found ${allGroups.length} <g> elements in SVG`);
+        console.log(`[GeoDominion] Found ${allGroups.length} <g> elements in SVG`);
 
         allGroups.forEach(g => {
             const gId = g.getAttribute('id');
@@ -137,6 +137,10 @@ const MapRenderer = (() => {
                 /* Set default fill so territories aren't black */
                 g.setAttribute('fill', '#2a3a4a');
                 g.querySelectorAll('path').forEach(p => p.setAttribute('fill', '#2a3a4a'));
+                /* Remove any existing <title> to avoid native browser tooltip
+                   (we use a custom tooltip via UI instead) */
+                const existingTitle = g.querySelector('title');
+                if (existingTitle) existingTitle.remove();
             }
         });
 
@@ -149,10 +153,13 @@ const MapRenderer = (() => {
                 pathCache[pId] = p;
                 cached++;
                 p.setAttribute('fill', '#2a3a4a');
+                /* Remove any existing <title> to avoid native browser tooltip */
+                const existingTitleP = p.querySelector('title');
+                if (existingTitleP) existingTitleP.remove();
             }
         });
 
-        console.log(`[TerraDominium] Cached ${cached}/${SVG_IDS.length} territory elements`);
+        console.log(`[GeoDominion] Cached ${cached}/${SVG_IDS.length} territory elements`);
     }
 
     /* ════════════════ COLOURING ════════════════ */
@@ -205,6 +212,9 @@ const MapRenderer = (() => {
                 colourTerritory(code, '#2a3a4a');
             }
         }
+
+        /* Update garrison overlay after recolouring */
+        updateGarrisonOverlay();
     }
 
     /* ════════════════ SELECTION ════════════════ */
@@ -287,7 +297,24 @@ const MapRenderer = (() => {
     }
 
     /* ════════════════ ZOOM / PAN ════════════════ */
+    function clampPan() {
+        /* Prevent panning map completely off-screen:
+           keep at least 30% of the map visible within the container */
+        if (!container || !svgEl) return;
+        const cRect = container.getBoundingClientRect();
+        const mapW = cRect.width * scale;
+        const mapH = cRect.height * scale;
+        const margin = 0.3; // 30% must stay visible
+        const minX = -(mapW * (1 - margin));
+        const maxX = cRect.width * (1 - margin);
+        const minY = -(mapH * (1 - margin));
+        const maxY = cRect.height * (1 - margin);
+        panX = Math.max(minX, Math.min(maxX, panX));
+        panY = Math.max(minY, Math.min(maxY, panY));
+    }
+
     function applyTransform() {
+        clampPan();
         const wrapper = document.getElementById('svg-wrapper');
         if (wrapper) {
             wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
@@ -449,6 +476,128 @@ const MapRenderer = (() => {
         });
     }
 
+    /* ════════════════ GARRISON OVERLAY ════════════════
+       Draw small troop-strength indicators on each territory.
+       Uses lightweight SVG <text> elements placed at centroids.
+       Only shows for major nations (NATIONS object) to avoid clutter.
+       Called after colourAllTerritories().
+       ══════════════════════════════════════════════════════ */
+    const garrisonLayer = {};   // code → SVG <g> element
+
+    function updateGarrisonOverlay() {
+        if (typeof GameEngine === 'undefined') return;
+        const state = GameEngine.getState();
+        if (!state) return;
+        if (!svgEl) return;
+
+        /* Gather all garrison data per nation (major only to avoid 231 lookups) */
+        const majorCodes = typeof NATIONS !== 'undefined' ? Object.keys(NATIONS) : [];
+        const allGarrisons = {};
+        majorCodes.forEach(code => {
+            const n = state.nations[code];
+            if (!n || !n.alive) return;
+            const g = GameEngine.getGarrisons(code);
+            Object.assign(allGarrisons, g);
+        });
+
+        /* Create or update overlay for every SVG territory */
+        for (const code of SVG_IDS) {
+            const owner = state.territories[code];
+            const garrison = allGarrisons[code];
+            const centroid = getCentroid(code);
+
+            if (!centroid || !garrison || garrison.total === 0) {
+                /* Remove overlay if exists */
+                if (garrisonLayer[code]) {
+                    garrisonLayer[code].remove();
+                    delete garrisonLayer[code];
+                }
+                continue;
+            }
+
+            /* Determine icon and label */
+            const iconMap = {
+                fighter: '✈', bomber: '✈', drone: '✈',        // air
+                navy: '⚓', submarine: '⚓',                    // sea
+                tank: '⬟', artillery: '⬟',                     // armour
+                sam: '⛨', nuke: '☢',                           // special
+                infantry: '●'                                    // ground
+            };
+            const sym = iconMap[garrison.dominant] || '●';
+
+            /* Sizes proportional to SVG viewBox (2754×1396) — visible at default zoom */
+            const sizeMap = { heavy: 18, medium: 14, light: 10, none: 0 };
+            const sz = sizeMap[garrison.strength] || 12;
+            const fontSize = sz * 0.75;
+            const numFontSize = sz * 0.65;
+
+            /* Colour: slightly lighter than owner colour for readability */
+            const ownerN = state.nations[owner];
+            const dotColor = ownerN?.color || '#607d8b';
+
+            let gEl = garrisonLayer[code];
+            if (!gEl) {
+                gEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                gEl.setAttribute('class', 'garrison-overlay');
+                gEl.setAttribute('pointer-events', 'none');
+                svgEl.appendChild(gEl);
+                garrisonLayer[code] = gEl;
+            }
+
+            /* Build overlay content:
+               - Filled circle (garrison dot) with unit symbol
+               - Number showing troop count */
+            const cx = centroid.x;
+            const cy = centroid.y;
+
+            gEl.innerHTML = '';
+
+            /* Background circle */
+            const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            bgCircle.setAttribute('cx', cx);
+            bgCircle.setAttribute('cy', cy);
+            bgCircle.setAttribute('r', sz);
+            bgCircle.setAttribute('fill', 'rgba(0,0,0,0.6)');
+            bgCircle.setAttribute('stroke', dotColor);
+            bgCircle.setAttribute('stroke-width', '2');
+            gEl.appendChild(bgCircle);
+
+            /* Unit symbol */
+            const symText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            symText.setAttribute('x', cx);
+            symText.setAttribute('y', cy + fontSize * 0.35);
+            symText.setAttribute('text-anchor', 'middle');
+            symText.setAttribute('font-size', fontSize);
+            symText.setAttribute('fill', '#fff');
+            symText.setAttribute('font-family', 'sans-serif');
+            symText.setAttribute('font-weight', 'bold');
+            symText.textContent = sym;
+            gEl.appendChild(symText);
+
+            /* Troop count (offset below circle) */
+            if (garrison.total >= 1) {
+                const numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                numText.setAttribute('x', cx);
+                numText.setAttribute('y', cy + sz + numFontSize + 2);
+                numText.setAttribute('text-anchor', 'middle');
+                numText.setAttribute('font-size', numFontSize);
+                numText.setAttribute('fill', '#e0e0e0');
+                numText.setAttribute('font-family', 'Share Tech Mono, monospace');
+                numText.setAttribute('paint-order', 'stroke');
+                numText.setAttribute('stroke', '#000');
+                numText.setAttribute('stroke-width', '2.5');
+                numText.textContent = Math.round(garrison.total);
+                gEl.appendChild(numText);
+            }
+        }
+    }
+
+    /** Remove all garrison overlays (call on game end or reset) */
+    function clearGarrisonOverlay() {
+        Object.values(garrisonLayer).forEach(el => el.remove());
+        Object.keys(garrisonLayer).forEach(k => delete garrisonLayer[k]);
+    }
+
     /* ════════════════ PUBLIC API ════════════════ */
     return {
         init,
@@ -464,6 +613,8 @@ const MapRenderer = (() => {
         getFxCanvas,
         flashTerritory,
         resizeFx,
+        updateGarrisonOverlay,
+        clearGarrisonOverlay,
         set onClick(fn)  { onTerritoryClick = fn; },
         set onHover(fn)  { onTerritoryHover = fn; },
         set onLeave(fn)  { onTerritoryLeave = fn; },

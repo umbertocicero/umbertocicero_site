@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — Game Data  (v2 — SVG Real Map)
+   GeoDominion — Game Data  (v2 — SVG Real Map)
    50 nazioni giocabili + ~180 stati minori
    ═══════════════════════════════════════════════════════ */
 
@@ -26,10 +26,10 @@ const RESOURCES = {
     money:     { icon: '💰', name: 'Fondi',       color: '#ffd700' },
     oil:       { icon: '🛢️', name: 'Petrolio',    color: '#333' },
     gas:       { icon: '🔥', name: 'Gas',         color: '#ff6600' },
-    rareEarth: { icon: '💎', name: 'Terre Rare',  color: '#9c27b0' },
+    rareEarth: { icon: '⚗️', name: 'Terre Rare',  color: '#9c27b0' },
     gold:      { icon: '🥇', name: 'Oro',         color: '#ffd700' },
     silver:    { icon: '🥈', name: 'Argento',     color: '#c0c0c0' },
-    diamonds:  { icon: '💠', name: 'Diamanti',    color: '#00bcd4' },
+    diamonds:  { icon: '💎', name: 'Diamanti',    color: '#00bcd4' },
     uranium:   { icon: '☢️', name: 'Uranio',      color: '#76ff03' },
     steel:     { icon: '🔩', name: 'Acciaio',     color: '#78909c' },
     food:      { icon: '🌾', name: 'Cibo',        color: '#8bc34a' }

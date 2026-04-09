@@ -56,4 +56,6 @@ TerraDominium/
 Questa è una **simulazione ludica** a scopo di intrattenimento. Non rappresenta istruzioni operative reali su armi, strategie militari o procedure di difesa. I dati sulle risorse sono approssimativi e usati per bilanciamento di gioco.
 
 ---
-*TerraDominium — Creato per umbertocicero.com*
+## Riferimenti mappa
+
+- Mappa base: `https://commons.wikimedia.org/wiki/File:BlankMap-World.svg`

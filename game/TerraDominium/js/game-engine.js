@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — Game Engine  (v2 — SVG territories)
+   GeoDominion — Game Engine  (v2 — SVG territories)
    Turn system, resources, combat, production, victory
    ═══════════════════════════════════════════════════════ */
 
@@ -31,15 +31,29 @@ const GameEngine = (() => {
         const allCodes = new Set(SVG_IDS);
         allCodes.forEach(code => {
             const base = getNation(code);
+
+            /* Apply ±5-15% uncertainty to resources and army at game start
+               so every playthrough feels slightly different */
+            const fuzz = (val) => {
+                if (!val || val <= 0) return val;
+                const pct = 0.05 + Math.random() * 0.10;  // 5-15%
+                const sign = Math.random() < 0.5 ? -1 : 1;
+                return Math.max(0, Math.round(val * (1 + sign * pct)));
+            };
+            const fuzzedRes = { ...emptyRes(), ...base.res };
+            Object.keys(fuzzedRes).forEach(k => { fuzzedRes[k] = fuzz(fuzzedRes[k]); });
+            const fuzzedArmy = { ...emptyArmy(), ...base.army };
+            Object.keys(fuzzedArmy).forEach(k => { fuzzedArmy[k] = fuzz(fuzzedArmy[k]); });
+
             state.nations[code] = {
                 code,
                 name: base.name,
                 flag: base.flag,
                 color: base.color,
                 profile: base.profile,
-                res: { ...emptyRes(), ...base.res },
+                res: fuzzedRes,
                 prod: { ...emptyProd(), ...base.prod },
-                army: { ...emptyArmy(), ...base.army },
+                army: fuzzedArmy,
                 techs: [],
                 sanctions: [],      // codes that sanction this nation
                 relations: {},      // code → number (-100 to +100)
@@ -48,7 +62,8 @@ const GameEngine = (() => {
                 power: base.power || 5,
                 alive: true,
                 nukesUsed: 0,
-                territoriesOwned: [code]
+                territoriesOwned: [code],
+                homeland: code      // original territory for reconquest AI
             };
         });
 
@@ -231,7 +246,18 @@ const GameEngine = (() => {
         const defPow = calcMilitary(defender, 'def');
 
         /* Terrain bonus +20% defender */
-        const defTotal = defPow * 1.2;
+        let defTotal = defPow * 1.2;
+
+        /* Local garrison bonus: heavy garrison on the specific territory gives extra defense */
+        const localGarrison = getGarrison(defenderTerritoryCode);
+        if (localGarrison) {
+            const garrisonMult = localGarrison.strength === 'heavy' ? 1.25
+                               : localGarrison.strength === 'medium' ? 1.12
+                               : localGarrison.strength === 'light' ? 1.05
+                               : 0.90; /* No garrison: defender is 10% weaker */
+            defTotal *= garrisonMult;
+        }
+
         /* Random factor ±30% */
         const rng = 0.7 + Math.random() * 0.6;
         const atkTotal = atkPow * rng;
@@ -562,6 +588,48 @@ const GameEngine = (() => {
 
     /* ════════════════ RANDOM EVENTS ════════════════ */
     function rollRandomEvents() {
+        /* ── Internal Revolts: conquered territories may rebel ── */
+        const revoltEvents = [];
+        Object.entries(state.territories).forEach(([tCode, owner]) => {
+            /* Only territories NOT owned by their original nation can revolt */
+            if (tCode === owner) return;
+            const originalNation = state.nations[tCode];
+            if (!originalNation) return;
+
+            /* Base revolt chance: 2%. Increases if original nation is still alive (+3%),
+               or if occupier is at many wars (+1% per war).
+               GARRISON reduces revolt chance: -3% for medium, -5% for heavy */
+            let chance = 0.02;
+            if (originalNation.alive) chance += 0.03;
+            const occupierWars = state.wars.filter(w => w.attacker === owner || w.defender === owner).length;
+            chance += occupierWars * 0.01;
+            /* Garrison suppression */
+            const garrison = getGarrison(tCode);
+            if (garrison.strength === 'heavy') chance -= 0.05;
+            else if (garrison.strength === 'medium') chance -= 0.03;
+            else if (garrison.strength === 'light') chance -= 0.01;
+            /* No garrison = extra revolt risk */
+            if (garrison.total === 0) chance += 0.04;
+            /* Cap between 0% and 15% */
+            chance = Math.max(0, Math.min(0.15, chance));
+
+            if (Math.random() < chance) {
+                /* Revolt! Territory returns to original nation */
+                state.territories[tCode] = tCode;
+                /* If original nation was dead, revive it */
+                if (!originalNation.alive) {
+                    originalNation.alive = true;
+                    /* Give minimal army to survive */
+                    originalNation.army.infantry = Math.max(originalNation.army.infantry || 0, 3);
+                    originalNation.res.money = Math.max(originalNation.res.money || 0, 20);
+                }
+                revoltEvents.push({ territory: tCode, from: owner, to: tCode });
+                emit('battle', `🔥 RIVOLTA in ${originalNation.flag} ${originalNation.name}! Il territorio si ribella a ${state.nations[owner]?.flag||''} ${state.nations[owner]?.name||owner}`);
+                /* Relation penalty */
+                adjustRelation(tCode, owner, -30);
+            }
+        });
+
         const roll = Math.random();
         if (roll < 0.05) {
             /* Earthquake */
@@ -591,11 +659,97 @@ const GameEngine = (() => {
             });
             emit('game', `🦠 Allarme pandemico globale! -5 cibo per tutti.`);
         }
+
+        return revoltEvents;
     }
 
     /* ════════════════ STATE ACCESS ════════════════ */
     function getState() { return state; }
     function setOnEvent(fn) { onEvent = fn; }
+
+    /**
+     * Garrison System: compute per-territory troop distribution.
+     * Army is shared across all owned territories with weighting:
+     *   - Homeland gets 2× weight
+     *   - Territories at war borders get 1.5× weight
+     *   - Others get 1× weight
+     * Returns { [territoryCode]: { total, dominant, icon, strength } }
+     *   total     = estimated troop equivalents on this territory
+     *   dominant  = key of the most numerous unit type in national army
+     *   icon      = emoji of dominant unit
+     *   strength  = 'heavy' | 'medium' | 'light' | 'none'
+     */
+    function getGarrisons(nationCode) {
+        if (!state) return {};
+        const n = state.nations[nationCode];
+        if (!n || !n.alive) return {};
+
+        const ownedTerr = Object.entries(state.territories)
+            .filter(([, o]) => o === nationCode).map(([c]) => c);
+        if (ownedTerr.length === 0) return {};
+
+        /* Total army units */
+        const totalUnits = Object.values(n.army).reduce((a, b) => a + b, 0);
+        if (totalUnits === 0) {
+            const empty = {};
+            ownedTerr.forEach(c => { empty[c] = { total: 0, dominant: null, icon: '', strength: 'none' }; });
+            return empty;
+        }
+
+        /* Find dominant unit type */
+        let dominant = 'infantry', maxCount = 0;
+        Object.entries(n.army).forEach(([utype, count]) => {
+            if (count > maxCount) { maxCount = count; dominant = utype; }
+        });
+        const domIcon = UNIT_TYPES[dominant]?.icon || '🪖';
+
+        /* Calculate weights per territory */
+        const enemyNeighborSet = new Set();
+        state.wars.forEach(w => {
+            const enemy = w.attacker === nationCode ? w.defender : (w.defender === nationCode ? w.attacker : null);
+            if (enemy) {
+                /* Find our territories that border this enemy */
+                ownedTerr.forEach(tc => {
+                    const nb = getNeighborsOf(tc);
+                    if (nb.some(n => state.territories[n] === enemy)) {
+                        enemyNeighborSet.add(tc);
+                    }
+                });
+            }
+        });
+
+        let totalWeight = 0;
+        const weights = {};
+        ownedTerr.forEach(tc => {
+            let w = 1.0;
+            if (tc === (n.homeland || nationCode)) w = 2.0;       // homeland bonus
+            if (enemyNeighborSet.has(tc)) w = Math.max(w, 1.5);   // front-line bonus
+            weights[tc] = w;
+            totalWeight += w;
+        });
+
+        /* Distribute units proportionally */
+        const garrisons = {};
+        ownedTerr.forEach(tc => {
+            const proportion = weights[tc] / totalWeight;
+            const troops = Math.round(totalUnits * proportion);
+            let strength = 'none';
+            if (troops >= 15) strength = 'heavy';
+            else if (troops >= 6) strength = 'medium';
+            else if (troops >= 1) strength = 'light';
+            garrisons[tc] = { total: troops, dominant, icon: domIcon, strength };
+        });
+
+        return garrisons;
+    }
+
+    /** Quick garrison lookup for a single territory */
+    function getGarrison(territoryCode) {
+        const owner = state?.territories[territoryCode];
+        if (!owner) return { total: 0, dominant: null, icon: '', strength: 'none' };
+        const all = getGarrisons(owner);
+        return all[territoryCode] || { total: 0, dominant: null, icon: '', strength: 'none' };
+    }
 
     /** Calculate per-turn income for a nation (without actually adding it) */
     function calcIncome(nationCode) {
@@ -669,6 +823,8 @@ const GameEngine = (() => {
         getTerritoryCount,
         getNeighborOwners,
         rollRandomEvents,
-        emit
+        emit,
+        getGarrisons,
+        getGarrison
     };
 })();

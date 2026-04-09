@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TerraDominium — Global Strategy Game</title>
+    <title>GeoDominion — Global Strategy Game</title>
     <link rel="stylesheet" href="terra-dominium.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
     <div id="intro-screen">
         <div class="intro-bg-canvas" id="intro-bg"></div>
         <div class="intro-content">
-            <h1 class="game-title">TERRA<span>DOMINIUM</span></h1>
+            <h1 class="game-title">GEO<span>DOMINION</span></h1>
             <p class="game-subtitle">GLOBAL STRATEGIC WARFARE</p>
             <div class="intro-buttons">
                 <button id="btn-new-game" class="btn-main">⚔️ NUOVA PARTITA</button>
@@ -132,6 +132,9 @@
             </div>
         </div>
 
+        <!-- Floating button to reopen event log when collapsed -->
+        <button id="btn-reopen-events" class="btn-reopen-events hidden" title="Mostra eventi">📋</button>
+
         <!-- BOTTOM PANEL: Military quick bar -->
         <div id="bottom-panel">
             <div id="military-bar" class="military-bar"></div>
@@ -191,6 +194,24 @@
             </div>
         </div>
 
+        <!-- SPY INTEL POPUP -->
+        <div id="spy-popup" class="popup hidden">
+            <div class="popup-content spy-content">
+                <h3 id="spy-popup-title">🕵️ INTELLIGENCE</h3>
+                <div id="spy-popup-display"></div>
+                <button id="btn-close-spy" class="btn-main">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- SPY INTEL POPUP -->
+        <div id="spy-popup" class="popup hidden">
+            <div class="popup-content spy-content">
+                <h3 id="spy-popup-title">🕵️ INTELLIGENCE</h3>
+                <div id="spy-popup-display"></div>
+                <button id="btn-close-spy" class="btn-main">CHIUDI</button>
+            </div>
+        </div>
+
         <!-- GAME OVER -->
         <div id="gameover-popup" class="popup hidden">
             <div class="popup-content gameover-content">
@@ -208,6 +229,7 @@
     <script src="js/game-engine.js"></script>
     <script src="js/ai.js"></script>
     <script src="js/animations.js"></script>
+    <script src="js/devlog.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>
 </body>

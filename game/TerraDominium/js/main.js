@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — Main Entry Point  (v2)
+   GeoDominion — Main Entry Point  (v2)
    Animated intro + init
    ═══════════════════════════════════════════════════════ */
 
@@ -124,7 +124,12 @@
         /* Init UI */
         UI.init();
 
-        console.log('TerraDominium v2 — Ready');
+        console.log('GeoDominion v2 — Ready');
+
+        /* Auto-enable DevLog for development diagnostics */
+        if (typeof DevLog !== 'undefined') {
+            DevLog.enable();
+        }
     }
 
     /* Wait for DOM */

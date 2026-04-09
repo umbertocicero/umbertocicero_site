@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — UI Controller  (v2 — SVG)
+   GeoDominion — UI Controller  (v2 — SVG)
    All UI interactions, popups, HUD, event log
    ═══════════════════════════════════════════════════════ */
 
@@ -33,7 +33,8 @@ const UI = (() => {
             'production-popup','production-display','btn-close-production',
             'economy-popup','economy-display','btn-close-economy',
             'gameover-popup','gameover-title','gameover-text','gameover-stats','btn-restart',
-            'ai-turn-overlay'
+            'ai-turn-overlay',
+            'spy-popup','spy-popup-title','spy-popup-display','btn-close-spy'
         ];
         ids.forEach(id => { els[id] = document.getElementById(id); });
     }
@@ -54,6 +55,7 @@ const UI = (() => {
         click('btn-close-diplomacy', () => hide('diplomacy-popup'));
         click('btn-close-production', () => hide('production-popup'));
         click('btn-close-economy', () => hide('economy-popup'));
+        click('btn-close-spy', () => hide('spy-popup'));
         click('btn-close-left', () => hide('left-panel'));
         click('btn-restart', () => location.reload());
     }
@@ -116,6 +118,18 @@ const UI = (() => {
         /* Show resources for own territories */
         if (isMyTerritory) {
             html += `<div class="tt-res">💰${n.res.money} 🛢️${n.res.oil} 🔩${n.res.steel} 🌾${n.res.food}</div>`;
+        }
+
+        /* Garrison info (all territories) */
+        if (typeof GameEngine.getGarrison === 'function') {
+            const g = GameEngine.getGarrison(code);
+            if (g && g.total > 0) {
+                const strengthColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
+                const sCol = strengthColors[g.strength] || '#607d8b';
+                html += `<div class="tt-res" style="color:${sCol};">${g.icon} ${g.total.toFixed(0)} unità — ${g.strength.toUpperCase()}</div>`;
+            } else {
+                html += `<div class="tt-res" style="color:#ff1744;">⚠ SENZA GUARNIGIONE</div>`;
+            }
         }
 
         /* Show military power for enemies */
@@ -241,7 +255,8 @@ const UI = (() => {
         els['hud-nation-name'].textContent = n.name;
 
         const terrCount = GameEngine.getTerritoryCount(state.player);
-        els['hud-turn'].textContent = `Turno ${state.turn} | 🌍${terrCount}`;
+        const year = 2025 + state.turn;
+        els['hud-turn'].textContent = `Turno ${state.turn} (${year}) | 🌍${terrCount}`;
 
         /* Calculate per-turn income from all owned territories */
         const income = GameEngine.calcIncome(state.player);
@@ -527,6 +542,27 @@ const UI = (() => {
             milHtml += '<div class="res-row"><span style="color:var(--text-dim)">Intelligence non disponibile</span></div>';
         }
         els['panel-military'].innerHTML = milHtml;
+
+        /* Garrison on this specific territory */
+        let garHtml = '<h4>🏰 GUARNIGIONE LOCALE</h4>';
+        if (typeof GameEngine.getGarrison === 'function') {
+            const g = GameEngine.getGarrison(code);
+            if (g && g.total > 0) {
+                const strengthColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
+                const sCol = strengthColors[g.strength] || '#607d8b';
+                garHtml += `<div class="res-row"><span>Forza</span><span class="val" style="color:${sCol};">${g.strength.toUpperCase()} (${g.total.toFixed(0)} unità)</span></div>`;
+                garHtml += `<div class="res-row"><span>Tipo Dominante</span><span class="val">${g.icon} ${g.dominant}</span></div>`;
+                const revoltMod = g.strength === 'heavy' ? '-5%' : g.strength === 'medium' ? '-3%' : g.strength === 'light' ? '-1%' : '+4%';
+                const revColor = g.strength === 'none' ? '#ff1744' : '#00e676';
+                garHtml += `<div class="res-row"><span>Mod. Rivolta</span><span class="val" style="color:${revColor};">${revoltMod}</span></div>`;
+            } else {
+                garHtml += `<div class="res-row"><span style="color:#ff1744;">⚠ Nessuna guarnigione — rischio rivolta elevato (+4%)</span></div>`;
+            }
+        } else {
+            garHtml += '<div class="res-row"><span style="color:var(--text-dim)">Non disponibile</span></div>';
+        }
+        /* Insert garrison section after military */
+        els['panel-military'].innerHTML += garHtml;
 
         /* ── Actions ── */
         let actHtml = '';
@@ -1088,16 +1124,89 @@ const UI = (() => {
         let chance = 0.6;
         if (pn.techs.includes('cyberwarfare')) chance += 0.2;
 
+        const spyDisplay = els['spy-popup-display'];
+        const spyTitle = els['spy-popup-title'];
+
         if (Math.random() < chance) {
-            /* Show detailed info */
-            let intel = `🕵️ <span class="evt-action">INTEL su</span> ${fmtNation(tn)}: `;
-            intel += `💰${tn.res.money} 🛢️${tn.res.oil} 🔩${tn.res.steel} ☢️${tn.res.uranium} `;
+            /* SUCCESS — show intel popup */
+            spyTitle.textContent = '🕵️ MISSIONE RIUSCITA';
+            spyTitle.style.color = 'var(--accent, #00e5ff)';
+
             const totalUnits = Object.values(tn.army).reduce((a,b) => a+b, 0);
-            intel += `🪖${totalUnits} ⚔${GameEngine.calcMilitary(targetCode,'atk')} 🛡${GameEngine.calcMilitary(targetCode,'def')}`;
-            addEventToLog({ turn: state.turn, type:'tech', msg: intel });
+            const atkPow = GameEngine.calcMilitary(targetCode, 'atk');
+            const defPow = GameEngine.calcMilitary(targetCode, 'def');
+            const terrCount = GameEngine.getTerritoryCount(targetCode);
+
+            /* Detailed resource list */
+            let resHtml = '';
+            const resKeys = ['money','oil','gas','steel','food','uranium','rareEarth','gold','silver','diamonds'];
+            resKeys.forEach(k => {
+                const val = tn.res[k] || 0;
+                if (val > 0) resHtml += `<div class="spy-res">${RESOURCES[k]?.icon||''} ${RESOURCES[k]?.name||k}: <strong>${val}</strong></div>`;
+            });
+
+            /* Army breakdown */
+            let armyHtml = '';
+            Object.entries(tn.army).forEach(([utype, count]) => {
+                if (count > 0) {
+                    const ut = UNIT_TYPES[utype];
+                    armyHtml += `<div class="spy-unit">${ut?.icon||'🔹'} ${ut?.name||utype}: <strong>${count}</strong></div>`;
+                }
+            });
+
+            /* Techs */
+            let techHtml = '';
+            tn.techs.forEach(tid => {
+                const t = TECHNOLOGIES.find(x => x.id === tid);
+                if (t) techHtml += `<span class="spy-tech">${t.icon} ${t.name}</span> `;
+            });
+
+            /* Alliances & wars */
+            let diploHtml = '';
+            const allies = state.alliances.filter(a => a.a === targetCode || a.b === targetCode)
+                .map(a => a.a === targetCode ? a.b : a.a);
+            const wars = state.wars.filter(w => w.attacker === targetCode || w.defender === targetCode)
+                .map(w => w.attacker === targetCode ? w.defender : w.attacker);
+            if (allies.length) diploHtml += `<div>🤝 Alleati: ${allies.map(c => state.nations[c]?.name || c).join(', ')}</div>`;
+            if (wars.length) diploHtml += `<div>⚔️ In guerra con: ${wars.map(c => state.nations[c]?.name || c).join(', ')}</div>`;
+
+            spyDisplay.innerHTML = `
+                <div class="spy-header">
+                    <div class="spy-flag" style="background:${tn.color||'#607d8b'};width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">${tn.flag||'🏳️'}</div>
+                    <div>
+                        <div class="spy-nation-name" style="font-size:1.2rem;font-weight:700;color:#fff;">${tn.name}</div>
+                        <div style="font-size:0.85rem;color:#90a4ae;">🌍 ${terrCount} territori · ⚔${atkPow} ATK · 🛡${defPow} DEF · 🪖${totalUnits} unità</div>
+                    </div>
+                </div>
+                <div class="spy-section">
+                    <h4>📦 Risorse</h4>
+                    <div class="spy-grid">${resHtml || '<em>Nessuna risorsa rilevante</em>'}</div>
+                </div>
+                <div class="spy-section">
+                    <h4>🪖 Esercito</h4>
+                    <div class="spy-grid">${armyHtml || '<em>Nessuna unità</em>'}</div>
+                </div>
+                ${techHtml ? `<div class="spy-section"><h4>🔬 Tecnologie</h4><div>${techHtml}</div></div>` : ''}
+                ${diploHtml ? `<div class="spy-section"><h4>🌐 Diplomazia</h4>${diploHtml}</div>` : ''}
+            `;
+
+            addEventToLog({ turn: state.turn, type:'tech', msg:`🕵️ <span class="evt-action">Intel ottenuta su</span> ${fmtNation(tn)}` });
+            show('spy-popup');
         } else {
+            /* FAILURE — captured */
+            spyTitle.textContent = '🕵️ MISSIONE FALLITA';
+            spyTitle.style.color = 'var(--red, #ff1744)';
+            spyDisplay.innerHTML = `
+                <div style="text-align:center;padding:20px;">
+                    <div style="font-size:3rem;margin-bottom:12px;">🚨</div>
+                    <div style="font-size:1.1rem;color:#ff1744;font-weight:600;">Agente catturato!</div>
+                    <div style="margin-top:8px;color:#90a4ae;">La tua spia è stata intercettata in <strong>${tn.name}</strong>.</div>
+                    <div style="margin-top:4px;color:#ff9800;">📉 Relazioni deteriorate (−25)</div>
+                </div>
+            `;
             GameEngine.adjustRelation(targetCode, state.player, -25);
             addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ <span class="evt-action">Spia catturata in</span> ${fmtNation(tn)} <span class="evt-action">(-25)</span>` });
+            show('spy-popup');
         }
         updateHUD();
         hide('diplomacy-popup');
@@ -1255,7 +1364,7 @@ const UI = (() => {
         const allActions = await AI.processAllAI(() => {});
 
         /* Separate important actions from minor ones */
-        const majorTypes = new Set(['attack','war_declare','nuke','alliance','betray','peace']);
+        const majorTypes = new Set(['attack','war_declare','nuke','alliance','betray','peace','revolt']);
         const majorActions = allActions.filter(a => majorTypes.has(a.type));
         const minorActions = allActions.filter(a => !majorTypes.has(a.type));
 
@@ -1297,6 +1406,10 @@ const UI = (() => {
             } else if (act.type === 'betray') {
                 MapRenderer.flashTerritory(act.target, '#ff00ff', autoPlayMode ? 400 : 500);
                 await dly(autoPlayMode ? 500 : 300);
+            } else if (act.type === 'revolt') {
+                Animations.spawnRevoltFX(act.target);
+                MapRenderer.colourAllTerritories();
+                await dly(autoPlayMode ? 600 : 400);
             } else {
                 await dly(100);
             }
@@ -1306,14 +1419,18 @@ const UI = (() => {
         MapRenderer.colourAllTerritories();
         await dly(300);
 
+        /* DevLog: capture turn diagnostics for console analysis */
+        if (typeof DevLog !== 'undefined') DevLog.onTurnEnd(allActions);
+
         /* Log summary in event log */
         const attackCount = allActions.filter(a => a.type === 'attack').length;
         const warCount = allActions.filter(a => a.type === 'war_declare').length;
         const nukeCount = allActions.filter(a => a.type === 'nuke').length;
         const conquests = allActions.filter(a => a.type === 'attack' && a.result?.conquered).length;
-        addEventToLog({ turn: state.turn, type:'game',
-            msg: `📊 <strong>RIEPILOGO T${state.turn}:</strong> ${allActions.length} azioni | ⚔️${attackCount} battaglie | 🏴${conquests} conquiste | 🔥${warCount} guerre | ☢️${nukeCount} nucleari`
-        });
+        const revoltCount = allActions.filter(a => a.type === 'revolt').length;
+        let summary = `📊 <strong>RIEPILOGO T${state.turn}:</strong> ${allActions.length} azioni | ⚔️${attackCount} battaglie | 🏴${conquests} conquiste | 🔥${warCount} guerre | ☢️${nukeCount} nucleari`;
+        if (revoltCount > 0) summary += ` | 🔥${revoltCount} rivolte`;
+        addEventToLog({ turn: state.turn, type:'game', msg: summary });
 
         /* Check victory */
         const victor = GameEngine.checkVictory();
@@ -1342,6 +1459,9 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
+
+        /* Refresh spectator/autoplay banner year */
+        if (autoPlayMode) updateAutoPlayBanner();
 
         /* Re-enable end-turn button if not in autoplay */
         if (!autoPlayMode && btnEnd) { btnEnd.disabled = false; btnEnd.style.opacity = '1'; }
@@ -1397,19 +1517,41 @@ const UI = (() => {
         }
         updateAutoPlayBanner();
         banner.classList.remove('hidden');
+        document.body.classList.add('spectator-active');
     }
 
     function updateAutoPlayBanner() {
         const banner = document.getElementById('spectator-banner');
         if (!banner) return;
 
-        /* Remove old classes, set new one */
+        const state = GameEngine.getState();
+        const year = state ? 2025 + state.turn : '—';
+
+        /* If the banner already has the correct mode, just update the year label */
+        const existingLabel = banner.querySelector('.spectator-label');
+        const needsDead = playerDead;
+        const hasDead = banner.classList.contains('banner-dead');
+        const hasAuto = banner.classList.contains('banner-auto');
+
+        if ((needsDead && hasDead) || (!needsDead && hasAuto)) {
+            /* Just refresh the year text */
+            if (existingLabel) {
+                if (needsDead) {
+                    existingLabel.textContent = `💀 ELIMINATO — Modalità spettatore · Anno ${year}`;
+                } else {
+                    existingLabel.textContent = `⏩ AUTO-PLAY attivo · Anno ${year}`;
+                }
+            }
+            return;
+        }
+
+        /* Mode changed — full rebuild */
         banner.classList.remove('banner-dead', 'banner-auto', 'hidden');
 
         if (playerDead) {
             banner.classList.add('banner-dead');
             banner.innerHTML = `
-                <span class="spectator-label">💀 ELIMINATO — Modalità spettatore</span>
+                <span class="spectator-label">💀 ELIMINATO — Modalità spettatore · Anno ${year}</span>
                 <div class="spectator-btns">
                     <button id="btn-auto-toggle" class="btn-sm">⏸ PAUSA</button>
                     <button id="btn-auto-restart" class="btn-sm btn-stop">🔄 RICOMINCIA</button>
@@ -1428,7 +1570,7 @@ const UI = (() => {
         } else {
             banner.classList.add('banner-auto');
             banner.innerHTML = `
-                <span class="spectator-label">⏩ AUTO-PLAY attivo</span>
+                <span class="spectator-label">⏩ AUTO-PLAY attivo · Anno ${year}</span>
                 <div class="spectator-btns">
                     <button id="btn-auto-stop" class="btn-sm">⏹ TORNA A GIOCARE</button>
                 </div>`;
@@ -1441,6 +1583,7 @@ const UI = (() => {
     function hideAutoPlayBanner() {
         const banner = document.getElementById('spectator-banner');
         if (banner) banner.classList.add('hidden');
+        document.body.classList.remove('spectator-active');
     }
 
     /* ── Log AI actions directly to the event log (right panel) ── */
@@ -1521,6 +1664,12 @@ const UI = (() => {
                 type = 'diplomacy';
                 break;
             }
+            case 'revolt': {
+                const fromN = state.nations[action.from];
+                msg = `🔥 ${me} <span class="evt-action">RIVOLTA!</span> Territorio strappato a ${fromN ? fmtNation(fromN) : tgt(action.from)}`;
+                type = 'battle';
+                break;
+            }
             default: {
                 msg = `${me}: ${action.type}`;
             }
@@ -1583,12 +1732,30 @@ const UI = (() => {
 
         /* Panel toggle (collapse) */
         const btnToggle = document.getElementById('btn-toggle-right');
+        const btnReopen = document.getElementById('btn-reopen-events');
         if (btnToggle) {
             btnToggle.addEventListener('click', () => {
                 const panel = els['right-panel'];
                 if (!panel) return;
                 panel.classList.remove('evt-fullscreen');
                 panel.classList.toggle('hidden');
+                /* Show/hide the reopen button */
+                if (btnReopen) {
+                    if (panel.classList.contains('hidden')) {
+                        btnReopen.classList.remove('hidden');
+                    } else {
+                        btnReopen.classList.add('hidden');
+                    }
+                }
+            });
+        }
+        /* Reopen button: show event panel again */
+        if (btnReopen) {
+            btnReopen.addEventListener('click', () => {
+                const panel = els['right-panel'];
+                if (!panel) return;
+                panel.classList.remove('hidden');
+                btnReopen.classList.add('hidden');
             });
         }
     }

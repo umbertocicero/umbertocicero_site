@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — Global Strategy Game Stylesheet
+   GeoDominion — Global Strategy Game Stylesheet
    ═══════════════════════════════════════════════════════ */
 
 :root {
@@ -235,7 +235,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 /* MAP */
 #map-container {
     flex: 1; position: relative; overflow: hidden;
-    background: #070d18;
+    background: #0a1628;  /* matches ocean fill for seamless look */
     cursor: grab;
 }
 #map-container:active { cursor: grabbing; }
@@ -674,6 +674,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     animation: specSlideDown 0.4s ease-out;
     pointer-events: auto;
 }
+/* When banner is visible, push side panels below it */
+#spectator-banner:not(.hidden) ~ #map-container .side-panel,
+#spectator-banner:not(.hidden) ~ .side-panel {
+    top: 88px;
+}
+/* Also handle via body class for robustness */
+body.spectator-active .side-panel {
+    top: 88px !important;
+}
 #spectator-banner.banner-dead {
     background: linear-gradient(90deg, rgba(255,23,68,0.92), rgba(180,10,40,0.92));
     border-bottom: 2px solid var(--red);
@@ -709,6 +718,39 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .spectator-btns .btn-sm:hover { background: rgba(255,255,255,0.15); }
 .spectator-btns .btn-sm.btn-stop { border-color: var(--red); color: var(--red); }
 .spectator-btns .btn-sm.btn-stop:hover { background: var(--red); color: #fff; }
+
+/* ═══════════════ REOPEN EVENT LOG BUTTON ═══════════════ */
+.btn-reopen-events {
+    position: fixed;
+    right: 12px;
+    top: 58px;
+    z-index: 320;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    transition: all 0.25s ease;
+    animation: fadeInRight 0.3s ease-out;
+}
+.btn-reopen-events:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    transform: scale(1.08);
+}
+.btn-reopen-events.hidden { display: none !important; }
+@keyframes fadeInRight {
+    from { transform: translateX(30px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
 
 /* ═══════════════ DIPLOMACY BUTTONS ═══════════════ */
 .diplo-btn {
@@ -924,6 +966,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     #spectator-banner { top: 40px; height: 32px; font-size: 0.62rem; gap: 6px; }
     .spectator-label { max-width: 35vw; font-size: 0.6rem; }
     .spectator-btns .btn-sm { font-size: 0.55rem; padding: 3px 8px; }
+    body.spectator-active .side-panel { top: 74px !important; }
 
     /* Event log */
     .event-item { font-size: 0.7rem; padding: 4px 6px; margin-bottom: 4px; line-height: 1.4; }
@@ -946,3 +989,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     .side-panel { max-height: 40vh; }
     .popup-content { padding: 10px 12px; }
 }
+
+/* ═══════════ SPY INTEL POPUP ═══════════ */
+.spy-content { max-width: 480px; }
+.spy-content h3 { margin-bottom: 12px; }
+.spy-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.spy-section { margin-bottom: 14px; }
+.spy-section h4 { font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: var(--accent, #00e5ff); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.spy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+.spy-res, .spy-unit { font-size: 0.85rem; color: #cfd8dc; padding: 2px 0; }
+.spy-res strong, .spy-unit strong { color: #fff; }
+.spy-tech { display: inline-block; font-size: 0.78rem; background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); border-radius: 4px; padding: 2px 8px; margin: 2px; color: #80deea; }

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — Autonomous AI System  (v2)
+   GeoDominion — Autonomous AI System  (v2)
    Every non-player nation acts independently each turn:
    evaluate → economy → diplomacy → military → chain reactions
    ═══════════════════════════════════════════════════════ */
@@ -35,7 +35,13 @@ const AI = (() => {
         }
 
         /* Random events at end of AI phase */
-        GameEngine.rollRandomEvents();
+        const revoltResults = GameEngine.rollRandomEvents();
+        /* Tag revolt events as actions for UI animation */
+        if (revoltResults && revoltResults.length > 0) {
+            revoltResults.forEach(r => {
+                turnActions.push({ type: 'revolt', nation: r.to, target: r.territory, from: r.from });
+            });
+        }
 
         /* Check victory after all AI moves */
         GameEngine.checkVictory();
@@ -129,11 +135,18 @@ const AI = (() => {
         /* Late-game restlessness: scales from 0 at turn 50 to 1.0 at turn 200+ */
         const restlessness = Math.min(1.0, Math.max(0, (state.turn - 50) / 150));
 
+        /* Homeland check: is our homeland occupied by someone else? */
+        const homeland = n.homeland || code;
+        const homelandOwner = state.territories[homeland];
+        const homelandLost = homelandOwner && homelandOwner !== code;
+        const homelandEnemy = homelandLost ? homelandOwner : null;
+
         return {
             myTerrCount, myAtkPow, myDefPow, myWealth,
             enemies, allies, threats, opportunities,
             dominant, dominantThreat, maxTerr,
-            neighborOwners, atWar, restlessness
+            neighborOwners, atWar, restlessness,
+            homelandLost, homelandEnemy, homeland
         };
     }
 
@@ -237,6 +250,8 @@ const AI = (() => {
 
         /* Peace proposals: tired of war — but harder in late game */
         situation.enemies.forEach(enemy => {
+            /* NEVER make peace with homeland occupier */
+            if (situation.homelandLost && enemy === situation.homelandEnemy) return;
             const war = state.wars.find(w =>
                 (w.attacker === code && w.defender === enemy) ||
                 (w.attacker === enemy && w.defender === code));
@@ -251,6 +266,25 @@ const AI = (() => {
                 }
             }
         });
+
+        /* ── ANTI-STALL: if at peace for too long, pick a fight ── */
+        if (situation.enemies.length === 0 && state.turn > 10) {
+            /* Check how many turns with no war */
+            const myWars = state.wars.filter(w => w.attacker === code || w.defender === code);
+            const lastWarTurn = myWars.length ? Math.max(...myWars.map(w => w.turn)) : 0;
+            const peaceTurns = state.turn - lastWarTurn;
+            /* After 8+ turns of peace, increasing chance to start a war */
+            if (peaceTurns > 8 && Math.random() < 0.15 + situation.restlessness * 0.3) {
+                const potVictims = situation.neighborOwners.filter(nc =>
+                    !GameEngine.isAlly(code, nc) && !GameEngine.isAtWar(code, nc) && state.nations[nc]?.alive);
+                if (potVictims.length > 0) {
+                    potVictims.sort((a, b) => GameEngine.calcMilitary(a, 'def') - GameEngine.calcMilitary(b, 'def'));
+                    const v = potVictims[0];
+                    GameEngine.ensureWar(code, v);
+                    actions.push({ type:'war_declare', nation:code, target:v });
+                }
+            }
+        }
 
         /* Betrayal: opportunists may break alliances (more likely in late game) */
         const betrayChance = 0.05 + situation.restlessness * 0.1;
@@ -274,6 +308,26 @@ const AI = (() => {
         const state = GameEngine.getState();
         const n = state.nations[code];
         const restless = situation.restlessness; // 0-1, grows over turns
+
+        /* ── PRIORITY 0: Homeland reconquest ── */
+        if (situation.homelandLost && situation.homelandEnemy) {
+            const enemy = situation.homelandEnemy;
+            /* Ensure at war with homeland occupier */
+            if (!GameEngine.isAtWar(code, enemy)) {
+                GameEngine.ensureWar(code, enemy);
+                actions.push({ type:'war_declare', nation:code, target:enemy });
+            }
+            /* Try to attack homeland directly */
+            const hlTargets = findAttackTargets(code, enemy);
+            if (hlTargets.includes(situation.homeland)) {
+                const result = GameEngine.attack(code, situation.homeland);
+                if (result) actions.push({ type:'attack', nation:code, target:situation.homeland, result });
+            } else if (hlTargets.length > 0) {
+                /* Attack any adjacent territory to get closer to homeland */
+                const result = GameEngine.attack(code, hlTargets[0]);
+                if (result) actions.push({ type:'attack', nation:code, target:hlTargets[0], result });
+            }
+        }
 
         /* Already at war? Attack enemy territories (multiple attacks per turn!) */
         if (situation.enemies.length > 0) {

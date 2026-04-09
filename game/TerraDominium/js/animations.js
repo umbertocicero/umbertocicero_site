@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   TerraDominium — Animations  (Canvas overlay FX)
+   GeoDominion — Animations  (Canvas overlay FX)
    Trail traces store territory codes and recompute screen
    positions each frame → correct after zoom/pan.
    ═══════════════════════════════════════════════════════ */
@@ -15,14 +15,17 @@ const Animations = (() => {
     const MAX_TRAILS = 15; // cap visible trails to avoid visual clutter
 
     /* ── helper: compute arc point at parameter t ── */
-    function arcPoint(from, to, t) {
+    function arcPoint(from, to, t, arcFactor) {
         const x = from.x + (to.x - from.x) * t;
         const dist = Math.hypot(to.x - from.x, to.y - from.y);
-        const arcH = dist * 0.3;
+        const arcH = dist * (arcFactor || 0.3);
         const arcY = -4 * arcH * t * (t - 1);
         const y = from.y + (to.y - from.y) * t - arcY;
         return { x, y };
     }
+
+    /* ── Arc factor per attack category ── */
+    const ARC_FACTORS = { air: 0.42, sea: 0.12, ground: 0.18, missile: 0.55 };
 
     /* ════════════════ PARTICLE ════════════════ */
     class Particle {
@@ -156,29 +159,52 @@ const Animations = (() => {
 
     /* ════════════════ MISSILE ════════════════ */
     class Missile {
-        constructor(from, to, color, onImpact, fromCode, toCode, success, label) {
+        /**
+         * @param {Object} from       – {x,y} screen start
+         * @param {Object} to         – {x,y} screen target
+         * @param {string} color      – hex colour
+         * @param {Function} onImpact – callback(x,y)
+         * @param {string} fromCode   – territory code of origin
+         * @param {string} toCode     – territory code of target
+         * @param {boolean} success   – attack success
+         * @param {string} label      – trail label text
+         * @param {string} [category] – 'air'|'sea'|'ground'|'missile' (default 'ground')
+         */
+        constructor(from, to, color, onImpact, fromCode, toCode, success, label, category) {
             this.from = from; this.to = to;
             this.color = color; this.onImpact = onImpact;
             this.fromCode = fromCode; this.toCode = toCode;
             this.success = success; this.label = label;
+            this.category = category || 'ground';
+            this.arcFactor = ARC_FACTORS[this.category] || 0.3;
             this.t = 0;
-            this.speed = (0.011 + Math.random() * 0.005) * speedMult;
+            /* Category-specific speed */
+            const baseSpeed = this.category === 'missile' ? 0.018
+                            : this.category === 'air'     ? 0.015
+                            : this.category === 'sea'     ? 0.009
+                            : 0.011;
+            this.speed = (baseSpeed + Math.random() * 0.004) * speedMult;
             this.trail = [];
         }
         update() {
             this.t += this.speed;
             const c = Math.min(this.t, 1);
-            const pt = arcPoint(this.from, this.to, c);
+            const pt = arcPoint(this.from, this.to, c, this.arcFactor);
             this.trail.push(pt);
             if (this.trail.length > 45) this.trail.shift();
 
             if (this.t >= 1) {
-                /* Create persistent zoom-aware trail trace (stores codes, not pixels) */
                 trails.push(new TrailTrace(this.fromCode, this.toCode, this.color, this.success, this.label));
-                /* Cap visible trails to avoid visual overload */
                 while (trails.length > MAX_TRAILS) trails.shift();
                 if (this.onImpact) this.onImpact(this.to.x, this.to.y);
             }
+        }
+        /** Compute heading angle from previous trail point */
+        _heading() {
+            if (this.trail.length < 2) return 0;
+            const a = this.trail[this.trail.length - 2];
+            const b = this.trail[this.trail.length - 1];
+            return Math.atan2(b.y - a.y, b.x - a.x);
         }
         draw(ctx) {
             /* Dashed guide */
@@ -187,11 +213,14 @@ const Animations = (() => {
             ctx.beginPath(); ctx.moveTo(this.from.x, this.from.y); ctx.lineTo(this.to.x, this.to.y);
             ctx.stroke(); ctx.setLineDash([]);
 
-            /* Trail glow */
+            /* Trail glow — colour varies by category */
+            const trailColor = this.category === 'sea' ? '#4fc3f7'
+                             : this.category === 'missile' ? '#ff6e40'
+                             : this.color;
             for (let i = 1; i < this.trail.length; i++) {
                 const pct = i / this.trail.length;
                 ctx.globalAlpha = pct * 0.85;
-                ctx.strokeStyle = this.color;
+                ctx.strokeStyle = trailColor;
                 ctx.lineWidth = 2 + pct * 4;
                 ctx.beginPath();
                 ctx.moveTo(this.trail[i - 1].x, this.trail[i - 1].y);
@@ -199,13 +228,78 @@ const Animations = (() => {
                 ctx.stroke();
             }
 
-            /* Head */
-            if (this.trail.length > 0) {
+            /* Head — category-specific shape */
+            if (this.trail.length > 1) {
                 const h = this.trail[this.trail.length - 1];
-                ctx.globalAlpha = 0.5; ctx.fillStyle = this.color;
-                ctx.beginPath(); ctx.arc(h.x, h.y, 9, 0, Math.PI * 2); ctx.fill();
-                ctx.globalAlpha = 1; ctx.fillStyle = '#fff';
-                ctx.beginPath(); ctx.arc(h.x, h.y, 4, 0, Math.PI * 2); ctx.fill();
+                const angle = this._heading();
+                ctx.save();
+                ctx.translate(h.x, h.y);
+                ctx.rotate(angle);
+
+                if (this.category === 'air') {
+                    /* ✈ Plane/jet triangle */
+                    ctx.globalAlpha = 0.7; ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.moveTo(10, 0);
+                    ctx.lineTo(-7, -6);
+                    ctx.lineTo(-4, 0);
+                    ctx.lineTo(-7, 6);
+                    ctx.closePath(); ctx.fill();
+                    /* Wings */
+                    ctx.globalAlpha = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(1, 0); ctx.lineTo(-5, -10); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0);
+                    ctx.lineTo(-6, 8); ctx.lineTo(-5, 10); ctx.closePath(); ctx.fill();
+                    /* Bright nose */
+                    ctx.globalAlpha = 1; ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(7, 0, 2, 0, Math.PI * 2); ctx.fill();
+
+                } else if (this.category === 'sea') {
+                    /* ⚓ Ship/torpedo shape */
+                    ctx.globalAlpha = 0.7; ctx.fillStyle = '#4fc3f7';
+                    ctx.beginPath();
+                    ctx.moveTo(9, 0);
+                    ctx.lineTo(3, -4);
+                    ctx.lineTo(-8, -4);
+                    ctx.lineTo(-10, 0);
+                    ctx.lineTo(-8, 4);
+                    ctx.lineTo(3, 4);
+                    ctx.closePath(); ctx.fill();
+                    /* Wake line */
+                    ctx.globalAlpha = 0.4; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-18, 0); ctx.stroke();
+                    /* Bright tip */
+                    ctx.globalAlpha = 1; ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(8, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+
+                } else if (this.category === 'missile') {
+                    /* 🚀 Pointed arrow/rocket */
+                    ctx.globalAlpha = 0.8; ctx.fillStyle = '#ff6e40';
+                    ctx.beginPath();
+                    ctx.moveTo(12, 0);
+                    ctx.lineTo(4, -3.5);
+                    ctx.lineTo(-8, -3);
+                    ctx.lineTo(-10, 0);
+                    ctx.lineTo(-8, 3);
+                    ctx.lineTo(4, 3.5);
+                    ctx.closePath(); ctx.fill();
+                    /* Exhaust flare */
+                    ctx.globalAlpha = 0.9; ctx.fillStyle = '#ffd600';
+                    ctx.beginPath();
+                    ctx.moveTo(-10, 0); ctx.lineTo(-16, -3); ctx.lineTo(-14, 0); ctx.lineTo(-16, 3);
+                    ctx.closePath(); ctx.fill();
+                    ctx.globalAlpha = 1; ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(10, 0, 1.5, 0, Math.PI * 2); ctx.fill();
+
+                } else {
+                    /* 🪖 Ground: classic circle head */
+                    ctx.globalAlpha = 0.5; ctx.fillStyle = this.color;
+                    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+                    ctx.globalAlpha = 1; ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, Math.PI * 2); ctx.fill();
+                }
+
+                ctx.restore();
             }
 
             /* Origin ring */
@@ -290,7 +384,39 @@ const Animations = (() => {
     /* ════════════════ SPAWN FX ════════════════
        atkInfo / defInfo = { code, name, flag, color }
        Caller must supply these so labels are correct even after conquest.
+       Uses attacker's dominant unit to select projectile style.
        ════════════════════════════════════════════ */
+
+    /** Determine the dominant attack unit type for a nation (for FX visuals) */
+    function getDominantAttackUnit(nationCode) {
+        if (typeof GameEngine === 'undefined') return { type: 'infantry', icon: '🪖', category: 'ground' };
+        const state = GameEngine.getState();
+        if (!state) return { type: 'infantry', icon: '🪖', category: 'ground' };
+        const n = state.nations[nationCode];
+        if (!n) return { type: 'infantry', icon: '🪖', category: 'ground' };
+
+        /* Weight by atk power contribution, not just count */
+        let best = 'infantry', bestPow = 0;
+        Object.entries(n.army).forEach(([utype, count]) => {
+            if (count <= 0) return;
+            const ut = typeof UNIT_TYPES !== 'undefined' ? UNIT_TYPES[utype] : null;
+            if (!ut) return;
+            const pow = (ut.atk || 0) * count;
+            if (pow > bestPow) { bestPow = pow; best = utype; }
+        });
+
+        const airTypes = new Set(['fighter','bomber','drone']);
+        const seaTypes = new Set(['navy','submarine']);
+        const missileTypes = new Set(['cruiseMissile','ballisticMissile']);
+        const ut = typeof UNIT_TYPES !== 'undefined' ? UNIT_TYPES[best] : null;
+        let category = 'ground';
+        if (airTypes.has(best)) category = 'air';
+        else if (seaTypes.has(best)) category = 'sea';
+        else if (missileTypes.has(best)) category = 'missile';
+
+        return { type: best, icon: ut?.icon || '🪖', category };
+    }
+
     function spawnBattleFX(fromCode, toCode, success, atkInfo, defInfo) {
         const from = MapRenderer.getTerritoryScreenPos(fromCode);
         const to   = MapRenderer.getTerritoryScreenPos(toCode);
@@ -304,10 +430,16 @@ const Animations = (() => {
         const defName  = defInfo?.name || toCode.toUpperCase();
         const trailLbl = `${atkName}  -->  ${defName}`;
 
+        /* Determine attack style based on dominant unit */
+        const atkUnit = getDominantAttackUnit(atkInfo?.code || fromCode);
+
+        /* Main missile — shaped by attack category */
+        const cat = atkUnit.category;
         missiles.push(new Missile(from, to, missileColor, (x, y) => {
             const ec = success ? '#00e676' : '#ff1744';
-            explosions.push(new Explosion(x, y, 40 + Math.random() * 15, ec, false));
-            const pCount = speedMult > 1 ? 12 : 25; // fewer particles in spectator
+            const exSize = cat === 'missile' ? 55 : 40 + Math.random() * 15;
+            explosions.push(new Explosion(x, y, exSize, ec, false));
+            const pCount = speedMult > 1 ? 12 : 25;
             for (let i = 0; i < pCount; i++) {
                 particles.push(new Particle(x, y, ec,
                     (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6 - 2,
@@ -315,11 +447,55 @@ const Animations = (() => {
             }
             const lbl = success ? 'CONQUISTATO!' : 'RESPINTO';
             textPopups.push(new BigLabel(x, y - 15, lbl, ec, 15, 90));
-        }, fromCode, toCode, success, trailLbl));
+        }, fromCode, toCode, success, trailLbl, cat));
 
+        /* Secondary projectiles for air/naval/missile attacks (adds visual variety) */
+        if (cat === 'air' && !(speedMult > 1.5)) {
+            /* Spawn 1-2 additional "escort" jets with slight offset */
+            const escorts = speedMult > 1 ? 1 : 2;
+            for (let i = 0; i < escorts; i++) {
+                const offFrom = { x: from.x + (Math.random()-0.5)*20, y: from.y + (Math.random()-0.5)*15 };
+                const offTo   = { x: to.x + (Math.random()-0.5)*15, y: to.y + (Math.random()-0.5)*10 };
+                setTimeout(() => {
+                    missiles.push(new Missile(offFrom, offTo, missileColor, (x, y) => {
+                        const cnt = speedMult > 1 ? 4 : 8;
+                        for (let j = 0; j < cnt; j++) {
+                            particles.push(new Particle(x, y, missileColor,
+                                (Math.random()-0.5)*4, (Math.random()-0.5)*4, 20));
+                        }
+                    }, fromCode, toCode, success, '', 'air'));
+                    ensureRunning();
+                }, 150 + i * 200);
+            }
+        } else if (cat === 'sea') {
+            /* Naval: broadside salvo (torpedo shape) */
+            setTimeout(() => {
+                const offFrom = { x: from.x + (Math.random()-0.5)*25, y: from.y + 10 };
+                missiles.push(new Missile(offFrom, to, '#4fc3f7', (x, y) => {
+                    explosions.push(new Explosion(x, y, 25, '#4fc3f7', false));
+                }, fromCode, toCode, success, '', 'sea'));
+                ensureRunning();
+            }, 200);
+        } else if (cat === 'missile') {
+            /* Cruise/ballistic: extra rocket with bigger explosion */
+            setTimeout(() => {
+                missiles.push(new Missile(from, to, '#ff6e40', (x, y) => {
+                    explosions.push(new Explosion(x, y, 55, '#ff6e40', false));
+                    const cnt = speedMult > 1 ? 10 : 20;
+                    for (let j = 0; j < cnt; j++) {
+                        particles.push(new Particle(x, y, '#ff9100',
+                            (Math.random()-0.5)*8, (Math.random()-0.5)*8 - 3,
+                            35 + Math.random()*20));
+                    }
+                }, fromCode, toCode, success, '', 'missile'));
+                ensureRunning();
+            }, 100);
+        }
+
+        /* Attack label with unit type icon */
         const midX = (from.x + to.x) / 2, midY = (from.y + to.y) / 2 - 25;
         textPopups.push(new BigLabel(midX, midY, trailLbl, '#ffd740', 14, 110));
-        textPopups.push(new BigLabel(from.x, from.y - 12, `${atkName} ATTACCA`, missileColor, 12, 80));
+        textPopups.push(new BigLabel(from.x, from.y - 12, `${atkUnit.icon} ${atkName} ATTACCA`, missileColor, 12, 80));
 
         ensureRunning();
     }
@@ -342,7 +518,7 @@ const Animations = (() => {
                     50 + Math.random() * 30));
             }
             textPopups.push(new BigLabel(x, y - 20, 'ATTACCO NUCLEARE!', '#ff00ff', 18, 120));
-        }, fromCode, toCode, true, label));
+        }, fromCode, toCode, true, label, 'missile'));
 
         const midX = (from.x + to.x) / 2, midY = (from.y + to.y) / 2 - 30;
         textPopups.push(new BigLabel(midX, midY, label, '#ff00ff', 16, 120));
@@ -360,11 +536,30 @@ const Animations = (() => {
     function spawnConquerFX(code) {
         const pos = MapRenderer.getTerritoryScreenPos(code);
         if (!pos) return;
-        for (let i = 0; i < 15; i++) {
+        /* Expanding ring + particles */
+        explosions.push(new Explosion(pos.x, pos.y, 35, '#00e5ff', false));
+        const count = speedMult > 1 ? 8 : 15;
+        for (let i = 0; i < count; i++) {
             const ang = Math.random() * Math.PI * 2, spd = 1 + Math.random() * 3;
             particles.push(new Particle(pos.x, pos.y, '#00e5ff',
                 Math.cos(ang) * spd, Math.sin(ang) * spd, 40));
         }
+        ensureRunning();
+    }
+
+    /** Revolt FX: red flash + fire particles */
+    function spawnRevoltFX(code) {
+        const pos = MapRenderer.getTerritoryScreenPos(code);
+        if (!pos) return;
+        explosions.push(new Explosion(pos.x, pos.y, 30, '#ff6e40', false));
+        const count = speedMult > 1 ? 6 : 12;
+        for (let i = 0; i < count; i++) {
+            const ang = Math.random() * Math.PI * 2, spd = 0.8 + Math.random() * 2;
+            const colors = ['#ff1744', '#ff6e40', '#ff9100', '#ffd600'];
+            particles.push(new Particle(pos.x, pos.y, colors[i % colors.length],
+                Math.cos(ang) * spd, Math.sin(ang) * spd - 1.5, 35 + Math.random() * 15));
+        }
+        textPopups.push(new BigLabel(pos.x, pos.y - 15, '🔥 RIVOLTA!', '#ff6e40', 14, 80));
         ensureRunning();
     }
 
@@ -424,5 +619,5 @@ const Animations = (() => {
     }
 
     /* ════════════════ PUBLIC ════════════════ */
-    return { spawnBattleFX, spawnNukeFX, spawnText, spawnConquerFX, clearTurnTrails, setSpeed };
+    return { spawnBattleFX, spawnNukeFX, spawnText, spawnConquerFX, spawnRevoltFX, clearTurnTrails, setSpeed };
 })();
