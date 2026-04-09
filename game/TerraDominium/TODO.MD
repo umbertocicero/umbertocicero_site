@@ -88,5 +88,12 @@ Migliora la resa visiva degli attacchi in modo realistico e leggibile. Gli attac
 
 **Prompt:**
 Modfica la logica, si attaccare le nazioni non confinanti solo se si hanno missili o droni o altri strimenti, o via mare se sono collegate tramite mare. altrimenti dare un allert che dice che non è attabile e con quale motivazione. via terra con i mezzi è possibile se ci sono navi che li trasportano attraversio il male, o se sono confinanti.
+aggiungi le icone di mezzi navali (navi e sottomarini) e aerei (aerei , missili, droni, etc.) e  Sistema SAM e mezzi di terra sulla mappa 
 
 sembra siano tutte senza esercito dopo un po, probabilmente non si riesce a creare abbastanza agevolemnte o muoiono troppo facilmente. migliora la logica
+
+
+Analizza la logia di espansione delle ai, deve essere molto approfondita e tecnica, si deve capire bene la meccanica di gioco.
+
+data questa logica di gioco
+modifica che se si attacca lo stato di partenza e questo stato perde, nono si cede immediatamente il territorio se questo stato possiede altri stati colonie, ma bisogna trovare un meccanismo reale per far si che riesca a resistere in qualche modo, magari ritirando le trupe dalle colonie che a loro volta torneranno ai proprietari, ma queste non possono giocare essendo prima morti, es: se sono gli usa e posseggo il canada, se la russia attacca usa, allora perdo le risorse del canada, ed il canada torna ai canadesi o meglio ancora diventa della russia, se non ho colonie abbastanza ricche da soddisfare l'attacco e la richiesta della russia, allora perdo tutto.

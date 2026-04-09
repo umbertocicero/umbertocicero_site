@@ -238,6 +238,18 @@ const GameEngine = (() => {
         const def = state.nations[defender];
         if (!atk || !def || !atk.alive || !def.alive) return null;
 
+        /* ── Reachability check ── */
+        let attackMethod = 'land';
+        let launchFrom = attackerCode;  // default: launch from homeland
+        if (typeof canReachTerritory === 'function') {
+            const reach = canReachTerritory(attackerCode, defenderTerritoryCode, atk.army);
+            if (!reach.reachable) {
+                return { blocked: true, reason: reach.reason };
+            }
+            attackMethod = reach.method || 'land';
+            launchFrom = reach.launchFrom || attackerCode;
+        }
+
         /* Snapshot armies BEFORE combat for loss display */
         const atkArmyBefore = { ...atk.army };
         const defArmyBefore = { ...def.army };
@@ -273,44 +285,92 @@ const GameEngine = (() => {
         applyLosses(defender, defLossRate);
 
         let conquered = false;
+        let homelandSiege = null;  // track homeland siege events for UI/animations
         if (success) {
-            /* Transfer territory */
-            state.territories[defenderTerritoryCode] = attackerCode;
-            conquered = true;
+            /* Check if this is an attack on the defender's homeland */
+            const defHomeland = def.homeland || defender;
+            const isHomelandAttack = (defenderTerritoryCode === defHomeland);
 
-            /* ── LOOT: seize surviving army + resources from defender ── */
-            /* Capture a portion of defender's remaining army (survivors join attacker) */
-            const captureRate = 0.4 + Math.random() * 0.3; // 40-70% of remaining troops
-            let capturedUnits = [];
-            Object.keys(def.army).forEach(utype => {
-                const captured = Math.floor(def.army[utype] * captureRate);
-                if (captured > 0) {
-                    atk.army[utype] = (atk.army[utype] || 0) + captured;
-                    def.army[utype] -= captured;
-                    capturedUnits.push(`${captured} ${UNIT_TYPES[utype]?.name || utype}`);
+            /* Count colonies BEFORE transferring this territory */
+            const defTerritoriesBefore = Object.entries(state.territories)
+                .filter(([tCode, owner]) => owner === defender && tCode !== defenderTerritoryCode)
+                .map(([tCode]) => tCode);
+            const hasColonies = defTerritoriesBefore.length > 0;
+
+            if (isHomelandAttack && hasColonies) {
+                /* ════ HOMELAND SIEGE: defender may survive by sacrificing colonies ════ */
+                /* Transfer the homeland first */
+                state.territories[defenderTerritoryCode] = attackerCode;
+                conquered = true;
+
+                /* Trigger the siege mechanism */
+                homelandSiege = handleHomelandSiege(defender, attackerCode);
+
+                if (homelandSiege.survived) {
+                    /* Defender survived — reduced loot (only from homeland, not full army) */
+                    const lootRate = 0.15 + Math.random() * 0.1; // 15-25% (less than normal)
+                    Object.keys(def.res).forEach(r => {
+                        const loot = Math.floor(def.res[r] * lootRate);
+                        if (loot > 0) {
+                            atk.res[r] = (atk.res[r] || 0) + loot;
+                            def.res[r] -= loot;
+                        }
+                    });
+                } else {
+                    /* Total collapse — loot everything */
+                    const captureRate = 0.6 + Math.random() * 0.3;
+                    Object.keys(def.army).forEach(utype => {
+                        const captured = Math.floor(def.army[utype] * captureRate);
+                        if (captured > 0) {
+                            atk.army[utype] = (atk.army[utype] || 0) + captured;
+                            def.army[utype] -= captured;
+                        }
+                    });
+                    Object.keys(def.res).forEach(r => {
+                        const loot = Math.floor(def.res[r] * 0.6);
+                        if (loot > 0) {
+                            atk.res[r] = (atk.res[r] || 0) + loot;
+                            def.res[r] -= loot;
+                        }
+                    });
                 }
-            });
+            } else {
+                /* ════ NORMAL CONQUEST (not homeland, or no colonies) ════ */
+                /* Transfer territory */
+                state.territories[defenderTerritoryCode] = attackerCode;
+                conquered = true;
 
-            /* Seize a portion of defender's resources */
-            const lootRate = 0.3 + Math.random() * 0.2; // 30-50% of resources
-            let lootedRes = [];
-            Object.keys(def.res).forEach(r => {
-                const loot = Math.floor(def.res[r] * lootRate);
-                if (loot > 0) {
-                    atk.res[r] = (atk.res[r] || 0) + loot;
-                    def.res[r] -= loot;
-                    if (r === 'money' && loot > 0) lootedRes.push(`💰${loot}`);
-                    else if (loot >= 5) lootedRes.push(`${loot} ${r}`);
+                /* ── LOOT: seize surviving army + resources from defender ── */
+                const captureRate = 0.4 + Math.random() * 0.3;
+                let capturedUnits = [];
+                Object.keys(def.army).forEach(utype => {
+                    const captured = Math.floor(def.army[utype] * captureRate);
+                    if (captured > 0) {
+                        atk.army[utype] = (atk.army[utype] || 0) + captured;
+                        def.army[utype] -= captured;
+                        capturedUnits.push(`${captured} ${UNIT_TYPES[utype]?.name || utype}`);
+                    }
+                });
+
+                const lootRate = 0.3 + Math.random() * 0.2;
+                let lootedRes = [];
+                Object.keys(def.res).forEach(r => {
+                    const loot = Math.floor(def.res[r] * lootRate);
+                    if (loot > 0) {
+                        atk.res[r] = (atk.res[r] || 0) + loot;
+                        def.res[r] -= loot;
+                        if (r === 'money' && loot > 0) lootedRes.push(`💰${loot}`);
+                        else if (loot >= 5) lootedRes.push(`${loot} ${r}`);
+                    }
+                });
+
+                const lootMsg = [];
+                if (capturedUnits.length) lootMsg.push(`🎖️ ${capturedUnits.join(', ')}`);
+                if (lootedRes.length) lootMsg.push(`📦 ${lootedRes.join(', ')}`);
+                if (lootMsg.length) {
+                    emit('battle', `🏴 ${atk.flag} ${atk.name} saccheggia ${def.flag} ${def.name}: ${lootMsg.join(' | ')}`);
                 }
-            });
-
-            /* Log the loot */
-            const lootMsg = [];
-            if (capturedUnits.length) lootMsg.push(`🎖️ ${capturedUnits.join(', ')}`);
-            if (lootedRes.length) lootMsg.push(`📦 ${lootedRes.join(', ')}`);
-            if (lootMsg.length) {
-                emit('battle', `🏴 ${atk.flag} ${atk.name} saccheggia ${def.flag} ${def.name}: ${lootMsg.join(' | ')}`);
-            }
+            } /* end normal conquest vs homeland siege */
 
             /* Declare war if not already */
             ensureWar(attackerCode, defender);
@@ -327,11 +387,14 @@ const GameEngine = (() => {
             attacker: attackerCode,
             defender,
             territory: defenderTerritoryCode,
+            launchFrom,         // territory code from which the attack actually originates
+            attackMethod,       // 'land' | 'sea_transport' | 'air' | 'missile'
             atkPow: Math.round(atkTotal),
             defPow: Math.round(defTotal),
             atkArmyBefore,
             defArmyBefore,
-            conquered
+            conquered,
+            homelandSiege
         };
 
         const icon = success ? '✅' : '❌';
@@ -346,14 +409,33 @@ const GameEngine = (() => {
         return result;
     }
 
-    function applyLosses(nationCode, rate) {
+    /**
+     * Apply combat losses to a nation's army.
+     * IMPORTANT: losses are proportional to the BATTLE, not the entire army.
+     * Only a fraction of the army is "engaged" in any single territory battle.
+     * The engaged fraction depends on how many territories the nation controls.
+     *
+     * @param {string} nationCode
+     * @param {number} rate - base loss intensity (0-1)
+     * @param {number} [engagedFraction] - what % of army fights (default: calculated)
+     */
+    function applyLosses(nationCode, rate, engagedFraction) {
         const n = state.nations[nationCode];
         if (!n) return;
+
+        /* Calculate engagement: larger empires commit fewer troops per battle */
+        const terrCount = Object.values(state.territories).filter(o => o === nationCode).length;
+        const engaged = engagedFraction || Math.min(0.6, Math.max(0.08, 1.0 / Math.max(1, terrCount)));
+
+        /* Only the engaged portion takes losses */
+        const effectiveRate = rate * engaged;
+
         Object.keys(n.army).forEach(utype => {
-            if (n.army[utype] > 0) {
-                const lost = Math.max(1, Math.round(n.army[utype] * rate));
-                n.army[utype] = Math.max(0, n.army[utype] - lost);
-            }
+            if (n.army[utype] <= 0) return;
+            const lost = Math.max(0, Math.round(n.army[utype] * effectiveRate));
+            /* Always keep at least 1 unit of each type if nation had >3 */
+            const floor = n.army[utype] > 3 ? 1 : 0;
+            n.army[utype] = Math.max(floor, n.army[utype] - lost);
         });
     }
 
@@ -373,8 +455,22 @@ const GameEngine = (() => {
         /* Devastate defender */
         applyLosses(defender, 0.7 + Math.random() * 0.2);
 
+        /* Check if this is a nuke on homeland with colonies */
+        const defHomeland = def.homeland || defender;
+        const isHomelandNuke = (defenderTerritoryCode === defHomeland);
+        const defColonies = Object.entries(state.territories)
+            .filter(([tCode, owner]) => owner === defender && tCode !== defenderTerritoryCode)
+            .map(([tCode]) => tCode);
+
         /* Transfer territory */
         state.territories[defenderTerritoryCode] = attackerCode;
+
+        /* If homeland nuked with colonies: trigger siege (nukes are overwhelming, 
+           so demand is very high — unlikely to survive unless very large empire) */
+        let homelandSiege = null;
+        if (isHomelandNuke && defColonies.length > 0) {
+            homelandSiege = handleHomelandSiege(defender, attackerCode);
+        }
 
         /* Global consequences */
         state.globalStability = Math.max(0, state.globalStability - 25);
@@ -468,6 +564,132 @@ const GameEngine = (() => {
     }
 
     /* ════════════════ ELIMINATION / VICTORY ════════════════ */
+
+    /**
+     * Homeland Siege Mechanism
+     * ────────────────────────
+     * When a nation loses its homeland in battle, it doesn't instantly die
+     * IF it still controls colonies (other territories).
+     *
+     * Logic:
+     * 1. Calculate the attacker's "demand" (proportional to attack power).
+     * 2. The defender releases colonies to satisfy the demand:
+     *    - Colonies go to the ATTACKER (spoils of war).
+     *    - Dead original nations DON'T get revived (they can't play).
+     *    - For each colony released, the defender withdraws some troops.
+     * 3. If enough colonies are released to satisfy the demand:
+     *    → Defender SURVIVES, retreating to the best remaining colony.
+     *    → Homeland still falls to attacker.
+     * 4. If colonies aren't rich enough to cover the demand:
+     *    → TOTAL COLLAPSE: attacker takes everything.
+     *
+     * Returns: { survived, releasedColonies[], retreatedTo }
+     */
+    function handleHomelandSiege(defenderCode, attackerCode) {
+        const def = state.nations[defenderCode];
+        const atk = state.nations[attackerCode];
+        if (!def || !atk) return { survived: false, releasedColonies: [], retreatedTo: null };
+
+        const homeland = def.homeland || defenderCode;
+
+        /* Gather all colonies (territories owned that are NOT the homeland) */
+        const colonies = Object.entries(state.territories)
+            .filter(([tCode, owner]) => owner === defenderCode && tCode !== homeland)
+            .map(([tCode]) => tCode);
+
+        if (colonies.length === 0) {
+            /* No colonies — nothing to sacrifice, total collapse */
+            return { survived: false, releasedColonies: [], retreatedTo: null };
+        }
+
+        /* Calculate "demand" — how much the attacker requires to be satisfied.
+           Based on attacker's military power scaled down. Higher power = higher demand. */
+        const atkMil = calcMilitary(attackerCode, 'atk');
+        const demand = Math.max(50, Math.round(atkMil * 0.6));
+
+        /* Calculate each colony's economic value (production sum + resource stockpile fraction) */
+        function colonyValue(tCode) {
+            const tBase = getNation(tCode);
+            const tProd = tBase.prod || {};
+            let val = 0;
+            Object.values(tProd).forEach(v => val += (v || 0));
+            /* Add a base value per territory (even minor ones have strategic worth) */
+            val += 15;
+            return val;
+        }
+
+        /* Sort colonies: cheapest first (sacrifice less valuable ones first) */
+        const sortedColonies = colonies
+            .map(c => ({ code: c, value: colonyValue(c) }))
+            .sort((a, b) => a.value - b.value);
+
+        let accumulated = 0;
+        const released = [];
+        let troopsWithdrawn = 0;
+
+        for (const colony of sortedColonies) {
+            if (accumulated >= demand) break; /* Enough paid */
+
+            /* Release colony to attacker */
+            state.territories[colony.code] = attackerCode;
+            accumulated += colony.value;
+            released.push(colony.code);
+
+            /* Defender withdraws some troops from the colony (gets a small boost) */
+            const withdrawnInfantry = Math.floor(Math.random() * 3) + 1;
+            def.army.infantry = (def.army.infantry || 0) + withdrawnInfantry;
+            troopsWithdrawn += withdrawnInfantry;
+
+            /* Seize colony resources for attacker */
+            const colBase = getNation(colony.code);
+            const colProd = colBase.prod || {};
+            Object.keys(colProd).forEach(r => {
+                const loot = Math.round((colProd[r] || 0) * 2); // 2 turns worth
+                if (loot > 0) atk.res[r] = (atk.res[r] || 0) + loot;
+            });
+
+            emit('battle',
+                `🏳️ ${def.flag} ${def.name} cede ${getNation(colony.code)?.name || colony.code.toUpperCase()} a ${atk.flag} ${atk.name} per difendere la patria`);
+        }
+
+        /* Did we accumulate enough? */
+        if (accumulated >= demand) {
+            /* Defender survives! Retreats to the BEST remaining colony */
+            const remaining = Object.entries(state.territories)
+                .filter(([tCode, owner]) => owner === defenderCode && tCode !== homeland)
+                .map(([tCode]) => ({ code: tCode, value: colonyValue(tCode) }))
+                .sort((a, b) => b.value - a.value);
+
+            if (remaining.length > 0) {
+                const retreatTo = remaining[0].code;
+                emit('battle',
+                    `🛡️ ${def.flag} ${def.name} perde la patria ma SOPRAVVIVE! ` +
+                    `Si ritira a ${getNation(retreatTo)?.name || retreatTo.toUpperCase()} ` +
+                    `(cedute ${released.length} colonie, +${troopsWithdrawn} truppe ritirate)`);
+                return { survived: true, releasedColonies: released, retreatedTo: retreatTo };
+            } else {
+                /* Released all colonies and somehow nothing left — shouldn't happen, but fallback */
+                return { survived: false, releasedColonies: released, retreatedTo: null };
+            }
+        } else {
+            /* Not enough colonies to cover demand — TOTAL COLLAPSE */
+            /* Give ALL remaining territories to attacker */
+            const allRemaining = Object.entries(state.territories)
+                .filter(([tCode, owner]) => owner === defenderCode)
+                .map(([tCode]) => tCode);
+
+            allRemaining.forEach(tCode => {
+                state.territories[tCode] = attackerCode;
+                if (!released.includes(tCode)) released.push(tCode);
+            });
+
+            emit('battle',
+                `💀 ${def.flag} ${def.name}: le colonie non bastano a resistere! ` +
+                `${atk.flag} ${atk.name} conquista TUTTO (${released.length} territori)`);
+            return { survived: false, releasedColonies: released, retreatedTo: null };
+        }
+    }
+
     function checkElimination(nationCode) {
         const n = state.nations[nationCode];
         if (!n || !n.alive) return;

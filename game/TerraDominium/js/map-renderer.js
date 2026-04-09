@@ -476,13 +476,104 @@ const MapRenderer = (() => {
         });
     }
 
-    /* ════════════════ GARRISON OVERLAY ════════════════
-       Draw small troop-strength indicators on each territory.
-       Uses lightweight SVG <text> elements placed at centroids.
-       Only shows for major nations (NATIONS object) to avoid clutter.
-       Called after colourAllTerritories().
-       ══════════════════════════════════════════════════════ */
+    /* ════════════════ GARRISON OVERLAY — Military Unit Icons ════════════════
+       Draw military unit icons on each territory using SVG paths.
+       Icons based on the unit sketch: tanks, ships, planes, SAM, nukes, missiles.
+       Renders the top 3 unit categories present for each territory.
+       ══════════════════════════════════════════════════════════════════════ */
     const garrisonLayer = {};   // code → SVG <g> element
+
+    /* ── SVG path data for military icons (all at 0,0, scale ~20px) ── */
+    const UNIT_SVG = {
+        /* Tank (top-down silhouette) */
+        tank: {
+            path: 'M-8,-4 L8,-4 L9,-2 L9,2 L8,4 L-8,4 L-9,2 L-9,-2 Z M-3,-6 L6,-6 L7,-4 L-3,-4 Z',
+            color: '#8bc34a', label: '🛡️'
+        },
+        /* Fighter jet (top-down) */
+        fighter: {
+            path: 'M0,-8 L2,-5 L2,-1 L7,3 L7,5 L2,2 L2,5 L4,7 L4,8 L0,6.5 L-4,8 L-4,7 L-2,5 L-2,2 L-7,5 L-7,3 L-2,-1 L-2,-5 Z',
+            color: '#29b6f6', label: '✈️'
+        },
+        /* Bomber (wider wings) */
+        bomber: {
+            path: 'M0,-7 L2,-4 L2,0 L9,4 L9,6 L2,3 L2,6 L4,8 L0,7 L-4,8 L-2,6 L-2,3 L-9,6 L-9,4 L-2,0 L-2,-4 Z',
+            color: '#5c6bc0', label: '🛩️'
+        },
+        /* Drone (small quad shape) */
+        drone: {
+            path: 'M-5,-5 L-3,-5 L-1,-2 L1,-2 L3,-5 L5,-5 L5,-3 L2,-1 L2,1 L5,3 L5,5 L3,5 L1,2 L-1,2 L-3,5 L-5,5 L-5,3 L-2,1 L-2,-1 L-5,-3 Z',
+            color: '#26a69a', label: '🤖'
+        },
+        /* Ship (side view) */
+        navy: {
+            path: 'M-9,0 L-7,-4 L-3,-4 L-3,-6 L-1,-6 L-1,-4 L7,-4 L9,0 L7,2 L-7,2 Z M-2,-8 L-1,-8 L-1,-6 L-2,-6 Z',
+            color: '#42a5f5', label: '🚢'
+        },
+        /* Submarine */
+        submarine: {
+            path: 'M-8,0 L-6,-3 L6,-3 L8,0 L6,2 L-6,2 Z M0,-5 L1,-5 L1,-3 L0,-3 Z M-3,-5 L-2,-3 L-3,-3 Z',
+            color: '#455a64', label: '🐟'
+        },
+        /* SAM launcher (radar dish + missile rail) */
+        sam: {
+            path: 'M-6,4 L6,4 L5,2 L-5,2 Z M-2,2 L-2,-4 L2,-4 L2,2 Z M-4,-4 L-1,-8 L1,-8 L4,-4 Z M-1,-8 L0,-10 L1,-8 Z',
+            color: '#ff9800', label: '🛡️'
+        },
+        /* Cruise missile */
+        cruiseMissile: {
+            path: 'M-8,0 L-5,-2 L5,-2 L8,0 L5,2 L-5,2 Z M6,-1 L10,0 L6,1 Z M-6,-3 L-4,-2 M-6,3 L-4,2',
+            color: '#ef5350', label: '🚀'
+        },
+        /* Ballistic missile (tall, pointed) */
+        ballisticMissile: {
+            path: 'M0,-10 L2,-6 L2,4 L4,7 L0,6 L-4,7 L-2,4 L-2,-6 Z',
+            color: '#f44336', label: '☄️'
+        },
+        /* Nuke (radiation symbol simplified) */
+        nuke: {
+            path: 'M0,-9 L3,-3 L9,0 L3,3 L0,9 L-3,3 L-9,0 L-3,-3 Z',
+            color: '#76ff03', label: '☢️'
+        },
+        /* Artillery */
+        artillery: {
+            path: 'M-7,3 L7,3 L6,1 L-6,1 Z M-2,1 L-2,-3 L2,-3 L2,1 Z M2,-3 L8,-7 L9,-6 L3,-2',
+            color: '#ff7043', label: '💥'
+        },
+        /* Infantry (soldier silhouette) */
+        infantry: {
+            path: 'M0,-7 A3,3,0,1,1,0.01,-7 Z M-2,-3 L2,-3 L3,2 L1,2 L1,5 L-1,5 L-1,2 L-3,2 Z',
+            color: '#a5d6a7', label: '🪖'
+        }
+    };
+
+    /* Categories for grouping — determines which icons appear on each territory */
+    const UNIT_CATEGORIES = {
+        ground:  ['infantry', 'tank', 'artillery'],
+        air:     ['fighter', 'bomber', 'drone'],
+        sea:     ['navy', 'submarine'],
+        missile: ['cruiseMissile', 'ballisticMissile'],
+        defense: ['sam'],
+        special: ['nuke']
+    };
+
+    /** Get per-territory detailed unit breakdown from garrison */
+    function getUnitBreakdown(nationArmy, garrisonProportion) {
+        const units = [];
+        if (!nationArmy) return units;
+
+        Object.entries(nationArmy).forEach(([utype, count]) => {
+            if (count <= 0) return;
+            const local = Math.round(count * garrisonProportion);
+            if (local > 0 && UNIT_SVG[utype]) {
+                units.push({ type: utype, count: local, svg: UNIT_SVG[utype] });
+            }
+        });
+
+        /* Sort by count descending, return top categories */
+        units.sort((a, b) => b.count - a.count);
+        return units;
+    }
 
     function updateGarrisonOverlay() {
         if (typeof GameEngine === 'undefined') return;
@@ -490,7 +581,7 @@ const MapRenderer = (() => {
         if (!state) return;
         if (!svgEl) return;
 
-        /* Gather all garrison data per nation (major only to avoid 231 lookups) */
+        /* Gather all garrison data */
         const majorCodes = typeof NATIONS !== 'undefined' ? Object.keys(NATIONS) : [];
         const allGarrisons = {};
         majorCodes.forEach(code => {
@@ -500,14 +591,13 @@ const MapRenderer = (() => {
             Object.assign(allGarrisons, g);
         });
 
-        /* Create or update overlay for every SVG territory */
+        /* Create or update overlay for every territory */
         for (const code of SVG_IDS) {
             const owner = state.territories[code];
             const garrison = allGarrisons[code];
             const centroid = getCentroid(code);
 
             if (!centroid || !garrison || garrison.total === 0) {
-                /* Remove overlay if exists */
                 if (garrisonLayer[code]) {
                     garrisonLayer[code].remove();
                     delete garrisonLayer[code];
@@ -515,25 +605,23 @@ const MapRenderer = (() => {
                 continue;
             }
 
-            /* Determine icon and label */
-            const iconMap = {
-                fighter: '✈', bomber: '✈', drone: '✈',        // air
-                navy: '⚓', submarine: '⚓',                    // sea
-                tank: '⬟', artillery: '⬟',                     // armour
-                sam: '⛨', nuke: '☢',                           // special
-                infantry: '●'                                    // ground
-            };
-            const sym = iconMap[garrison.dominant] || '●';
-
-            /* Sizes proportional to SVG viewBox (2754×1396) — visible at default zoom */
-            const sizeMap = { heavy: 18, medium: 14, light: 10, none: 0 };
-            const sz = sizeMap[garrison.strength] || 12;
-            const fontSize = sz * 0.75;
-            const numFontSize = sz * 0.65;
-
-            /* Colour: slightly lighter than owner colour for readability */
             const ownerN = state.nations[owner];
-            const dotColor = ownerN?.color || '#607d8b';
+            if (!ownerN) continue;
+
+            /* Calculate local proportion for unit breakdown */
+            const totalArmy = Object.values(ownerN.army).reduce((a, b) => a + b, 0);
+            const proportion = totalArmy > 0 ? garrison.total / totalArmy : 0;
+
+            /* Get top units at this territory */
+            const unitBreak = getUnitBreakdown(ownerN.army, proportion);
+            if (unitBreak.length === 0) continue;
+
+            /* Pick top 3 most significant unit types to display */
+            const display = unitBreak.slice(0, 3);
+
+            /* Size based on garrison strength */
+            const scaleMap = { heavy: 1.1, medium: 0.85, light: 0.6, none: 0 };
+            const baseScale = scaleMap[garrison.strength] || 0.7;
 
             let gEl = garrisonLayer[code];
             if (!gEl) {
@@ -543,52 +631,54 @@ const MapRenderer = (() => {
                 svgEl.appendChild(gEl);
                 garrisonLayer[code] = gEl;
             }
-
-            /* Build overlay content:
-               - Filled circle (garrison dot) with unit symbol
-               - Number showing troop count */
-            const cx = centroid.x;
-            const cy = centroid.y;
-
             gEl.innerHTML = '';
 
-            /* Background circle */
-            const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            bgCircle.setAttribute('cx', cx);
-            bgCircle.setAttribute('cy', cy);
-            bgCircle.setAttribute('r', sz);
-            bgCircle.setAttribute('fill', 'rgba(0,0,0,0.6)');
-            bgCircle.setAttribute('stroke', dotColor);
-            bgCircle.setAttribute('stroke-width', '2');
-            gEl.appendChild(bgCircle);
+            const cx = centroid.x;
+            const cy = centroid.y;
+            const spacing = 18 * baseScale;
 
-            /* Unit symbol */
-            const symText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            symText.setAttribute('x', cx);
-            symText.setAttribute('y', cy + fontSize * 0.35);
-            symText.setAttribute('text-anchor', 'middle');
-            symText.setAttribute('font-size', fontSize);
-            symText.setAttribute('fill', '#fff');
-            symText.setAttribute('font-family', 'sans-serif');
-            symText.setAttribute('font-weight', 'bold');
-            symText.textContent = sym;
-            gEl.appendChild(symText);
+            /* Position icons side by side at centroid */
+            const totalWidth = display.length * spacing;
+            const startX = cx - totalWidth / 2 + spacing / 2;
 
-            /* Troop count (offset below circle) */
-            if (garrison.total >= 1) {
-                const numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                numText.setAttribute('x', cx);
-                numText.setAttribute('y', cy + sz + numFontSize + 2);
-                numText.setAttribute('text-anchor', 'middle');
-                numText.setAttribute('font-size', numFontSize);
-                numText.setAttribute('fill', '#e0e0e0');
-                numText.setAttribute('font-family', 'Share Tech Mono, monospace');
-                numText.setAttribute('paint-order', 'stroke');
-                numText.setAttribute('stroke', '#000');
-                numText.setAttribute('stroke-width', '2.5');
-                numText.textContent = Math.round(garrison.total);
-                gEl.appendChild(numText);
-            }
+            display.forEach((unit, idx) => {
+                const ux = startX + idx * spacing;
+                const uy = cy;
+
+                /* Background dot */
+                const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                bg.setAttribute('cx', ux);
+                bg.setAttribute('cy', uy);
+                bg.setAttribute('r', 10 * baseScale);
+                bg.setAttribute('fill', 'rgba(0,0,0,0.55)');
+                bg.setAttribute('stroke', unit.svg.color);
+                bg.setAttribute('stroke-width', 1.2 * baseScale);
+                gEl.appendChild(bg);
+
+                /* Unit icon path */
+                const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                iconPath.setAttribute('d', unit.svg.path);
+                iconPath.setAttribute('fill', unit.svg.color);
+                iconPath.setAttribute('fill-opacity', '0.9');
+                iconPath.setAttribute('transform',
+                    `translate(${ux},${uy}) scale(${baseScale * 0.8})`);
+                gEl.appendChild(iconPath);
+            });
+
+            /* Troop count below icons */
+            const numFontSize = 9 * baseScale;
+            const numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            numText.setAttribute('x', cx);
+            numText.setAttribute('y', cy + 12 * baseScale + numFontSize);
+            numText.setAttribute('text-anchor', 'middle');
+            numText.setAttribute('font-size', numFontSize);
+            numText.setAttribute('fill', '#e0e0e0');
+            numText.setAttribute('font-family', 'Share Tech Mono, monospace');
+            numText.setAttribute('paint-order', 'stroke');
+            numText.setAttribute('stroke', '#000');
+            numText.setAttribute('stroke-width', 2.5);
+            numText.textContent = Math.round(garrison.total);
+            gEl.appendChild(numText);
         }
     }
 

@@ -472,7 +472,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 }
 .tech-card:hover { border-color: var(--accent); }
 .tech-card.researched { border-color: var(--green); opacity: 0.6; }
-.tech-card.available { border-color: var(--gold); }
+.tech-card.available { border-color: var(--gold); cursor: pointer; }
+.tech-card.locked { border-color: #37474f; opacity: 0.5; cursor: not-allowed; }
 .tech-card .tech-icon { font-size: 1.8rem; margin-bottom: 6px; }
 .tech-card .tech-name { font-family: var(--font-title); font-size: 0.7rem; color: var(--text); }
 .tech-card .tech-cost { font-family: var(--font-mono); font-size: 0.7rem; color: var(--gold); margin-top: 4px; }

@@ -49,17 +49,17 @@ const STRATEGIC_ASSETS = {
 };
 
 const UNIT_TYPES = {
-    infantry:        {icon:'🪖',name:'Fanteria',         atk:3,  def:4,  cost:{money:100},                     spd:1, rng:1},
-    tank:            {icon:'🛡️',name:'Corazzati',        atk:8,  def:6,  cost:{money:300,steel:20},            spd:2, rng:1},
-    artillery:       {icon:'💥',name:'Artiglieria',      atk:10, def:2,  cost:{money:250,steel:15},            spd:1, rng:2},
-    fighter:         {icon:'✈️',name:'Caccia',           atk:12, def:5,  cost:{money:500,steel:30},            spd:5, rng:4},
-    bomber:          {icon:'🛩️',name:'Bombardiere',      atk:18, def:3,  cost:{money:800,steel:40},            spd:3, rng:5},
-    drone:           {icon:'🤖',name:'Drone',            atk:7,  def:1,  cost:{money:200,rareEarth:5},         spd:4, rng:3},
-    navy:            {icon:'🚢',name:'Flotta Navale',    atk:14, def:10, cost:{money:700,steel:50},            spd:3, rng:3},
-    submarine:       {icon:'🐟',name:'Sottomarino',      atk:16, def:8,  cost:{money:600,steel:40},            spd:2, rng:4},
-    cruiseMissile:   {icon:'🚀',name:'Missile Crociera', atk:25, def:0,  cost:{money:400,steel:20},            spd:8, rng:6, consumable:true},
-    ballisticMissile:{icon:'☄️',name:'Missile Balistico',atk:40, def:0,  cost:{money:1000,steel:30,uranium:2}, spd:10,rng:10,consumable:true},
-    sam:             {icon:'🛡️',name:'Sistema SAM',      atk:5,  def:20, cost:{money:350,steel:25},            spd:0, rng:3},
+    infantry:        {icon:'🪖',name:'Fanteria',         atk:3,  def:4,  cost:{money:50},                      spd:1, rng:1},
+    tank:            {icon:'🛡️',name:'Corazzati',        atk:8,  def:6,  cost:{money:180,steel:10},            spd:2, rng:1},
+    artillery:       {icon:'💥',name:'Artiglieria',      atk:10, def:2,  cost:{money:200,steel:10},            spd:1, rng:2},
+    fighter:         {icon:'✈️',name:'Caccia',           atk:12, def:5,  cost:{money:350,steel:20},            spd:5, rng:4},
+    bomber:          {icon:'🛩️',name:'Bombardiere',      atk:18, def:3,  cost:{money:600,steel:30},            spd:3, rng:5},
+    drone:           {icon:'🤖',name:'Drone',            atk:7,  def:1,  cost:{money:120,rareEarth:3},          spd:4, rng:3},
+    navy:            {icon:'🚢',name:'Flotta Navale',    atk:14, def:10, cost:{money:500,steel:35},            spd:3, rng:3},
+    submarine:       {icon:'🐟',name:'Sottomarino',      atk:16, def:8,  cost:{money:450,steel:30},            spd:2, rng:4},
+    cruiseMissile:   {icon:'🚀',name:'Missile Crociera', atk:25, def:0,  cost:{money:300,steel:15},            spd:8, rng:6, consumable:true},
+    ballisticMissile:{icon:'☄️',name:'Missile Balistico',atk:40, def:0,  cost:{money:800,steel:20,uranium:2},  spd:10,rng:10,consumable:true},
+    sam:             {icon:'🛡️',name:'Sistema SAM',      atk:5,  def:20, cost:{money:250,steel:15},            spd:0, rng:3},
     nuke:            {icon:'☢️',name:'Testata Nucleare', atk:200,def:0,  cost:{money:5000,uranium:50},         spd:10,rng:15,consumable:true,nuke:true}
 };
 
@@ -341,10 +341,10 @@ function getMinorNation(code) {
     const minorColor = `hsl(${h}, 45%, 55%)`;
     return {
         name: code.toUpperCase(), flag:'🏳️', color: minorColor, profile:'minor',
-        res:{money:20,oil:2,gas:1,rareEarth:1,gold:1,silver:0,diamonds:0,uranium:0,steel:2,food:10},
-        prod:{money:3,food:1},
-        army:{infantry:3,tank:1},
-        assets:[], neighbors:[], power:5
+        res:{money:60,oil:2,gas:1,rareEarth:1,gold:1,silver:0,diamonds:0,uranium:0,steel:5,food:15},
+        prod:{money:12,food:2,steel:1},
+        army:{infantry:5,tank:1,drone:1},
+        assets:[], neighbors:[], power:8
     };
 }
 function getNation(code) { return NATIONS[code] || getMinorNation(code); }
@@ -371,3 +371,159 @@ const ADJACENCY = (() => {
 })();
 
 function getNeighborsOf(code) { return ADJACENCY[code] || []; }
+
+/* ── Sea routes: pairs of territories connected by water ──
+   These allow naval transport (ground units via navy) and
+   naval attacks. If two territories share a sea route, they
+   can reach each other with ships even if not land-adjacent. */
+const SEA_ROUTES = (() => {
+    const pairs = [
+        /* Atlantic */
+        ['us','gb'],['us','cu'],['us','bs'],['us','jm'],['us','ie'],['us','is'],
+        ['gb','fr'],['gb','no'],['gb','ie'],['gb','is'],['gb','nl'],['gb','be'],['gb','dk'],
+        ['fr','dz'],['fr','ma'],['fr','tn'],['fr','it'],['fr','es'],
+        ['es','ma'],['es','cu'],['es','pt'],
+        ['pt','br'],['pt','cv'],['pt','ma'],
+        ['br','ar'],['br','ng'],['br','gf'],
+        ['ar','cl'],['ar','uy'],['ar','fk'],
+        /* Mediterranean */
+        ['it','gr'],['it','tn'],['it','hr'],['it','mt'],['it','al'],['it','ly'],['it','eg'],
+        ['gr','tr'],['gr','cy'],['gr','eg'],['gr','al'],
+        ['tr','ua'],['tr','ge'],['tr','cy'],['tr','eg'],['tr','sy'],['tr','lb'],
+        ['eg','sa'],['eg','il'],['eg','jo'],
+        /* Red Sea / Indian Ocean */
+        ['sa','er'],['sa','dj'],['sa','so'],['sa','ye'],['sa','ae'],['sa','om'],
+        ['ae','ir'],['ae','pk'],['ae','om'],
+        ['ir','pk'],['ir','om'],['ir','iq'],
+        ['in','lk'],['in','mv'],['in','mm'],['in','bd'],['in','pk'],['in','ae'],['in','om'],['in','ke'],
+        ['so','ye'],['so','ke'],['so','dj'],
+        ['ke','tz'],['ke','mz'],['tz','mz'],['mz','za'],['mz','mg'],
+        ['za','ao'],['za','na'],['za','ar'],
+        /* East Asia / Pacific */
+        ['cn','jp'],['cn','kr'],['cn','tw'],['cn','ph'],['cn','vn'],
+        ['jp','kr'],['jp','tw'],['jp','ru'],['jp','ph'],['jp','us'],
+        ['kr','jp'],
+        ['tw','ph'],['tw','jp'],
+        ['ph','id'],['ph','my'],
+        ['id','au'],['id','my'],['id','tl'],['id','pg'],['id','sg'],
+        ['au','nz'],['au','pg'],['au','id'],['au','fj'],
+        ['my','sg'],['my','th'],['my','bn'],
+        ['th','mm'],['th','kh'],['th','vn'],
+        /* Persian Gulf */
+        ['kw','iq'],['kw','ir'],['kw','sa'],
+        ['qa','sa'],['qa','ae'],['qa','bh'],
+        ['bh','sa'],
+        /* Baltic / Northern Europe */
+        ['se','fi'],['se','dk'],['se','no'],['se','de'],['se','pl'],['se','ee'],
+        ['fi','ee'],['fi','ru'],
+        ['dk','de'],['dk','no'],['dk','se'],
+        ['de','dk'],['de','se'],
+        ['ee','fi'],['ee','lv'],
+        ['no','ru'],['no','is'],['no','gb'],
+        /* Black Sea */
+        ['ua','tr'],['ua','ro'],['ua','ge'],['ua','ru'],['ua','bg'],
+        ['ro','bg'],['ro','tr'],
+        ['ge','ru'],
+        /* Caribbean */
+        ['cu','mx'],['cu','jm'],['cu','ht'],['cu','bs'],
+        ['ht','do'],['do','pr'],['pr','us'],
+        ['jm','co'],['jm','pa'],
+        ['tt','ve'],
+        /* West Africa */
+        ['ng','cm'],['ng','gh'],['ng','sn'],
+        ['sn','mr'],['sn','gm'],['sn','gn'],['sn','cv'],
+        ['gh','ci'],['ci','lr'],['lr','sl'],
+        ['cm','gq'],['gq','ga'],['ga','cg'],['cg','ao'],
+        /* East Africa / Madagascar */
+        ['mg','mz'],['mg','tz'],
+        /* Central America */
+        ['pa','co'],['pa','cr'],['cr','ni'],['ni','hn'],['hn','bz'],['bz','mx'],
+        /* Oceania */
+        ['nz','fj'],['fj','to'],['pg','sb'],
+    ];
+
+    /* Build symmetric map */
+    const map = {};
+    SVG_IDS.forEach(c => map[c] = new Set());
+    pairs.forEach(([a, b]) => {
+        if (map[a]) map[a].add(b);
+        if (map[b]) map[b].add(a);
+    });
+
+    const result = {};
+    SVG_IDS.forEach(c => result[c] = [...(map[c] || [])]);
+    return result;
+})();
+
+/** Check if two territories are connected by sea */
+function isSeaConnected(codeA, codeB) {
+    return (SEA_ROUTES[codeA] || []).includes(codeB);
+}
+
+/**
+ * Determine if an attacker can reach a defender territory, and HOW.
+ * Returns { reachable, method, reason }
+ *   method: 'land' | 'sea_transport' | 'naval' | 'air' | 'missile' | null
+ *   reason: human-readable Italian explanation if NOT reachable
+ */
+function canReachTerritory(attackerCode, defenderTerritoryCode, attackerArmy) {
+    const army = attackerArmy || {};
+
+    /* Gather all territories owned by attacker */
+    const myTerritories = typeof GameEngine !== 'undefined'
+        ? Object.entries(GameEngine.getState().territories)
+            .filter(([, o]) => o === attackerCode).map(([c]) => c)
+        : [attackerCode];
+
+    /* Detect available capabilities for support info */
+    const hasNavy = (army.navy || 0) > 0 || (army.submarine || 0) > 0;
+    const hasAir = (army.bomber || 0) > 0 || (army.drone || 0) > 0 || (army.fighter || 0) > 0;
+    const hasMissiles = (army.cruiseMissile || 0) > 0 || (army.ballisticMissile || 0) > 0;
+    const hasNuke = (army.nuke || 0) > 0;
+
+    function buildSupport(excludeMethod) {
+        const s = [];
+        if (excludeMethod !== 'missile' && (hasMissiles || hasNuke)) s.push('missile');
+        if (excludeMethod !== 'air' && hasAir) s.push('air');
+        if (excludeMethod !== 'sea_transport' && hasNavy) s.push('naval');
+        return s;
+    }
+
+    /* 1. Direct land adjacency — PRIORITY: attack via terra */
+    const landSource = myTerritories.find(mt =>
+        (ADJACENCY[mt] || []).includes(defenderTerritoryCode));
+    if (landSource) {
+        return { reachable: true, method: 'land', reason: null, launchFrom: landSource, support: buildSupport('land') };
+    }
+
+    /* 2. Sea connection with navy → attack via mare */
+    const seaSource = myTerritories.find(mt =>
+        isSeaConnected(mt, defenderTerritoryCode));
+    if (seaSource && hasNavy) {
+        return { reachable: true, method: 'sea_transport', reason: null, launchFrom: seaSource, support: buildSupport('sea_transport') };
+    }
+
+    /* 3. Sea connection WITHOUT navy → blocked */
+    if (seaSource && !hasNavy) {
+        return {
+            reachable: false, method: null, launchFrom: null, support: [],
+            reason: '⚓ Collegamento via mare disponibile ma non hai navi! Costruisci Flotta Navale o Sottomarini.'
+        };
+    }
+
+    /* 4. Long-range: missiles, bombers, drones can strike anywhere. */
+    const homeland = attackerCode;
+    const preferredBase = myTerritories.includes(homeland) ? homeland : myTerritories[0];
+    if (hasMissiles || hasNuke) {
+        return { reachable: true, method: 'missile', reason: null, launchFrom: preferredBase, support: buildSupport('missile') };
+    }
+    if (hasAir) {
+        return { reachable: true, method: 'air', reason: null, launchFrom: preferredBase, support: buildSupport('air') };
+    }
+
+    /* 5. Not reachable */
+    return {
+        reachable: false, method: null, launchFrom: null, support: [],
+        reason: '🚫 Territorio non raggiungibile! Serve: ⚓ Navi (via mare), ✈️ Aerei/Droni, o 🚀 Missili per attaccare a distanza.'
+    };
+}

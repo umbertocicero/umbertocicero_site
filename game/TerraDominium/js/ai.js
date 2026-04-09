@@ -156,24 +156,41 @@ const AI = (() => {
         const state = GameEngine.getState();
         const n = state.nations[code];
 
+        /* Calculate total army size and income to decide build intensity */
+        const totalUnits = Object.values(n.army).reduce((a, b) => a + b, 0);
+        const income = n.prod.money || 0;
+        const money = n.res.money || 0;
+
         /* Decide what to build based on situation */
         let buildPriority = [];
 
         if (situation.threats.length > 0) {
             /* Defensive: SAM, infantry, tanks */
-            buildPriority = ['sam','infantry','tank','fighter','drone'];
+            buildPriority = ['infantry','sam','tank','infantry','fighter','drone','infantry'];
         } else if (situation.opportunities.length > 0 && profile.aggression > 0.4) {
-            /* Offensive: tanks, fighters, drones */
-            buildPriority = ['tank','fighter','drone','bomber','infantry','cruiseMissile'];
+            /* Offensive: tanks, fighters, drones, infantry bulk */
+            buildPriority = ['infantry','tank','fighter','infantry','drone','bomber','infantry','cruiseMissile'];
         } else {
-            /* Balanced */
-            buildPriority = ['infantry','tank','drone','fighter','sam','navy'];
+            /* Balanced: heavy infantry focus to maintain army mass */
+            buildPriority = ['infantry','infantry','tank','drone','infantry','fighter','sam','navy'];
         }
 
-        /* Build up to 3 units per turn */
+        /* Build scaling: more units per turn for larger/richer nations.
+           Base 3, up to 10 for superpowers with cash. Threshold lowered for reduced unit costs. */
+        const maxBuilds = Math.min(10, 3 + Math.floor(money / 200));
         let built = 0;
+
+        /* Priority: if army is tiny, spam infantry regardless */
+        if (totalUnits < 10 && money >= 50) {
+            while (built < maxBuilds && GameEngine.canBuild(code, 'infantry')) {
+                GameEngine.buildUnit(code, 'infantry');
+                actions.push({ type:'build', nation:code, unit:'infantry' });
+                built++;
+            }
+        }
+
         for (const utype of buildPriority) {
-            if (built >= 3) break;
+            if (built >= maxBuilds) break;
             if (GameEngine.canBuild(code, utype)) {
                 GameEngine.buildUnit(code, utype);
                 actions.push({ type:'build', nation:code, unit:utype });
@@ -185,7 +202,7 @@ const AI = (() => {
         if (profile.techFocus > 0.5 && Math.random() < profile.techFocus * 0.3) {
             const advUnits = ['drone','cruiseMissile','submarine'];
             for (const u of advUnits) {
-                if (built >= 4) break;
+                if (built >= maxBuilds + 1) break;
                 if (GameEngine.canBuild(code, u)) {
                     GameEngine.buildUnit(code, u);
                     actions.push({ type:'build', nation:code, unit:u });
@@ -465,9 +482,13 @@ const AI = (() => {
         return actions;
     }
 
-    /* Find territories of enemy adjacent to attacker's territory */
+    /* Find territories of enemy reachable by attacker.
+       Uses canReachTerritory() for proper land/sea/air/missile checks. */
     function findAttackTargets(attackerCode, enemyCode) {
         const state = GameEngine.getState();
+        const atk = state.nations[attackerCode];
+        const atkArmy = atk ? atk.army : {};
+
         const myTerritories = new Set(
             Object.entries(state.territories)
                 .filter(([, o]) => o === attackerCode).map(([c]) => c)
@@ -475,8 +496,14 @@ const AI = (() => {
         const enemyTerritories = Object.entries(state.territories)
             .filter(([, o]) => o === enemyCode).map(([c]) => c);
 
-        /* Use global ADJACENCY map: an enemy territory is a valid target if
-           any of our owned territories is its neighbor (symmetric check) */
+        /* Use canReachTerritory if available, fallback to adjacency-only */
+        if (typeof canReachTerritory === 'function') {
+            return enemyTerritories.filter(et => {
+                const reach = canReachTerritory(attackerCode, et, atkArmy);
+                return reach.reachable;
+            });
+        }
+        /* Fallback: adjacency only */
         return enemyTerritories.filter(et => {
             const neighbors = getNeighborsOf(et);
             return neighbors.some(nb => myTerritories.has(nb));

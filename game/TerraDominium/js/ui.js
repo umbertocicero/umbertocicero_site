@@ -138,6 +138,31 @@ const UI = (() => {
             html += `<div class="tt-res" style="color:#ff1744;">⚔️ ATK: ${ePow}</div>`;
         }
 
+        /* Reachability indicator for enemy/neutral territories */
+        if (!isMyTerritory && typeof canReachTerritory === 'function') {
+            const playerN = state.nations[state.player];
+            if (playerN && playerN.alive) {
+                const reach = canReachTerritory(state.player, code, playerN.army);
+                if (reach.reachable) {
+                    const methodLabels = {
+                        land: '🗺️ Attacco via terra', sea_transport: '⚓ Attacco via mare',
+                        naval: '⚓ Attacco via mare', air: '✈️ Attacco aereo', missile: '🚀 Attacco missilistico'
+                    };
+                    const supportLabels = {
+                        missile: '🚀 missilistico', air: '✈️ aereo', naval: '⚓ navale'
+                    };
+                    let label = methodLabels[reach.method] || 'Raggiungibile';
+                    if (reach.support && reach.support.length > 0) {
+                        const supText = reach.support.map(s => supportLabels[s] || s).join(' e ');
+                        label += ` <span style="color:#90caf9;font-size:0.7rem">+ supporto ${supText}</span>`;
+                    }
+                    html += `<div class="tt-res" style="color:#00e676;">✅ ${label}</div>`;
+                } else {
+                    html += `<div class="tt-res" style="color:#ff6e40;">🚫 Non raggiungibile</div>`;
+                }
+            }
+        }
+
         tt.innerHTML = html;
         tt.classList.remove('hidden');
         const rect = els['map-container'].getBoundingClientRect();
@@ -636,14 +661,40 @@ const UI = (() => {
             return;
         }
 
-        /* Animations */
-        MapRenderer.resizeFx(); /* Ensure canvas is sized */
-        Animations.spawnBattleFX(state.player, targetTerritory, result.success, atkInfo, defInfo);
+        /* Blocked by reachability: show detailed alert */
+        if (result.blocked) {
+            addEventToLog({ turn: state.turn, type:'game', msg: result.reason || '🚫 Territorio non raggiungibile' });
+            showReachabilityAlert(result.reason, defInfo);
+            return;
+        }
+
+        /* Animations — launch from the actual origin territory, not always homeland */
+        MapRenderer.resizeFx();
+        const launchCode = result.launchFrom || state.player;
+        Animations.spawnBattleFX(launchCode, targetTerritory, result.success, atkInfo, defInfo);
         if (result.conquered) {
             setTimeout(() => {
                 Animations.spawnConquerFX(targetTerritory);
                 MapRenderer.colourAllTerritories();
             }, 600);
+        }
+
+        /* Homeland siege: animate colony releases */
+        if (result.homelandSiege && result.homelandSiege.releasedColonies.length > 0) {
+            const siege = result.homelandSiege;
+            siege.releasedColonies.forEach((colCode, i) => {
+                setTimeout(() => {
+                    Animations.spawnConquerFX(colCode);
+                    const colName = typeof getNation !== 'undefined' ? (getNation(colCode)?.name || colCode.toUpperCase()) : colCode.toUpperCase();
+                    Animations.spawnText(colCode, siege.survived ? `🏳️ Ceduto` : `💀 Collasso`, '#ff6e40', true);
+                    MapRenderer.colourAllTerritories();
+                }, 900 + i * 400);
+            });
+            if (siege.survived && siege.retreatedTo) {
+                setTimeout(() => {
+                    Animations.spawnText(siege.retreatedTo, '🛡️ Ritirata!', '#ffd740', true);
+                }, 900 + siege.releasedColonies.length * 400 + 300);
+            }
         }
 
         /* Always re-colour after attack */
@@ -656,6 +707,41 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         showTerritoryPanel(targetTerritory);
+    }
+
+    /* ── Reachability alert popup ── */
+    function showReachabilityAlert(reason, defInfo) {
+        /* Use the battle popup container temporarily */
+        const popup = els['battle-popup'];
+        if (!popup) { alert(reason); return; }
+        popup.classList.remove('hidden');
+        popup.style.display = '';
+
+        const defName = defInfo?.name || '???';
+        const defFlag = defInfo?.flag || '';
+
+        popup.innerHTML = `
+            <div class="battle-result" style="border-color:#ff6e40">
+                <div style="font-size:1.3rem;font-weight:800;color:#ff6e40;margin-bottom:8px">
+                    🚫 ATTACCO IMPOSSIBILE
+                </div>
+                <div style="margin:8px 0;font-size:0.85rem;color:#e0e0e0">
+                    Obiettivo: ${defFlag} <b>${defName}</b>
+                </div>
+                <div style="margin:10px 0;padding:10px;background:rgba(255,110,64,0.12);border-radius:8px;
+                    border-left:3px solid #ff6e40;font-size:0.8rem;color:#ffd740;line-height:1.4">
+                    ${reason}
+                </div>
+                <div style="margin-top:10px;font-size:0.7rem;color:#90a4ae">
+                    💡 <b>Suggerimento:</b> Costruisci unità navali (🚢 Flotta, 🐟 Sottomarino) per trasporto via mare,
+                    o unità aeree (✈️ Caccia, 🛩️ Bombardiere, 🤖 Drone) e missili (🚀) per attacchi a lunga distanza.
+                </div>
+                <button onclick="this.closest('.battle-result').parentElement.classList.add('hidden')"
+                    style="margin-top:12px;padding:6px 20px;background:#ff6e40;color:#fff;border:none;border-radius:6px;
+                    cursor:pointer;font-weight:700;font-size:0.8rem">CHIUDI</button>
+            </div>`;
+        /* Auto-hide after 6s */
+        setTimeout(() => { popup.classList.add('hidden'); }, 6000);
     }
 
     function showBattleResult(result) {
@@ -781,6 +867,24 @@ const UI = (() => {
             const canBuild = GameEngine.canBuild(state.player, key);
             const current = n.army[key] || 0;
             const costStr = Object.entries(ut.cost).map(([r,v]) => `${RESOURCES[r]?.icon||r}${v}`).join(' ');
+
+            /* Determine WHY it's blocked */
+            let lockReason = '';
+            if (!canBuild) {
+                if (ut.nuke && !n.techs.includes('nuclear_program')) {
+                    lockReason = `<div style="font-size:0.55rem;color:#ff6e40;margin-top:3px">🔒 Richiede: ☢️ Programma Nucleare</div>`;
+                } else {
+                    const missing = Object.entries(ut.cost).filter(([r, v]) => (n.res[r] || 0) < v);
+                    if (missing.length > 0) {
+                        const resText = missing.map(([r, v]) => {
+                            const have = n.res[r] || 0;
+                            return `${RESOURCES[r]?.icon||r} ${have}/${v}`;
+                        }).join(' ');
+                        lockReason = `<div style="font-size:0.55rem;color:#ffa726;margin-top:3px">💰 ${resText}</div>`;
+                    }
+                }
+            }
+
             html += `<div class="prod-card ${canBuild ? '' : 'disabled'}" onclick="${canBuild ? `UI.doBuild('${key}')` : ''}">`;
             html += `<div class="prod-icon">${ut.icon}</div>`;
             html += `<div class="prod-name">${ut.name}</div>`;
@@ -789,6 +893,7 @@ const UI = (() => {
             html += `<div style="font-size:0.6rem;color:var(--text-dim)">⚔️${ut.atk} 🛡️${ut.def} | Raggio:${ut.rng}</div>`;
             if (ut.consumable) html += `<div style="font-size:0.55rem;color:var(--accent3)">⚡ Consumabile</div>`;
             if (ut.nuke) html += `<div style="font-size:0.55rem;color:#ff00ff">☢️ Nucleare</div>`;
+            html += lockReason;
             html += `</div>`;
         });
         html += '</div>';
@@ -815,14 +920,36 @@ const UI = (() => {
         TECHNOLOGIES.forEach(tech => {
             const researched = n.techs.includes(tech.id);
             const canRes = GameEngine.canResearch(state.player, tech.id);
-            const cls = researched ? 'researched' : (canRes ? 'available' : '');
+            const cls = researched ? 'researched' : (canRes ? 'available' : 'locked');
             const costStr = Object.entries(tech.cost).map(([r,v]) => `${RESOURCES[r]?.icon||r}${v}`).join(' ');
+
+            /* Determine WHY it's locked */
+            let lockReason = '';
+            if (!researched && !canRes) {
+                const missingPrereqs = (tech.prereq || []).filter(p => !n.techs.includes(p));
+                const missingRes = Object.entries(tech.cost).filter(([r, v]) => (n.res[r] || 0) < v);
+                if (missingPrereqs.length > 0) {
+                    const prereqNames = missingPrereqs.map(p => {
+                        const pt = TECHNOLOGIES.find(t => t.id === p);
+                        return pt ? `${pt.icon} ${pt.name}` : p;
+                    }).join(', ');
+                    lockReason += `<div style="font-size:0.55rem;color:#ff6e40;margin-top:3px">🔒 Richiede: ${prereqNames}</div>`;
+                }
+                if (missingRes.length > 0 && missingPrereqs.length === 0) {
+                    const resText = missingRes.map(([r, v]) => {
+                        const have = n.res[r] || 0;
+                        return `${RESOURCES[r]?.icon||r} ${have}/${v}`;
+                    }).join(' ');
+                    lockReason += `<div style="font-size:0.55rem;color:#ffa726;margin-top:3px">💰 Risorse insufficienti: ${resText}</div>`;
+                }
+            }
 
             html += `<div class="tech-card ${cls}" ${canRes ? `onclick="UI.doResearch('${tech.id}')"` : ''}>`;
             html += `<div class="tech-icon">${tech.icon}</div>`;
             html += `<div class="tech-name">${tech.name}</div>`;
             html += `<div class="tech-cost">${researched ? '✅' : costStr}</div>`;
             html += `<div style="font-size:0.6rem;color:var(--text-dim)">${tech.desc}</div>`;
+            html += lockReason;
             html += `</div>`;
         });
         html += '</div>';
@@ -1384,10 +1511,24 @@ const UI = (() => {
                 const _dN = state.nations[act.result.defender];
                 const _aI = { code: act.result.attacker, name: _aN?.name, flag: _aN?.flag, color: _aN?.color };
                 const _dI = { code: act.result.defender, name: _dN?.name, flag: _dN?.flag, color: _dN?.color };
-                Animations.spawnBattleFX(act.nation, act.target, act.result.success, _aI, _dI);
+                const aiLaunchCode = act.result.launchFrom || act.nation;
+                Animations.spawnBattleFX(aiLaunchCode, act.target, act.result.success, _aI, _dI);
                 if (act.result.conquered) {
                     MapRenderer.colourAllTerritories();
                     Animations.spawnConquerFX(act.target);
+                }
+                /* Homeland siege colony releases */
+                if (act.result.homelandSiege && act.result.homelandSiege.releasedColonies.length > 0) {
+                    const siege = act.result.homelandSiege;
+                    for (let ci = 0; ci < siege.releasedColonies.length; ci++) {
+                        const colCode = siege.releasedColonies[ci];
+                        Animations.spawnConquerFX(colCode);
+                        Animations.spawnText(colCode, siege.survived ? '🏳️ Ceduto' : '💀', '#ff6e40', true);
+                    }
+                    MapRenderer.colourAllTerritories();
+                    if (siege.survived && siege.retreatedTo) {
+                        Animations.spawnText(siege.retreatedTo, '🛡️ Ritirata!', '#ffd740', true);
+                    }
                 }
                 await dly(autoPlayMode ? 900 : 500);
             } else if (act.type === 'nuke' && act.result) {
@@ -1685,6 +1826,32 @@ const UI = (() => {
             if (remaining === 0) {
                 addEventToLog({ turn: state.turn, type:'battle',
                     msg: `💀 ${fmtNation(dN)} <span class="evt-action">è stata eliminata!</span>`
+                });
+            }
+        }
+
+        /* Homeland siege events: colony releases and retreat */
+        if (action.result?.homelandSiege) {
+            const siege = action.result.homelandSiege;
+            const atkN = state.nations[action.result.attacker || action.nation];
+            const defN = state.nations[action.result.defender];
+            if (siege.releasedColonies.length > 0) {
+                const colNames = siege.releasedColonies.map(c => {
+                    const cn = typeof getNation !== 'undefined' ? getNation(c) : null;
+                    return cn?.name || c.toUpperCase();
+                }).join(', ');
+                addEventToLog({ turn: state.turn, type:'battle',
+                    msg: `🏳️ ${fmtNation(defN)} <span class="evt-action">cede ${siege.releasedColonies.length} colonie:</span> ${colNames}`
+                });
+            }
+            if (siege.survived && siege.retreatedTo) {
+                const retName = typeof getNation !== 'undefined' ? getNation(siege.retreatedTo)?.name : siege.retreatedTo.toUpperCase();
+                addEventToLog({ turn: state.turn, type:'battle',
+                    msg: `🛡️ ${fmtNation(defN)} <span class="evt-action">sopravvive! Si ritira a</span> ${retName || siege.retreatedTo.toUpperCase()}`
+                });
+            } else if (!siege.survived) {
+                addEventToLog({ turn: state.turn, type:'battle',
+                    msg: `💀 ${fmtNation(defN)} <span class="evt-action">COLLASSO TOTALE!</span> ${fmtNation(atkN)} conquista tutto`
                 });
             }
         }
