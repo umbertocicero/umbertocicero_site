@@ -78,6 +78,10 @@ const AI = (() => {
         const techActions = doResearch(code, profile);
         actions.push(...techActions);
 
+        /* Step 7: Suppress unrest in restless territories */
+        const unrestActions = doSuppressUnrest(code);
+        actions.push(...unrestActions);
+
         return actions;
     }
 
@@ -551,6 +555,25 @@ const AI = (() => {
             const tech = available[Math.floor(Math.random() * available.length)];
             GameEngine.research(code, tech.id);
             actions.push({ type:'research', nation:code, tech:tech.id });
+        }
+        return actions;
+    }
+
+    /* ════════════════ SUPPRESS UNREST (AI) ════════════════ */
+    function doSuppressUnrest(code) {
+        const actions = [];
+        if (!GameEngine.getUnrestList || !GameEngine.suppressUnrest) return actions;
+
+        const unrestList = GameEngine.getUnrestList(code);
+        /* Suppress territories with unrest ≥ 65 (AI is proactive) */
+        const critical = unrestList.filter(t => t.unrest >= 65);
+        for (const t of critical) {
+            const result = GameEngine.suppressUnrest(t.territory);
+            if (result.success) {
+                actions.push({ type: 'suppress_unrest', nation: code, target: t.territory });
+            } else {
+                break;  // ran out of resources
+            }
         }
         return actions;
     }

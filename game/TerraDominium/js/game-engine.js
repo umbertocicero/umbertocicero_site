@@ -19,6 +19,7 @@ const GameEngine = (() => {
             wars: [],               // {attacker, defender, turn}
             alliances: [],          // {a, b, turn}
             globalStability: 100,   // 0-100, nukes lower this
+            unrest: {},             // territoryCode → 0-100, revolt at ≥100
             gameOver: false,
             victor: null,
             log: []
@@ -301,6 +302,7 @@ const GameEngine = (() => {
                 /* ════ HOMELAND SIEGE: defender may survive by sacrificing colonies ════ */
                 /* Transfer the homeland first */
                 state.territories[defenderTerritoryCode] = attackerCode;
+                delete state.unrest[defenderTerritoryCode];  // fresh start
                 conquered = true;
 
                 /* Trigger the siege mechanism */
@@ -338,6 +340,7 @@ const GameEngine = (() => {
                 /* ════ NORMAL CONQUEST (not homeland, or no colonies) ════ */
                 /* Transfer territory */
                 state.territories[defenderTerritoryCode] = attackerCode;
+                delete state.unrest[defenderTerritoryCode];  // fresh start
                 conquered = true;
 
                 /* ── LOOT: seize surviving army + resources from defender ── */
@@ -464,6 +467,7 @@ const GameEngine = (() => {
 
         /* Transfer territory */
         state.territories[defenderTerritoryCode] = attackerCode;
+        delete state.unrest[defenderTerritoryCode];  // fresh start
 
         /* If homeland nuked with colonies: trigger siege (nukes are overwhelming, 
            so demand is very high — unlikely to survive unless very large empire) */
@@ -632,6 +636,7 @@ const GameEngine = (() => {
 
             /* Release colony to attacker */
             state.territories[colony.code] = attackerCode;
+            delete state.unrest[colony.code];  // fresh start
             accumulated += colony.value;
             released.push(colony.code);
 
@@ -680,6 +685,7 @@ const GameEngine = (() => {
 
             allRemaining.forEach(tCode => {
                 state.territories[tCode] = attackerCode;
+                delete state.unrest[tCode];  // fresh start
                 if (!released.includes(tCode)) released.push(tCode);
             });
 
@@ -820,46 +826,107 @@ const GameEngine = (() => {
         return [...owners];
     }
 
+    /* ════════════════ UNREST SYSTEM ════════════════ */
+    /**
+     * Calculate per-turn unrest gain for a conquered territory.
+     * Returns a number 0-15 (unrest points added this turn).
+     */
+    function calcUnrestGain(tCode, owner) {
+        const originalNation = state.nations[tCode];
+        if (!originalNation) return 0;
+        let gain = 3;                                           // base +3 per turn
+        if (originalNation.alive) gain += 4;                    // original nation alive → +4
+        const occupierWars = state.wars.filter(w => w.attacker === owner || w.defender === owner).length;
+        gain += Math.min(4, occupierWars);                      // +1 per war, max +4
+        /* Garrison reduces unrest accumulation */
+        const garrison = getGarrison(tCode);
+        if (garrison.strength === 'heavy')       gain -= 6;
+        else if (garrison.strength === 'medium') gain -= 4;
+        else if (garrison.strength === 'light')  gain -= 2;
+        if (garrison.total === 0)                gain += 5;     // no garrison → rapid unrest
+        return Math.max(0, gain);
+    }
+
+    /** Get unrest level for a territory (0-100) */
+    function getUnrest(tCode) {
+        return state.unrest[tCode] || 0;
+    }
+
+    /** Get all territories with unrest for a nation, sorted by urgency */
+    function getUnrestList(nationCode) {
+        const list = [];
+        Object.entries(state.territories).forEach(([tCode, owner]) => {
+            if (owner !== nationCode) return;
+            if (tCode === owner) return;        // homeland = no unrest
+            const u = state.unrest[tCode] || 0;
+            if (u > 0) {
+                const orig = state.nations[tCode];
+                list.push({
+                    territory: tCode,
+                    name: orig?.name || tCode.toUpperCase(),
+                    flag: orig?.flag || '',
+                    unrest: u,
+                    gain: calcUnrestGain(tCode, owner)
+                });
+            }
+        });
+        list.sort((a, b) => b.unrest - a.unrest);
+        return list;
+    }
+
+    /**
+     * Suppress unrest in a territory.
+     * Cost: 💰15 + 2 infantry consumed to quell unrest.
+     * Reduces unrest by 40 points.
+     * Returns { success, reason? }
+     */
+    function suppressUnrest(tCode) {
+        const owner = state.territories[tCode];
+        if (!owner) return { success: false, reason: 'Territorio non trovato' };
+        const n = state.nations[owner];
+        if (!n || !n.alive) return { success: false, reason: 'Nazione non valida' };
+        /* Check cost */
+        if ((n.res.money || 0) < 15) return { success: false, reason: 'Fondi insufficienti (servono 💰15)' };
+        if ((n.army.infantry || 0) < 2) return { success: false, reason: 'Fanteria insufficiente (servono 🪖2 unità)' };
+        /* Pay cost */
+        n.res.money -= 15;
+        n.army.infantry -= 2;
+        /* Reduce unrest */
+        state.unrest[tCode] = Math.max(0, (state.unrest[tCode] || 0) - 40);
+        emit('game', `🛡️ Rivolta sedata in ${state.nations[tCode]?.flag||''} ${state.nations[tCode]?.name||tCode}! (-💰15, -🪖2)`);
+        return { success: true };
+    }
+
     /* ════════════════ RANDOM EVENTS ════════════════ */
     function rollRandomEvents() {
-        /* ── Internal Revolts: conquered territories may rebel ── */
+        /* ── Unrest accumulation & Revolts ── */
         const revoltEvents = [];
         Object.entries(state.territories).forEach(([tCode, owner]) => {
-            /* Only territories NOT owned by their original nation can revolt */
-            if (tCode === owner) return;
+            /* Only conquered territories accumulate unrest */
+            if (tCode === owner) {
+                delete state.unrest[tCode];   // cleanup
+                return;
+            }
             const originalNation = state.nations[tCode];
             if (!originalNation) return;
 
-            /* Base revolt chance: 2%. Increases if original nation is still alive (+3%),
-               or if occupier is at many wars (+1% per war).
-               GARRISON reduces revolt chance: -3% for medium, -5% for heavy */
-            let chance = 0.02;
-            if (originalNation.alive) chance += 0.03;
-            const occupierWars = state.wars.filter(w => w.attacker === owner || w.defender === owner).length;
-            chance += occupierWars * 0.01;
-            /* Garrison suppression */
-            const garrison = getGarrison(tCode);
-            if (garrison.strength === 'heavy') chance -= 0.05;
-            else if (garrison.strength === 'medium') chance -= 0.03;
-            else if (garrison.strength === 'light') chance -= 0.01;
-            /* No garrison = extra revolt risk */
-            if (garrison.total === 0) chance += 0.04;
-            /* Cap between 0% and 15% */
-            chance = Math.max(0, Math.min(0.15, chance));
+            /* Accumulate unrest */
+            const gain = calcUnrestGain(tCode, owner);
+            state.unrest[tCode] = Math.min(100, (state.unrest[tCode] || 0) + gain);
 
-            if (Math.random() < chance) {
+            /* Revolt triggers when unrest reaches 100 */
+            if (state.unrest[tCode] >= 100) {
                 /* Revolt! Territory returns to original nation */
                 state.territories[tCode] = tCode;
+                delete state.unrest[tCode];
                 /* If original nation was dead, revive it */
                 if (!originalNation.alive) {
                     originalNation.alive = true;
-                    /* Give minimal army to survive */
                     originalNation.army.infantry = Math.max(originalNation.army.infantry || 0, 3);
                     originalNation.res.money = Math.max(originalNation.res.money || 0, 20);
                 }
                 revoltEvents.push({ territory: tCode, from: owner, to: tCode });
                 emit('battle', `🔥 RIVOLTA in ${originalNation.flag} ${originalNation.name}! Il territorio si ribella a ${state.nations[owner]?.flag||''} ${state.nations[owner]?.name||owner}`);
-                /* Relation penalty */
                 adjustRelation(tCode, owner, -30);
             }
         });
@@ -1059,6 +1126,9 @@ const GameEngine = (() => {
         rollRandomEvents,
         emit,
         getGarrisons,
-        getGarrison
+        getGarrison,
+        getUnrest,
+        getUnrestList,
+        suppressUnrest
     };
 })();

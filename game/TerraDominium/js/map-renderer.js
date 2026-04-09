@@ -28,6 +28,7 @@ const MapRenderer = (() => {
     let onTerritoryClick = null;
     let onTerritoryHover = null;
     let onTerritoryLeave = null;
+    let onTerritoryTap   = null;   // mobile-only: single-tap (for tooltip)
 
     /* ════════════════ INIT ════════════════ */
     async function init() {
@@ -370,6 +371,8 @@ const MapRenderer = (() => {
 
         /* Delegated click & hover on SVG paths */
         container.addEventListener('click', e => {
+            /* Skip synthetic click from touch — handled via onTap */
+            if (container._suppressNextClick) { container._suppressNextClick = false; return; }
             const target = e.target.closest('[id]');
             if (!target) return;
             const code = target.id;
@@ -402,13 +405,23 @@ const MapRenderer = (() => {
     function bindTouch() {
         let lastDist = 0;
         let lastMid  = { x:0, y:0 };
+        /* Tap detection */
+        let tapStartPos  = null;
+        let tapStartTime = 0;
+        let didDrag      = false;
+        const TAP_THRESHOLD = 12;   // px
+        const TAP_MAX_MS    = 300;  // max duration for a tap
 
         container.addEventListener('touchstart', e => {
             if (e.touches.length === 1) {
                 dragging = true;
+                didDrag  = false;
                 dragStart = { x: e.touches[0].clientX - panX, y: e.touches[0].clientY - panY };
+                tapStartPos  = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                tapStartTime = Date.now();
             } else if (e.touches.length === 2) {
                 dragging = false;
+                didDrag  = true;
                 lastDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX,
                                       e.touches[1].clientY - e.touches[0].clientY);
                 const cr = container.getBoundingClientRect();
@@ -422,10 +435,14 @@ const MapRenderer = (() => {
         container.addEventListener('touchmove', e => {
             e.preventDefault();
             if (e.touches.length === 1 && dragging) {
+                const dx = e.touches[0].clientX - (tapStartPos ? tapStartPos.x : 0);
+                const dy = e.touches[0].clientY - (tapStartPos ? tapStartPos.y : 0);
+                if (Math.abs(dx) > TAP_THRESHOLD || Math.abs(dy) > TAP_THRESHOLD) didDrag = true;
                 panX = e.touches[0].clientX - dragStart.x;
                 panY = e.touches[0].clientY - dragStart.y;
                 applyTransform();
             } else if (e.touches.length === 2) {
+                didDrag = true;
                 const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX,
                                         e.touches[1].clientY - e.touches[0].clientY);
                 const pinchScale = dist / lastDist;
@@ -437,7 +454,31 @@ const MapRenderer = (() => {
             }
         }, { passive: false });
 
-        container.addEventListener('touchend', () => { dragging = false; });
+        container.addEventListener('touchend', e => {
+            dragging = false;
+            /* Detect tap (short, no drag) */
+            if (!didDrag && tapStartPos && (Date.now() - tapStartTime) < TAP_MAX_MS && e.changedTouches.length > 0) {
+                const touch = e.changedTouches[0];
+                const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (el) {
+                    const target = el.closest('[id]');
+                    if (target) {
+                        const gParent = target.closest('g.land');
+                        const finalCode = gParent ? gParent.id : target.id;
+                        if (SVG_IDS.includes(finalCode)) {
+                            /* Fire tap callback on mobile */
+                            if (onTerritoryTap) {
+                                onTerritoryTap(finalCode, { clientX: touch.clientX, clientY: touch.clientY });
+                                /* Suppress the synthetic click that would follow */
+                                container._suppressNextClick = true;
+                                setTimeout(() => { container._suppressNextClick = false; }, 400);
+                            }
+                        }
+                    }
+                }
+            }
+            tapStartPos = null;
+        });
     }
 
     /* ════════════════ FX CANVAS ════════════════ */
@@ -628,6 +669,7 @@ const MapRenderer = (() => {
         set onClick(fn)  { onTerritoryClick = fn; },
         set onHover(fn)  { onTerritoryHover = fn; },
         set onLeave(fn)  { onTerritoryLeave = fn; },
+        set onTap(fn)    { onTerritoryTap   = fn; },
         get svgElement()  { return svgEl; },
         get scale()       { return scale; }
     };

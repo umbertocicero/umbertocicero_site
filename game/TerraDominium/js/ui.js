@@ -7,6 +7,13 @@ const UI = (() => {
     /* ── refs (cached after DOM ready) ── */
     let els = {};
 
+    /** Parse flag emoji → Twemoji <img> for cross-platform rendering (esp. Windows) */
+    function parseEmoji(el) {
+        if (typeof twemoji !== 'undefined' && el) {
+            try { twemoji.parse(el, { folder: 'svg', ext: '.svg' }); } catch(e) {}
+        }
+    }
+
     /* ════════════════ INIT ════════════════ */
     function init() {
         cacheElements();
@@ -34,7 +41,8 @@ const UI = (() => {
             'economy-popup','economy-display','btn-close-economy',
             'gameover-popup','gameover-title','gameover-text','gameover-stats','btn-restart',
             'ai-turn-overlay',
-            'spy-popup','spy-popup-title','spy-popup-display','btn-close-spy'
+            'spy-popup','spy-popup-title','spy-popup-display','btn-close-spy',
+            'revolt-alert-popup','revolt-alert-display','btn-close-revolt-alert'
         ];
         ids.forEach(id => { els[id] = document.getElementById(id); });
     }
@@ -56,6 +64,7 @@ const UI = (() => {
         click('btn-close-production', () => hide('production-popup'));
         click('btn-close-economy', () => hide('economy-popup'));
         click('btn-close-spy', () => hide('spy-popup'));
+        click('btn-close-revolt-alert', () => hide('revolt-alert-popup'));
         click('btn-close-left', () => hide('left-panel'));
         click('btn-restart', () => location.reload());
     }
@@ -69,27 +78,79 @@ const UI = (() => {
     function hide(id) { const el = els[id] || document.getElementById(id); if (el) el.classList.add('hidden'); }
 
     /* ════════════════ MAP CALLBACKS ════════════════ */
+    /* Track tooltip state for mobile tap interaction */
+    let tooltipTerritoryCode = null;   // currently shown territory in tooltip
+    let isMobile = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
     function setupMapCallbacks() {
+        /* Desktop click → open sidebar directly */
         MapRenderer.onClick = (code, e) => {
+            hideTooltip();
             MapRenderer.selectTerritory(code);
             showTerritoryPanel(code);
         };
 
+        /* Desktop hover → show tooltip */
         MapRenderer.onHover = (code, e) => {
-            showTooltip(code, e);
+            showTooltip(code, e, false);
         };
 
         MapRenderer.onLeave = () => {
             hideTooltip();
         };
+
+        /* Mobile tap → show tooltip (interactive, with X close button) */
+        MapRenderer.onTap = (code, e) => {
+            if (tooltipTerritoryCode === code) {
+                /* Tapping same territory again → open sidebar */
+                hideTooltip();
+                MapRenderer.selectTerritory(code);
+                showTerritoryPanel(code);
+            } else {
+                showTooltip(code, e, true);
+            }
+        };
+
+        /* Close tooltip when tapping outside on mobile */
+        document.addEventListener('click', e => {
+            if (!tooltipTerritoryCode) return;
+            const tt = els['map-tooltip'];
+            if (!tt) return;
+            if (tt.contains(e.target)) return;  // click inside tooltip handled separately
+            hideTooltip();
+        });
+        document.addEventListener('touchend', e => {
+            if (!tooltipTerritoryCode) return;
+            const tt = els['map-tooltip'];
+            if (!tt || tt.classList.contains('hidden')) return;
+            /* Give a small delay so the tap handler fires first */
+            setTimeout(() => {
+                if (!tooltipTerritoryCode) return;
+                const touch = e.changedTouches?.[0];
+                if (!touch) return;
+                const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (el && (tt.contains(el) || el === tt)) return;
+                /* Check if it's inside the SVG (territory tap handled by onTap) */
+                const mapCont = els['map-container'];
+                if (mapCont && mapCont.contains(el)) return;
+                hideTooltip();
+            }, 50);
+        });
     }
 
     /* ════════════════ TOOLTIP ════════════════ */
-    function showTooltip(code, e) {
+    /**
+     * @param {string}  code        — territory code
+     * @param {object}  e           — event with clientX/clientY
+     * @param {boolean} interactive — true on mobile tap: adds close X, click-to-open-sidebar
+     */
+    function showTooltip(code, e, interactive) {
         const tt = els['map-tooltip'];
         if (!tt) return;
         const state = GameEngine.getState();
         if (!state) return;
+
+        tooltipTerritoryCode = code;
 
         const owner = state.territories[code] || code;
         const n = state.nations[owner];
@@ -98,7 +159,15 @@ const UI = (() => {
         const atWar = GameEngine.isAtWar(state.player, owner);
         const isAlly = GameEngine.isAlly(state.player, owner);
 
-        let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">`;
+        let html = '';
+
+        /* Mobile close button */
+        if (interactive) {
+            html += `<button class="tt-close" id="tt-close-btn">✕</button>`;
+        }
+
+        html += `<div class="tt-body">`;
+        html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">`;
         const ownerColor = n?.color || '#607d8b';
         html += `<div style="width:14px;height:14px;border-radius:50%;background:${ownerColor};border:2px solid rgba(255,255,255,0.3);flex-shrink:0;"></div>`;
         html += `<div class="tt-name">${tBase.flag || '🏳️'} ${tBase.name || code.toUpperCase()}</div>`;
@@ -163,16 +232,88 @@ const UI = (() => {
             }
         }
 
+        /* Mobile hint to tap for details */
+        if (interactive) {
+            html += `<div class="tt-hint">👆 Tocca per i dettagli</div>`;
+        }
+
+        html += `</div>`; // close .tt-body
+
         tt.innerHTML = html;
+        parseEmoji(tt);
         tt.classList.remove('hidden');
+
+        /* Toggle interactive class for CSS pointer-events */
+        if (interactive) {
+            tt.classList.add('tt-interactive');
+        } else {
+            tt.classList.remove('tt-interactive');
+        }
+
+        /* Position tooltip */
         const rect = els['map-container'].getBoundingClientRect();
-        tt.style.left = (e.clientX - rect.left + 15) + 'px';
-        tt.style.top  = (e.clientY - rect.top - 10) + 'px';
+        let left = e.clientX - rect.left + 15;
+        let top  = e.clientY - rect.top - 10;
+
+        /* On mobile interactive tooltip, clamp position so it stays within the map */
+        if (interactive) {
+            const ttW = tt.offsetWidth || 200;
+            const ttH = tt.offsetHeight || 120;
+            if (left + ttW > rect.width - 10) left = rect.width - ttW - 10;
+            if (left < 10) left = 10;
+            if (top + ttH > rect.height - 10) top = rect.height - ttH - 10;
+            if (top < 10) top = 10;
+        }
+
+        tt.style.left = left + 'px';
+        tt.style.top  = top + 'px';
+
+        /* Bind close button and body click for mobile */
+        if (interactive) {
+            const closeBtn = document.getElementById('tt-close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    hideTooltip();
+                });
+                closeBtn.addEventListener('touchend', (ev) => {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    hideTooltip();
+                });
+            }
+            const ttBody = tt.querySelector('.tt-body');
+            if (ttBody) {
+                ttBody.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    const clickedCode = tooltipTerritoryCode;
+                    hideTooltip();
+                    if (clickedCode) {
+                        MapRenderer.selectTerritory(clickedCode);
+                        showTerritoryPanel(clickedCode);
+                    }
+                });
+                ttBody.addEventListener('touchend', (ev) => {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    const clickedCode = tooltipTerritoryCode;
+                    hideTooltip();
+                    if (clickedCode) {
+                        MapRenderer.selectTerritory(clickedCode);
+                        showTerritoryPanel(clickedCode);
+                    }
+                });
+            }
+        }
     }
 
     function hideTooltip() {
         const tt = els['map-tooltip'];
-        if (tt) tt.classList.add('hidden');
+        if (tt) {
+            tt.classList.add('hidden');
+            tt.classList.remove('tt-interactive');
+        }
+        tooltipTerritoryCode = null;
     }
 
     /* ════════════════ NATION SELECT ════════════════ */
@@ -207,6 +348,7 @@ const UI = (() => {
             card.addEventListener('click', () => selectNationCard(code));
             grid.appendChild(card);
         });
+        parseEmoji(grid);
     }
 
     function selectNationCard(code) {
@@ -300,6 +442,7 @@ const UI = (() => {
 
         /* Update map legend */
         updateMapLegend();
+        parseEmoji(els['top-hud']);
     }
 
     function updateMapLegend() {
@@ -354,9 +497,8 @@ const UI = (() => {
         });
 
         legend.innerHTML = html;
+        parseEmoji(legend);
     }
-
-    /* ════════════════ NATION DETAIL (from legend click) ════════════════ */
     function showNationDetail(code) {
         const state = GameEngine.getState();
         if (!state) return;
@@ -458,6 +600,7 @@ const UI = (() => {
             actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">🕵️ Spia (30💰)</button>`;
         }
         els['panel-actions'].innerHTML = actHtml;
+        parseEmoji(els['left-panel']);
     }
 
     function updateMilitaryBar() {
@@ -577,17 +720,59 @@ const UI = (() => {
                 const sCol = strengthColors[g.strength] || '#607d8b';
                 garHtml += `<div class="res-row"><span>Forza</span><span class="val" style="color:${sCol};">${g.strength.toUpperCase()} (${g.total.toFixed(0)} unità)</span></div>`;
                 garHtml += `<div class="res-row"><span>Tipo Dominante</span><span class="val">${g.icon} ${g.dominant}</span></div>`;
-                const revoltMod = g.strength === 'heavy' ? '-5%' : g.strength === 'medium' ? '-3%' : g.strength === 'light' ? '-1%' : '+4%';
+                const revoltMod = g.strength === 'heavy' ? '-6' : g.strength === 'medium' ? '-4' : g.strength === 'light' ? '-2' : '+5';
                 const revColor = g.strength === 'none' ? '#ff1744' : '#00e676';
-                garHtml += `<div class="res-row"><span>Mod. Rivolta</span><span class="val" style="color:${revColor};">${revoltMod}</span></div>`;
+                garHtml += `<div class="res-row"><span>Mod. Malcontento</span><span class="val" style="color:${revColor};">${revoltMod}/turno</span></div>`;
             } else {
-                garHtml += `<div class="res-row"><span style="color:#ff1744;">⚠ Nessuna guarnigione — rischio rivolta elevato (+4%)</span></div>`;
+                garHtml += `<div class="res-row"><span style="color:#ff1744;">⚠ Nessuna guarnigione — malcontento elevato (+5/turno)</span></div>`;
             }
         } else {
             garHtml += '<div class="res-row"><span style="color:var(--text-dim)">Non disponibile</span></div>';
         }
+
+        /* Unrest bar for conquered territories */
+        if (code !== owner && typeof GameEngine.getUnrest === 'function') {
+            const unrest = GameEngine.getUnrest(code);
+            if (unrest > 0) {
+                const barColor = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
+                const label = unrest >= 80 ? '🔴 CRITICO' : unrest >= 60 ? '🟠 ALTO' : unrest >= 40 ? '🟡 MEDIO' : '🟢 BASSO';
+                garHtml += `<div class="res-row"><span>🔥 Malcontento</span><span class="val" style="color:${barColor};">${label} ${Math.round(unrest)}%</span></div>`;
+                garHtml += `<div class="unrest-bar-mini"><div class="unrest-bar-mini-fill" style="width:${unrest}%;background:${barColor}"></div></div>`;
+                if (unrest >= 60) {
+                    garHtml += `<div class="res-row"><span style="color:#ff9100;font-size:0.65rem;">⚠ Rivolta imminente se raggiunge 100%!</span></div>`;
+                }
+            }
+        }
+
         /* Insert garrison section after military */
         els['panel-military'].innerHTML += garHtml;
+
+        /* Reachability indicator for non-own territories (same info as tooltip) */
+        if (!isMyTerritory && typeof canReachTerritory === 'function') {
+            const playerN = state.nations[state.player];
+            if (playerN && playerN.alive) {
+                let reachHtml = '<h4>📡 RAGGIUNGIBILITÀ</h4>';
+                const reach = canReachTerritory(state.player, code, playerN.army);
+                if (reach.reachable) {
+                    const methodLabels = {
+                        land: '🗺️ Via terra', sea_transport: '⚓ Via mare',
+                        naval: '⚓ Via mare', air: '✈️ Via aerea', missile: '🚀 Missilistico'
+                    };
+                    const supportLabels = {
+                        missile: '🚀 missilistico', air: '✈️ aereo', naval: '⚓ navale'
+                    };
+                    let methodLabel = methodLabels[reach.method] || 'Raggiungibile';
+                    reachHtml += `<div class="res-row"><span style="color:#00e676;">✅ ${methodLabel}</span></div>`;
+                    if (reach.support && reach.support.length > 0) {
+                        const supText = reach.support.map(s => supportLabels[s] || s).join(', ');
+                        reachHtml += `<div class="res-row"><span style="color:#90caf9;font-size:0.7rem;">+ Supporto: ${supText}</span></div>`;
+                    }
+                } else {
+                    reachHtml += `<div class="res-row"><span style="color:#ff6e40;">🚫 Non raggiungibile</span></div>`;
+                }
+                els['panel-military'].innerHTML += reachHtml;
+            }
+        }
 
         /* ── Actions ── */
         let actHtml = '';
@@ -597,6 +782,21 @@ const UI = (() => {
             actHtml += `<button class="btn-action btn-build" onclick="UI.showProduction()">\u{1F3ED} Produci Unit\u00E0</button>`;
             actHtml += `<button class="btn-action btn-move" onclick="UI.showTechTree()">\u{1F52C} Ricerca Tecnologica</button>`;
             actHtml += `<button class="btn-action btn-move" onclick="UI.showEconomy()">\u{1F4CA} Panoramica Economica</button>`;
+
+            /* Suppress unrest button on conquered territories with unrest */
+            if (code !== state.player && typeof GameEngine.getUnrest === 'function') {
+                const unrestLvl = GameEngine.getUnrest(code);
+                if (unrestLvl > 0) {
+                    const playerN = state.nations[state.player];
+                    const canDo = (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
+                    actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Controllo Territorio</div>`;
+                    if (canDo) {
+                        actHtml += `<button class="btn-action" style="border-color:#ff6e40;color:#ff6e40;background:rgba(255,110,64,0.08)" onclick="UI.doSuppressUnrest('${code}');">🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
+                    } else {
+                        actHtml += `<button class="btn-action" style="border-color:#ff6e40;color:#ff6e40;opacity:0.4;background:rgba(255,110,64,0.08)" disabled>🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
+                    }
+                }
+            }
         } else {
             /* FOREIGN TERRITORY ACTIONS */
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Azioni Militari</div>`;
@@ -634,9 +834,8 @@ const UI = (() => {
         }
 
         els['panel-actions'].innerHTML = actHtml;
+        parseEmoji(els['left-panel']);
     }
-
-    /* ════════════════ ATTACK ════════════════ */
     function doAttack(targetTerritory) {
         const state = GameEngine.getState();
         if (!state || state.phase !== 'player') return;
@@ -744,6 +943,85 @@ const UI = (() => {
         setTimeout(() => { popup.classList.add('hidden'); }, 6000);
     }
 
+    /* ════════════════ REVOLT ALERT ════════════════ */
+    /**
+     * Show pre-revolt warning to the player at turn start.
+     * Lists all conquered territories with unrest ≥ 40 (warning) or ≥ 70 (critical).
+     * "Seda Rivolta" button lets player spend resources to quell.
+     */
+    function showRevoltAlert() {
+        if (!GameEngine.getUnrestList) return;
+        const state = GameEngine.getState();
+        if (!state) return;
+        const list = GameEngine.getUnrestList(state.player);
+        /* Only alert for territories with unrest ≥ 40 */
+        const alertList = list.filter(t => t.unrest >= 40);
+        if (alertList.length === 0) return;
+
+        const display = els['revolt-alert-display'];
+        if (!display) return;
+
+        let html = `<div style="font-size:0.75rem;color:#ffab91;margin-bottom:10px;">
+            ⚠️ I seguenti territori conquistati mostrano segni di <strong>instabilità</strong>.<br>
+            Se il malcontento raggiunge il 100%, scoppierà una rivolta!
+        </div>`;
+
+        alertList.forEach(t => {
+            const pct = Math.round(t.unrest);
+            const barColor = pct >= 80 ? '#ff1744' : pct >= 60 ? '#ff9100' : '#ffd740';
+            const urgency = pct >= 80 ? '🔴 CRITICO' : pct >= 60 ? '🟠 ALTO' : '🟡 ATTENZIONE';
+            const playerN = state.nations[state.player];
+            const canSuppress = (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
+
+            html += `<div class="revolt-territory" id="revolt-row-${t.territory}">
+                <div class="revolt-info">
+                    <div class="revolt-name">${t.flag} ${t.name}</div>
+                    <div class="revolt-unrest-bar">
+                        <div class="revolt-unrest-fill" style="width:${pct}%;background:${barColor}"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span class="revolt-unrest-label" style="color:${barColor}">${urgency} — ${pct}%</span>
+                        <span class="revolt-gain">+${t.gain}/turno</span>
+                    </div>
+                </div>
+                <div style="text-align:center">
+                    <button class="revolt-btn-suppress" ${canSuppress ? '' : 'disabled'}
+                        onclick="UI.doSuppressUnrest('${t.territory}')">
+                        🛡️ SEDA
+                    </button>
+                    <div class="revolt-cost">💰15 + 🪖2</div>
+                </div>
+            </div>`;
+        });
+
+        display.innerHTML = html;
+        parseEmoji(els['revolt-alert-popup']);
+        show('revolt-alert-popup');
+    }
+
+    /** Suppress unrest from the revolt alert popup */
+    function doSuppressUnrest(tCode) {
+        const result = GameEngine.suppressUnrest(tCode);
+        if (!result.success) {
+            addEventToLog({ turn: GameEngine.getState().turn, type: 'game', msg: `❌ ${result.reason}` });
+            return;
+        }
+        /* Refresh the popup and HUD */
+        showRevoltAlert();
+        updateHUD();
+        updateMilitaryBar();
+        MapRenderer.colourAllTerritories();
+        /* Refresh left panel if the territory is selected */
+        if (typeof showTerritoryDetail === 'function') showTerritoryDetail(tCode);
+        /* If no more alerts, auto-close */
+        const state = GameEngine.getState();
+        const remaining = (GameEngine.getUnrestList(state.player) || []).filter(t => t.unrest >= 40);
+        if (remaining.length === 0) {
+            hide('revolt-alert-popup');
+            addEventToLog({ turn: state.turn, type: 'game', msg: '✅ Tutte le rivolte sono state sedate!' });
+        }
+    }
+
     function showBattleResult(result) {
         show('battle-popup');
         const state = GameEngine.getState();
@@ -817,9 +1095,10 @@ const UI = (() => {
         html += `</div>`;
 
         els['battle-display'].innerHTML = html;
+        parseEmoji(els['battle-popup']);
     }
 
-    /* ════════════════ SANCTION ════════════════ */
+    /* ════════════════ SANCTION ════════════════ */  
     function doSanction(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
@@ -1057,6 +1336,7 @@ const UI = (() => {
         html += renderSection('ALTRE NAZIONI', '\ud83c\udf0d', '#42a5f5', others);
 
         els['diplomacy-display'].innerHTML = html;
+        parseEmoji(els['diplomacy-popup']);
     }
 
     function doPeace(code) {
@@ -1319,6 +1599,7 @@ const UI = (() => {
 
             addEventToLog({ turn: state.turn, type:'tech', msg:`🕵️ <span class="evt-action">Intel ottenuta su</span> ${fmtNation(tn)}` });
             show('spy-popup');
+            parseEmoji(els['spy-popup-display']);
         } else {
             /* FAILURE — captured */
             spyTitle.textContent = '🕵️ MISSIONE FALLITA';
@@ -1334,6 +1615,7 @@ const UI = (() => {
             GameEngine.adjustRelation(targetCode, state.player, -25);
             addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ <span class="evt-action">Spia catturata in</span> ${fmtNation(tn)} <span class="evt-action">(-25)</span>` });
             show('spy-popup');
+            parseEmoji(els['spy-popup-display']);
         }
         updateHUD();
         hide('diplomacy-popup');
@@ -1601,6 +1883,11 @@ const UI = (() => {
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
 
+        /* Show revolt alert to player if any territory has high unrest */
+        if (!autoPlayMode && !playerDead) {
+            showRevoltAlert();
+        }
+
         /* Refresh spectator/autoplay banner year */
         if (autoPlayMode) updateAutoPlayBanner();
 
@@ -1811,6 +2098,11 @@ const UI = (() => {
                 type = 'battle';
                 break;
             }
+            case 'suppress_unrest': {
+                msg = `🛡️ ${me} <span class="evt-action">seda rivolta in</span> ${tgt(action.target)}`;
+                type = 'game';
+                break;
+            }
             default: {
                 msg = `${me}: ${action.type}`;
             }
@@ -1967,6 +2259,7 @@ const UI = (() => {
         const div = document.createElement('div');
         div.className = `event-item ${typeMap[entry.type] || ''} ${ownerClass}`.trim();
         div.innerHTML = `<span class="evt-turn">T${entry.turn}</span> ${entry.msg}`;
+        parseEmoji(div);
         log.appendChild(div);
 
         /* Auto-scroll only if in LIVE mode */
@@ -2012,6 +2305,7 @@ const UI = (() => {
             <div class="go-stat"><div class="label">Territori</div><div class="val">${victorTerr}/${totalTerr}</div></div>
             <div class="go-stat"><div class="label">Fondi</div><div class="val">💰${n.res.money}</div></div>
         `;
+        parseEmoji(els['gameover-popup']);
     }
 
     /* ════════════════ HELPERS ════════════════ */
@@ -2042,6 +2336,7 @@ const UI = (() => {
         doNukeStrike,
         doPeaceFromPanel,
         doAllyFromPanel,
+        doSuppressUnrest,
         addEventToLog,
         startAutoPlay,
         stopAutoPlay

@@ -2,6 +2,9 @@
    GeoDominion — Global Strategy Game Stylesheet
    ═══════════════════════════════════════════════════════ */
 
+/* Twemoji: ensure flag emoji images display inline at proper size */
+img.emoji { height: 1.1em; width: 1.1em; margin: 0 .05em 0 .1em; vertical-align: -0.15em; display: inline; }
+
 :root {
     --bg-dark: #0a0e17;
     --bg-panel: #111827;
@@ -267,9 +270,52 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     max-width: 250px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
+/* When tooltip is interactive (mobile tap), enable pointer events */
+.map-tooltip.tt-interactive {
+    pointer-events: auto;
+    cursor: pointer;
+}
 .map-tooltip .tt-name { font-family: var(--font-title); color: var(--accent); font-size: 0.85rem; margin-bottom: 4px; }
 .map-tooltip .tt-owner { color: var(--text-dim); font-size: 0.7rem; }
 .map-tooltip .tt-res { margin-top: 6px; font-family: var(--font-mono); font-size: 0.75rem; }
+
+/* Tooltip close button (mobile only) */
+.map-tooltip .tt-close {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 22px; height: 22px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    line-height: 1;
+    z-index: 2;
+    transition: background 0.15s, color 0.15s;
+}
+.map-tooltip .tt-close:hover,
+.map-tooltip .tt-close:active {
+    background: rgba(255,61,113,0.2);
+    color: var(--accent2);
+}
+
+/* Tooltip body (clickable area for opening sidebar on mobile) */
+.map-tooltip .tt-body {
+    cursor: pointer;
+}
+
+/* Hint text for mobile */
+.map-tooltip .tt-hint {
+    margin-top: 8px;
+    font-size: 0.65rem;
+    color: var(--accent);
+    text-align: center;
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+}
 
 /* SIDE PANELS */
 .side-panel {
@@ -456,6 +502,33 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .battle-result { text-align: center; font-family: var(--font-title); font-size: 0.95rem; margin: 8px 0; padding: 8px; border-radius: 6px; }
 .battle-result.win { background: rgba(0,230,118,0.15); color: var(--green); }
 .battle-result.lose { background: rgba(255,23,68,0.15); color: var(--red); }
+
+/* ── Revolt Alert ── */
+.revolt-alert-content { max-width: 520px; }
+.revolt-alert-content h3 { color: #ff6e40; }
+.revolt-territory {
+    display: flex; align-items: center; gap: 10px; padding: 10px;
+    margin: 6px 0; border-radius: 8px;
+    background: rgba(255,110,64,0.08); border: 1px solid rgba(255,110,64,0.25);
+}
+.revolt-territory .revolt-info { flex: 1; min-width: 0; }
+.revolt-territory .revolt-name { font-weight: 700; font-size: 0.85rem; }
+.revolt-territory .revolt-gain { font-size: 0.65rem; color: #ff9100; margin-top: 2px; }
+.revolt-unrest-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; margin: 4px 0; width: 100%; }
+.revolt-unrest-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.revolt-unrest-label { font-size: 0.65rem; font-family: var(--font-mono); }
+.revolt-btn-suppress {
+    padding: 5px 12px; border-radius: 6px; border: 1px solid #00e676;
+    background: rgba(0,230,118,0.12); color: #00e676; cursor: pointer;
+    font-weight: 700; font-size: 0.7rem; white-space: nowrap; transition: background 0.2s;
+}
+.revolt-btn-suppress:hover { background: rgba(0,230,118,0.25); }
+.revolt-btn-suppress:disabled { opacity: 0.4; cursor: not-allowed; }
+.revolt-cost { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; text-align: center; }
+
+/* Unrest bar in tooltip */
+.unrest-bar-mini { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 3px 0; }
+.unrest-bar-mini-fill { height: 100%; border-radius: 3px; }
 
 /* HUD resource income indicator */
 .hud-res .res-inc { color: var(--green); font-size: 0.65rem; margin-left: 2px; }
@@ -938,7 +1011,9 @@ body.spectator-active .side-panel {
 
     /* Map */
     #map-container { touch-action: none; }
-    .map-tooltip { font-size: 0.7rem; padding: 6px 10px; max-width: 180px; }
+    .map-tooltip { font-size: 0.7rem; padding: 8px 12px; max-width: 220px; }
+    .map-tooltip.tt-interactive { padding: 10px 14px; padding-top: 28px; }
+    .map-tooltip .tt-hint { font-size: 0.6rem; }
     .map-legend { max-height: 30vh; min-width: 140px; font-size: 0.65rem; padding: 6px 8px; bottom: 40px; }
 
     /* Popups */
