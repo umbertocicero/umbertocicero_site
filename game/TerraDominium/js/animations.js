@@ -12,7 +12,7 @@ const Animations = (() => {
     let trails     = [];   // persistent TrailTrace objects (survive full turn)
     let running    = false;
     let speedMult  = 1;    // 1 = normal, 1.8 = spectator (faster missiles)
-    const MAX_TRAILS = 15; // cap visible trails to avoid visual clutter
+    const MAX_TRAILS = 10; // cap visible trails for performance
 
     /* ── helper: compute arc point at parameter t ── */
     function arcPoint(from, to, t, arcFactor) {
@@ -29,13 +29,27 @@ const Animations = (() => {
 
     /* ════════════════ PARTICLE ════════════════ */
     class Particle {
-        constructor(x, y, color, vx, vy, life) {
+        constructor(x, y, color, vx, vy, life, anchorCode) {
+            /* anchorCode lets the particle follow pan/zoom relative to a territory */
+            this.anchorCode = anchorCode || null;
+            this._ox = 0; this._oy = 0;  // offset from anchor screen pos
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this._ox = x - aPos.x; this._oy = y - aPos.y; }
+            }
             this.x = x; this.y = y; this.color = color;
             this.vx = vx; this.vy = vy;
             this.life = life; this.maxLife = life;
             this.size = 2 + Math.random() * 3;
         }
-        update() { this.x += this.vx; this.y += this.vy; this.vy += 0.05; this.life--; }
+        update() {
+            this._ox += this.vx; this._oy += this.vy;
+            this.vy += 0.05; this.life--;
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this.x = aPos.x + this._ox; this.y = aPos.y + this._oy; }
+            } else { this.x += this.vx; this.y += this.vy; }
+        }
         draw(ctx) {
             const a = this.life / this.maxLife;
             ctx.globalAlpha = a; ctx.fillStyle = this.color;
@@ -60,7 +74,7 @@ const Animations = (() => {
             this.success  = success;
             this.label    = label;
             this.born     = Date.now();
-            this.steps    = 50; // arc resolution
+            this.steps    = 20; // arc resolution (reduced for perf)
         }
         draw(ctx) {
             /* Recompute screen positions each frame → zoom/pan correct */
@@ -87,22 +101,23 @@ const Animations = (() => {
             for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
             ctx.stroke();
 
-            /* Inner white line */
-            ctx.globalAlpha = pulse * 0.7;
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-            ctx.stroke();
+            /* Inner white line + dashed guide — skip in fast mode for perf */
+            if (speedMult <= 1) {
+                ctx.globalAlpha = pulse * 0.7;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.stroke();
 
-            /* Dashed straight guide */
-            ctx.globalAlpha = pulse * 0.12;
-            ctx.strokeStyle = this.color;
-            ctx.lineWidth = 1;
-            ctx.setLineDash([5, 4]);
-            ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
-            ctx.setLineDash([]);
+                ctx.globalAlpha = pulse * 0.12;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 4]);
+                ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+                ctx.setLineDash([]);
+            }
 
             /* Origin dot + ring */
             ctx.globalAlpha = pulse * 0.7;
@@ -148,11 +163,11 @@ const Animations = (() => {
                 ctx.fillText(this.label, mx, my + 2);
             }
         }
-        /* Trails older than 12 seconds start fading, gone at 18s */
+        /* Trails older than 6s start fading, gone at 10s */
         get opacity() {
             const age = (Date.now() - this.born) / 1000;
-            if (age < 12) return 1;
-            return Math.max(0, 1 - (age - 12) / 6);
+            if (age < 6) return 1;
+            return Math.max(0, 1 - (age - 6) / 4);
         }
         get dead() { return this.opacity <= 0; }
     }
@@ -160,8 +175,8 @@ const Animations = (() => {
     /* ════════════════ MISSILE ════════════════ */
     class Missile {
         /**
-         * @param {Object} from       – {x,y} screen start
-         * @param {Object} to         – {x,y} screen target
+         * @param {Object} from       – {x,y} screen start (snapshot — used only as fallback)
+         * @param {Object} to         – {x,y} screen target (snapshot — used only as fallback)
          * @param {string} color      – hex colour
          * @param {Function} onImpact – callback(x,y)
          * @param {string} fromCode   – territory code of origin
@@ -171,9 +186,9 @@ const Animations = (() => {
          * @param {string} [category] – 'air'|'sea'|'ground'|'missile' (default 'ground')
          */
         constructor(from, to, color, onImpact, fromCode, toCode, success, label, category) {
-            this.from = from; this.to = to;
-            this.color = color; this.onImpact = onImpact;
+            this.fromSnap = { ...from }; this.toSnap = { ...to };
             this.fromCode = fromCode; this.toCode = toCode;
+            this.color = color; this.onImpact = onImpact;
             this.success = success; this.label = label;
             this.category = category || 'ground';
             this.arcFactor = ARC_FACTORS[this.category] || 0.3;
@@ -184,54 +199,62 @@ const Animations = (() => {
                             : this.category === 'sea'     ? 0.009
                             : 0.011;
             this.speed = (baseSpeed + Math.random() * 0.004) * speedMult;
-            this.trail = [];
+            this.trail = [];  // stores {t} parametric values, redrawn in screen space each frame
         }
+        /** Get live screen positions (recomputed each frame for zoom/pan) */
+        _from() { return (this.fromCode && MapRenderer.getTerritoryScreenPos(this.fromCode)) || this.fromSnap; }
+        _to()   { return (this.toCode   && MapRenderer.getTerritoryScreenPos(this.toCode))   || this.toSnap; }
         update() {
             this.t += this.speed;
-            const c = Math.min(this.t, 1);
-            const pt = arcPoint(this.from, this.to, c, this.arcFactor);
-            this.trail.push(pt);
+            this.trail.push(this.t);
             if (this.trail.length > 45) this.trail.shift();
 
             if (this.t >= 1) {
                 trails.push(new TrailTrace(this.fromCode, this.toCode, this.color, this.success, this.label));
                 while (trails.length > MAX_TRAILS) trails.shift();
-                if (this.onImpact) this.onImpact(this.to.x, this.to.y);
+                const to = this._to();
+                if (this.onImpact) this.onImpact(to.x, to.y, this.toCode);
             }
         }
-        /** Compute heading angle from previous trail point */
-        _heading() {
-            if (this.trail.length < 2) return 0;
-            const a = this.trail[this.trail.length - 2];
-            const b = this.trail[this.trail.length - 1];
+        /** Compute heading angle from last two trail points */
+        _heading(pts) {
+            if (pts.length < 2) return 0;
+            const a = pts[pts.length - 2];
+            const b = pts[pts.length - 1];
             return Math.atan2(b.y - a.y, b.x - a.x);
         }
         draw(ctx) {
+            const from = this._from();
+            const to   = this._to();
+
+            /* Convert parametric trail → screen points */
+            const pts = this.trail.map(tVal => arcPoint(from, to, Math.min(tVal, 1), this.arcFactor));
+
             /* Dashed guide */
             ctx.globalAlpha = 0.15; ctx.strokeStyle = this.color;
             ctx.lineWidth = 1; ctx.setLineDash([6, 4]);
-            ctx.beginPath(); ctx.moveTo(this.from.x, this.from.y); ctx.lineTo(this.to.x, this.to.y);
+            ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
             ctx.stroke(); ctx.setLineDash([]);
 
             /* Trail glow — colour varies by category */
             const trailColor = this.category === 'sea' ? '#4fc3f7'
                              : this.category === 'missile' ? '#ff6e40'
                              : this.color;
-            for (let i = 1; i < this.trail.length; i++) {
-                const pct = i / this.trail.length;
+            for (let i = 1; i < pts.length; i++) {
+                const pct = i / pts.length;
                 ctx.globalAlpha = pct * 0.85;
                 ctx.strokeStyle = trailColor;
                 ctx.lineWidth = 2 + pct * 4;
                 ctx.beginPath();
-                ctx.moveTo(this.trail[i - 1].x, this.trail[i - 1].y);
-                ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
+                ctx.lineTo(pts[i].x, pts[i].y);
                 ctx.stroke();
             }
 
             /* Head — category-specific shape */
-            if (this.trail.length > 1) {
-                const h = this.trail[this.trail.length - 1];
-                const angle = this._heading();
+            if (pts.length > 1) {
+                const h = pts[pts.length - 1];
+                const angle = this._heading(pts);
                 ctx.save();
                 ctx.translate(h.x, h.y);
                 ctx.rotate(angle);
@@ -305,14 +328,14 @@ const Animations = (() => {
             /* Origin ring */
             ctx.globalAlpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.15;
             ctx.strokeStyle = this.color; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(this.from.x, this.from.y, 10, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(from.x, from.y, 10, 0, Math.PI * 2); ctx.stroke();
 
             /* Target crosshair */
             ctx.globalAlpha = 0.3; ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 1.5;
             const sz = 9;
             ctx.beginPath();
-            ctx.moveTo(this.to.x - sz, this.to.y); ctx.lineTo(this.to.x + sz, this.to.y);
-            ctx.moveTo(this.to.x, this.to.y - sz); ctx.lineTo(this.to.x, this.to.y + sz);
+            ctx.moveTo(to.x - sz, to.y); ctx.lineTo(to.x + sz, to.y);
+            ctx.moveTo(to.x, to.y - sz); ctx.lineTo(to.x, to.y + sz);
             ctx.stroke();
         }
         get dead() { return this.t >= 1; }
@@ -320,12 +343,24 @@ const Animations = (() => {
 
     /* ════════════════ EXPLOSION ════════════════ */
     class Explosion {
-        constructor(x, y, radius, color, isNuke) {
+        constructor(x, y, radius, color, isNuke, anchorCode) {
+            this.anchorCode = anchorCode || null;
+            this._ox = 0; this._oy = 0;
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this._ox = x - aPos.x; this._oy = y - aPos.y; }
+            }
             this.x = x; this.y = y; this.maxR = radius; this.r = 0;
             this.color = color; this.isNuke = isNuke;
             this.life = isNuke ? 90 : 45; this.maxLife = this.life;
         }
-        update() { this.r += (this.maxR - this.r) * 0.1; this.life--; }
+        update() {
+            this.r += (this.maxR - this.r) * 0.1; this.life--;
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this.x = aPos.x + this._ox; this.y = aPos.y + this._oy; }
+            }
+        }
         draw(ctx) {
             const a = this.life / this.maxLife;
             ctx.globalAlpha = a * 0.6;
@@ -350,11 +385,23 @@ const Animations = (() => {
 
     /* ════════════════ TEXT POPUP ════════════════ */
     class TextPopup {
-        constructor(x, y, text, color) {
+        constructor(x, y, text, color, anchorCode) {
+            this.anchorCode = anchorCode || null;
+            this._ox = 0; this._oy = 0;
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this._ox = x - aPos.x; this._oy = y - aPos.y; }
+            }
             this.x = x; this.y = y; this.text = text; this.color = color;
             this.life = 60; this.maxLife = 60; this.vy = -1;
         }
-        update() { this.y += this.vy; this.vy *= 0.97; this.life--; }
+        update() {
+            this._oy += this.vy; this.vy *= 0.97; this.life--;
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this.x = aPos.x + this._ox; this.y = aPos.y + this._oy; }
+            } else { this.y += this.vy; }
+        }
         draw(ctx) {
             const a = this.life / this.maxLife;
             ctx.globalAlpha = a; ctx.font = 'bold 12px Rajdhani, sans-serif'; ctx.textAlign = 'center';
@@ -366,11 +413,23 @@ const Animations = (() => {
 
     /* ════════════════ BIG LABEL ════════════════ */
     class BigLabel {
-        constructor(x, y, text, color, size = 16, duration = 90) {
+        constructor(x, y, text, color, size = 16, duration = 90, anchorCode) {
+            this.anchorCode = anchorCode || null;
+            this._ox = 0; this._oy = 0;
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this._ox = x - aPos.x; this._oy = y - aPos.y; }
+            }
             this.x = x; this.y = y; this.text = text; this.color = color;
             this.size = size; this.life = duration; this.maxLife = duration; this.vy = -0.6;
         }
-        update() { this.y += this.vy; this.vy *= 0.98; this.life--; }
+        update() {
+            this._oy += this.vy; this.vy *= 0.98; this.life--;
+            if (this.anchorCode) {
+                const aPos = MapRenderer.getTerritoryScreenPos(this.anchorCode);
+                if (aPos) { this.x = aPos.x + this._ox; this.y = aPos.y + this._oy; }
+            } else { this.y += this.vy; }
+        }
         draw(ctx) {
             const a = Math.min(1, this.life / (this.maxLife * 0.3));
             ctx.globalAlpha = a;
@@ -420,82 +479,82 @@ const Animations = (() => {
     function spawnBattleFX(fromCode, toCode, success, atkInfo, defInfo) {
         const from = MapRenderer.getTerritoryScreenPos(fromCode);
         const to   = MapRenderer.getTerritoryScreenPos(toCode);
-        if (!from || !to) {
-            console.warn(`[FX] Cannot animate: from=${fromCode} to=${toCode}`);
-            return;
-        }
+        if (!from || !to) return;
 
         const missileColor = atkInfo?.color || '#ff1744';
         const atkName  = atkInfo?.name || fromCode.toUpperCase();
         const defName  = defInfo?.name || toCode.toUpperCase();
-        const trailLbl = `${atkName}  -->  ${defName}`;
+        const trailLbl = `${atkName}  →  ${defName}`;
 
         /* Determine attack style based on dominant unit */
         const atkUnit = getDominantAttackUnit(atkInfo?.code || fromCode);
 
         /* Main missile — shaped by attack category */
         const cat = atkUnit.category;
-        missiles.push(new Missile(from, to, missileColor, (x, y) => {
+        missiles.push(new Missile(from, to, missileColor, (x, y, impactCode) => {
             const ec = success ? '#00e676' : '#ff1744';
             const exSize = cat === 'missile' ? 55 : 40 + Math.random() * 15;
-            explosions.push(new Explosion(x, y, exSize, ec, false));
+            explosions.push(new Explosion(x, y, exSize, ec, false, impactCode));
             const pCount = speedMult > 1 ? 12 : 25;
             for (let i = 0; i < pCount; i++) {
                 particles.push(new Particle(x, y, ec,
                     (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6 - 2,
-                    30 + Math.random() * 20));
+                    30 + Math.random() * 20, impactCode));
             }
             const lbl = success ? 'CONQUISTATO!' : 'RESPINTO';
-            textPopups.push(new BigLabel(x, y - 15, lbl, ec, 15, 90));
+            textPopups.push(new BigLabel(x, y - 15, lbl, ec, 15, 90, impactCode));
         }, fromCode, toCode, success, trailLbl, cat));
 
-        /* Secondary projectiles for air/naval/missile attacks (adds visual variety) */
-        if (cat === 'air' && !(speedMult > 1.5)) {
+        /* Secondary projectiles — skip entirely in spectator/fast mode */
+        if (cat === 'air' && speedMult <= 1) {
             /* Spawn 1-2 additional "escort" jets with slight offset */
             const escorts = speedMult > 1 ? 1 : 2;
             for (let i = 0; i < escorts; i++) {
-                const offFrom = { x: from.x + (Math.random()-0.5)*20, y: from.y + (Math.random()-0.5)*15 };
-                const offTo   = { x: to.x + (Math.random()-0.5)*15, y: to.y + (Math.random()-0.5)*10 };
                 setTimeout(() => {
-                    missiles.push(new Missile(offFrom, offTo, missileColor, (x, y) => {
+                    const fLive = MapRenderer.getTerritoryScreenPos(fromCode) || from;
+                    const tLive = MapRenderer.getTerritoryScreenPos(toCode) || to;
+                    const offFrom = { x: fLive.x + (Math.random()-0.5)*20, y: fLive.y + (Math.random()-0.5)*15 };
+                    const offTo   = { x: tLive.x + (Math.random()-0.5)*15, y: tLive.y + (Math.random()-0.5)*10 };
+                    missiles.push(new Missile(offFrom, offTo, missileColor, (x, y, ic) => {
                         const cnt = speedMult > 1 ? 4 : 8;
                         for (let j = 0; j < cnt; j++) {
                             particles.push(new Particle(x, y, missileColor,
-                                (Math.random()-0.5)*4, (Math.random()-0.5)*4, 20));
+                                (Math.random()-0.5)*4, (Math.random()-0.5)*4, 20, ic));
                         }
                     }, fromCode, toCode, success, '', 'air'));
                     ensureRunning();
                 }, 150 + i * 200);
             }
-        } else if (cat === 'sea') {
+        } else if (cat === 'sea' && speedMult <= 1) {
             /* Naval: broadside salvo (torpedo shape) */
             setTimeout(() => {
-                const offFrom = { x: from.x + (Math.random()-0.5)*25, y: from.y + 10 };
-                missiles.push(new Missile(offFrom, to, '#4fc3f7', (x, y) => {
-                    explosions.push(new Explosion(x, y, 25, '#4fc3f7', false));
+                const fLive = MapRenderer.getTerritoryScreenPos(fromCode) || from;
+                const offFrom = { x: fLive.x + (Math.random()-0.5)*25, y: fLive.y + 10 };
+                missiles.push(new Missile(offFrom, to, '#4fc3f7', (x, y, ic) => {
+                    explosions.push(new Explosion(x, y, 25, '#4fc3f7', false, ic));
                 }, fromCode, toCode, success, '', 'sea'));
                 ensureRunning();
             }, 200);
-        } else if (cat === 'missile') {
+        } else if (cat === 'missile' && speedMult <= 1) {
             /* Cruise/ballistic: extra rocket with bigger explosion */
             setTimeout(() => {
-                missiles.push(new Missile(from, to, '#ff6e40', (x, y) => {
-                    explosions.push(new Explosion(x, y, 55, '#ff6e40', false));
+                missiles.push(new Missile(from, to, '#ff6e40', (x, y, ic) => {
+                    explosions.push(new Explosion(x, y, 55, '#ff6e40', false, ic));
                     const cnt = speedMult > 1 ? 10 : 20;
                     for (let j = 0; j < cnt; j++) {
                         particles.push(new Particle(x, y, '#ff9100',
                             (Math.random()-0.5)*8, (Math.random()-0.5)*8 - 3,
-                            35 + Math.random()*20));
+                            35 + Math.random()*20, ic));
                     }
                 }, fromCode, toCode, success, '', 'missile'));
                 ensureRunning();
             }, 100);
         }
 
-        /* Attack label with unit type icon */
+        /* Attack label with unit type icon — anchored to midpoint between territories */
         const midX = (from.x + to.x) / 2, midY = (from.y + to.y) / 2 - 25;
-        textPopups.push(new BigLabel(midX, midY, trailLbl, '#ffd740', 14, 110));
-        textPopups.push(new BigLabel(from.x, from.y - 12, `${atkUnit.icon} ${atkName} ATTACCA`, missileColor, 12, 80));
+        textPopups.push(new BigLabel(midX, midY, trailLbl, '#ffd740', 14, 110, toCode));
+        textPopups.push(new BigLabel(from.x, from.y - 12, `${atkUnit.icon} ${atkName} ATTACCA`, missileColor, 12, 80, fromCode));
 
         ensureRunning();
     }
@@ -507,29 +566,29 @@ const Animations = (() => {
 
         const atkName = atkInfo?.name || fromCode.toUpperCase();
         const defName = defInfo?.name || toCode.toUpperCase();
-        const label   = `NUKE: ${atkName} --> ${defName}`;
+        const label   = `NUKE: ${atkName} → ${defName}`;
 
-        missiles.push(new Missile(from, to, '#76ff03', (x, y) => {
-            explosions.push(new Explosion(x, y, 80, '#ff9800', true));
+        missiles.push(new Missile(from, to, '#76ff03', (x, y, ic) => {
+            explosions.push(new Explosion(x, y, 80, '#ff9800', true, ic));
             const nkCount = speedMult > 1 ? 20 : 50;
             for (let i = 0; i < nkCount; i++) {
                 particles.push(new Particle(x, y, '#ffff00',
                     (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10 - 3,
-                    50 + Math.random() * 30));
+                    50 + Math.random() * 30, ic));
             }
-            textPopups.push(new BigLabel(x, y - 20, 'ATTACCO NUCLEARE!', '#ff00ff', 18, 120));
+            textPopups.push(new BigLabel(x, y - 20, 'ATTACCO NUCLEARE!', '#ff00ff', 18, 120, ic));
         }, fromCode, toCode, true, label, 'missile'));
 
         const midX = (from.x + to.x) / 2, midY = (from.y + to.y) / 2 - 30;
-        textPopups.push(new BigLabel(midX, midY, label, '#ff00ff', 16, 120));
+        textPopups.push(new BigLabel(midX, midY, label, '#ff00ff', 16, 120, toCode));
         ensureRunning();
     }
 
     function spawnText(code, text, color = '#ffd700', big = false) {
         const pos = MapRenderer.getTerritoryScreenPos(code);
         if (!pos) return;
-        if (big) textPopups.push(new BigLabel(pos.x, pos.y, text, color, 15, 80));
-        else     textPopups.push(new TextPopup(pos.x, pos.y, text, color));
+        if (big) textPopups.push(new BigLabel(pos.x, pos.y, text, color, 15, 80, code));
+        else     textPopups.push(new TextPopup(pos.x, pos.y, text, color, code));
         ensureRunning();
     }
 
@@ -537,12 +596,12 @@ const Animations = (() => {
         const pos = MapRenderer.getTerritoryScreenPos(code);
         if (!pos) return;
         /* Expanding ring + particles */
-        explosions.push(new Explosion(pos.x, pos.y, 35, '#00e5ff', false));
+        explosions.push(new Explosion(pos.x, pos.y, 35, '#00e5ff', false, code));
         const count = speedMult > 1 ? 8 : 15;
         for (let i = 0; i < count; i++) {
             const ang = Math.random() * Math.PI * 2, spd = 1 + Math.random() * 3;
             particles.push(new Particle(pos.x, pos.y, '#00e5ff',
-                Math.cos(ang) * spd, Math.sin(ang) * spd, 40));
+                Math.cos(ang) * spd, Math.sin(ang) * spd, 40, code));
         }
         ensureRunning();
     }
@@ -551,15 +610,15 @@ const Animations = (() => {
     function spawnRevoltFX(code) {
         const pos = MapRenderer.getTerritoryScreenPos(code);
         if (!pos) return;
-        explosions.push(new Explosion(pos.x, pos.y, 30, '#ff6e40', false));
+        explosions.push(new Explosion(pos.x, pos.y, 30, '#ff6e40', false, code));
         const count = speedMult > 1 ? 6 : 12;
         for (let i = 0; i < count; i++) {
             const ang = Math.random() * Math.PI * 2, spd = 0.8 + Math.random() * 2;
             const colors = ['#ff1744', '#ff6e40', '#ff9100', '#ffd600'];
             particles.push(new Particle(pos.x, pos.y, colors[i % colors.length],
-                Math.cos(ang) * spd, Math.sin(ang) * spd - 1.5, 35 + Math.random() * 15));
+                Math.cos(ang) * spd, Math.sin(ang) * spd - 1.5, 35 + Math.random() * 15, code));
         }
-        textPopups.push(new BigLabel(pos.x, pos.y - 15, '🔥 RIVOLTA!', '#ff6e40', 14, 80));
+        textPopups.push(new BigLabel(pos.x, pos.y - 15, '🔥 RIVOLTA!', '#ff6e40', 14, 80, code));
         ensureRunning();
     }
 

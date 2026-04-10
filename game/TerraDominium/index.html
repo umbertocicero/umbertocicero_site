@@ -82,18 +82,23 @@
     <div id="game-screen" class="hidden">
         <!-- TOP HUD BAR -->
         <div id="top-hud">
-            <div class="hud-left">
+            <div class="hud-identity">
                 <span id="hud-nation-flag" class="hud-flag"></span>
-                <span id="hud-nation-name" class="hud-name"></span>
-                <span id="hud-turn" class="hud-turn">Turno 1</span>
+                <div class="hud-identity-text">
+                    <span id="hud-nation-name" class="hud-name"></span>
+                    <span id="hud-turn" class="hud-turn">Turno 1</span>
+                </div>
             </div>
+            <div class="hud-divider"></div>
             <div class="hud-resources" id="hud-resources"></div>
-            <div class="hud-right">
-                <button id="btn-end-turn" class="btn-hud">⏭️ FINE TURNO</button>
-                <button id="btn-autoplay" class="btn-hud" title="Auto-play: l'IA gioca al posto tuo">⏩ AUTO</button>
-                <button id="btn-economy" class="btn-hud">📊 ECONOMIA</button>
-                <button id="btn-tech-tree" class="btn-hud">🔬 TECH</button>
-                <button id="btn-diplomacy" class="btn-hud">🤝 DIPLOMAZIA</button>
+            <div class="hud-divider"></div>
+            <div class="hud-actions">
+                <button id="btn-end-turn" class="btn-hud btn-hud-primary" title="Fine Turno">⏭️ TURNO</button>
+                <button id="btn-autoplay" class="btn-hud" title="Auto-play: l'IA gioca al posto tuo">⏩</button>
+                <span class="hud-actions-sep"></span>
+                <button id="btn-economy" class="btn-hud" title="Panoramica Economica">📊</button>
+                <button id="btn-tech-tree" class="btn-hud" title="Ricerca Tecnologica">🔬</button>
+                <button id="btn-diplomacy" class="btn-hud" title="Diplomazia">🤝</button>
             </div>
         </div>
 
@@ -145,7 +150,6 @@
         <!-- BATTLE POPUP -->
         <div id="battle-popup" class="popup hidden">
             <div class="popup-content battle-content">
-                <h3>⚔️ BATTAGLIA</h3>
                 <div id="battle-display"></div>
                 <button id="btn-close-battle" class="btn-main">CHIUDI</button>
             </div>
@@ -220,9 +224,15 @@
                 <h2 id="gameover-title"></h2>
                 <p id="gameover-text"></p>
                 <div id="gameover-stats"></div>
-                <button id="btn-restart" class="btn-main">🔄 RICOMINCIA</button>
+                <div class="go-buttons">
+                    <button id="btn-view-map" class="btn-main btn-view-map">🗺️ VEDI MAPPA</button>
+                    <button id="btn-restart" class="btn-main">🔄 RICOMINCIA</button>
+                </div>
             </div>
         </div>
+
+        <!-- VICTORY BANNER (persistent after closing modal) -->
+        <div id="victory-banner" class="victory-banner hidden"></div>
     </div>
 
     <!-- SCRIPTS (modular) -->

@@ -74,6 +74,15 @@ const AI = (() => {
         const milActions = doMilitary(code, situation, profile);
         actions.push(...milActions);
 
+        /* Step 5b: Mid-turn unrest — conquests thin garrisons, may trigger revolts */
+        const hasConquest = milActions.some(a => a.type === 'attack' && a.result?.conquered);
+        if (hasConquest) {
+            const midRevolts = GameEngine.checkMidTurnUnrest(code);
+            midRevolts.forEach(r => {
+                actions.push({ type: 'revolt', nation: r.to, target: r.territory, from: r.from });
+            });
+        }
+
         /* Step 6: Research */
         const techActions = doResearch(code, profile);
         actions.push(...techActions);

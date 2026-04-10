@@ -126,10 +126,10 @@
 
         console.log('GeoDominion v2 — Ready');
 
-        /* Auto-enable DevLog for development diagnostics */
-        if (typeof DevLog !== 'undefined') {
-            DevLog.enable();
-        }
+        /* DevLog disabled in production — enable manually via DevLog.enable() in console */
+        // if (typeof DevLog !== 'undefined') {
+        //     DevLog.enable();
+        // }
     }
 
     /* Wait for DOM */

@@ -64,18 +64,18 @@ const UNIT_TYPES = {
 };
 
 const TECHNOLOGIES = [
-    {id:'advanced_drones',  icon:'🤖',name:'Droni Avanzati',      cost:{money:800,rareEarth:20},           effect:'drone_atk+5',          desc:'+5 ATK droni',              prereq:[]},
-    {id:'stealth_tech',     icon:'👻',name:'Stealth',             cost:{money:1200,rareEarth:30},          effect:'fighter_atk+8',         desc:'+8 ATK caccia',             prereq:['advanced_drones']},
-    {id:'hypersonic',       icon:'⚡',name:'Missili Ipersonici',  cost:{money:2000,steel:60,rareEarth:40}, effect:'cruiseMissile_atk+15',  desc:'+15 ATK missili',           prereq:['stealth_tech']},
-    {id:'cyberwarfare',     icon:'💻',name:'Cyberwarfare',        cost:{money:600,rareEarth:15},           effect:'sabotage',              desc:'Sabotaggio nemico',         prereq:[]},
-    {id:'missile_defense',  icon:'🛡️',name:'Difesa Antimissile', cost:{money:1500,steel:40},              effect:'sam_def+15',            desc:'+15 DEF SAM',               prereq:[]},
-    {id:'nuclear_program',  icon:'☢️',name:'Programma Nucleare', cost:{money:3000,uranium:30},            effect:'nuke_enabled',          desc:'Sblocca testate nucleari',  prereq:['missile_defense']},
-    {id:'carrier_fleet',    icon:'🛳️',name:'Portaerei',          cost:{money:2500,steel:80},              effect:'navy_atk+10',           desc:'+10 ATK flotta',            prereq:[]},
-    {id:'space_recon',      icon:'🛰️',name:'Ricognizione Spaz.', cost:{money:1800,rareEarth:25},          effect:'recon',                 desc:'Visione globale',           prereq:['advanced_drones']},
-    {id:'ai_warfare',       icon:'🧠',name:'AI Militare',        cost:{money:2200,rareEarth:50},          effect:'all_atk+3',             desc:'+3 ATK tutte le unità',     prereq:['cyberwarfare','advanced_drones']},
-    {id:'green_energy',     icon:'🌱',name:'Energia Verde',      cost:{money:1000},                       effect:'money_prod+20',         desc:'+20 produzione fondi',      prereq:[]},
-    {id:'deep_mining',      icon:'⛏️',name:'Miniere Profonde',   cost:{money:800,steel:30},               effect:'mining+30%',            desc:'+30% risorse minerarie',    prereq:[]},
-    {id:'bio_defense',      icon:'🧬',name:'Difesa Biologica',   cost:{money:900},                        effect:'def+5_all',             desc:'+5 DEF tutte le unità',     prereq:[]}
+    {id:'advanced_drones',  icon:'🤖',name:'Droni Avanzati',      cost:{money:800,rareEarth:20},           effect:'drone_atk+5',          desc:'+5 ATK droni',              prereq:[],                              tip:'I tuoi droni diventano più letali in attacco.'},
+    {id:'stealth_tech',     icon:'👻',name:'Stealth',             cost:{money:1200,rareEarth:30},          effect:'fighter_atk+8',         desc:'+8 ATK caccia',             prereq:['advanced_drones'],             tip:'I caccia colpiscono più forte grazie alla tecnologia stealth.'},
+    {id:'hypersonic',       icon:'⚡',name:'Missili Ipersonici',  cost:{money:2000,steel:60,rareEarth:40}, effect:'cruiseMissile_atk+15',  desc:'+15 ATK missili',           prereq:['stealth_tech'],                tip:'Missili troppo veloci per essere intercettati.'},
+    {id:'cyberwarfare',     icon:'💻',name:'Cyberwarfare',        cost:{money:600,rareEarth:15},           effect:'sabotage',              desc:'+20% successo spie',        prereq:[],                              tip:'Le missioni di spionaggio hanno l\'80% di successo invece del 60%.'},
+    {id:'missile_defense',  icon:'🛡️',name:'Difesa Antimissile', cost:{money:1500,steel:40},              effect:'sam_def+15',            desc:'+15 DEF SAM',               prereq:[],                              tip:'Le batterie SAM difendono molto meglio dai missili.'},
+    {id:'nuclear_program',  icon:'☢️',name:'Programma Nucleare', cost:{money:3000,uranium:30},            effect:'nuke_enabled',          desc:'Sblocca testate nucleari',  prereq:['missile_defense'],             tip:'Puoi costruire e lanciare armi nucleari devastanti.'},
+    {id:'carrier_fleet',    icon:'🛳️',name:'Portaerei',          cost:{money:2500,steel:80},              effect:'navy_atk+10',           desc:'+10 ATK flotta',            prereq:[],                              tip:'La flotta navale diventa molto più potente in attacco.'},
+    {id:'space_recon',      icon:'🛰️',name:'Ricognizione Spaz.', cost:{money:1800,rareEarth:25},          effect:'recon',                 desc:'Visione globale',           prereq:['advanced_drones'],             tip:'Vedi risorse ed eserciti di tutte le nazioni.'},
+    {id:'ai_warfare',       icon:'🧠',name:'AI Militare',        cost:{money:2200,rareEarth:50},          effect:'all_atk+3',             desc:'+3 ATK tutte le unità',     prereq:['cyberwarfare','advanced_drones'], tip:'Ogni unità del tuo esercito attacca più forte.'},
+    {id:'green_energy',     icon:'🌱',name:'Energia Verde',      cost:{money:1000},                       effect:'money_prod+20',         desc:'+20 produzione fondi',      prereq:[],                              tip:'Guadagni 20 fondi extra ogni turno.'},
+    {id:'deep_mining',      icon:'⛏️',name:'Miniere Profonde',   cost:{money:800,steel:30},               effect:'mining+30%',            desc:'+30% risorse minerarie',    prereq:[],                              tip:'Acciaio, terre rare e uranio aumentano del 30%.'},
+    {id:'bio_defense',      icon:'🧬',name:'Difesa Biologica',   cost:{money:900},                        effect:'def+5_all',             desc:'+5 DEF tutte le unità',     prereq:[],                              tip:'Ogni unità resiste meglio agli attacchi nemici.'}
 ];
 
 /* AI personality archetypes */

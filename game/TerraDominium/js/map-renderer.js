@@ -101,6 +101,14 @@ const MapRenderer = (() => {
             .lake  { fill: #0e2240 !important; stroke: none; }
             .aq    { fill: #1a2a3a !important; stroke: #0d1b2a; stroke-width: 0.3; }
             .circle { display: none !important; }
+            .circle.micro-island {
+                display: block !important;
+                opacity: 0.35;
+                stroke: rgba(255,255,255,0.3);
+                stroke-width: 0.5;
+                cursor: pointer;
+            }
+            .circle.micro-island:hover { opacity: 0.55; stroke: #00e5ff; stroke-width: 1; }
             .territory-selected { stroke: #ffd700 !important; stroke-width: 2.5 !important;
                                   filter: drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
             @keyframes playerGlow {
@@ -120,15 +128,18 @@ const MapRenderer = (() => {
     }
 
     /* ════════════════ CACHE ELEMENTS ════════════════ */
+    const idSet = new Set(SVG_IDS);  /* O(1) territory id lookups */
+
+    const MICRO_ISLAND_THRESHOLD = 120; /* SVG area below which a territory is considered a micro-island */
+    const microIslandSet = new Set();   /* codes of tiny island territories (no garrison marker) */
+
     function cacheElements() {
         let cached = 0;
-        const idSet = new Set(SVG_IDS);
 
         /* STRATEGY: Walk every <g> inside the SVG and check its id.
            This avoids querySelector/getElementById issues after
            DOMParser + adoptNode which can break ID lookup tables. */
         const allGroups = svgEl.querySelectorAll('g');
-        console.log(`[GeoDominion] Found ${allGroups.length} <g> elements in SVG`);
 
         allGroups.forEach(g => {
             const gId = g.getAttribute('id');
@@ -142,6 +153,10 @@ const MapRenderer = (() => {
                    (we use a custom tooltip via UI instead) */
                 const existingTitle = g.querySelector('title');
                 if (existingTitle) existingTitle.remove();
+
+                /* Detect micro-islands: if the largest non-circle land path has
+                   a tiny bounding box, show the .circle element so users can click */
+                _detectMicroIsland(g);
             }
         });
 
@@ -159,42 +174,70 @@ const MapRenderer = (() => {
                 if (existingTitleP) existingTitleP.remove();
             }
         });
+    }
 
-        console.log(`[GeoDominion] Cached ${cached}/${SVG_IDS.length} territory elements`);
+    /** For <g> territories with tiny land paths, un-hide the .circle element
+     *  so users can actually click on small island territories. */
+    function _detectMicroIsland(gEl) {
+        const circlePath = gEl.querySelector('path.circle');
+        if (!circlePath) return; /* no circle element → nothing to do */
+
+        /* Measure the largest non-circle land path */
+        let maxArea = 0;
+        gEl.querySelectorAll('path.land').forEach(p => {
+            try {
+                const b = p.getBBox();
+                maxArea = Math.max(maxArea, b.width * b.height);
+            } catch {}
+        });
+
+        if (maxArea < MICRO_ISLAND_THRESHOLD) {
+            /* This is a micro-island — show the circle marker */
+            circlePath.classList.add('micro-island');
+            const gId = gEl.getAttribute('id');
+            if (gId) microIslandSet.add(gId);
+        }
     }
 
     /* ════════════════ COLOURING ════════════════ */
     function forceFill(el, color) {
-        /* We stripped the SVG's embedded <style>, and our injected CSS has
-           no 'fill' for .land — so the SVG 'fill' attribute wins.
-           Also set inline style as belt-and-suspenders. */
         el.setAttribute('fill', color);
-        /* Some SVG elements from DOMParser/adoptNode don't support .style
-           correctly, so also set the style attribute directly: */
-        const existing = el.getAttribute('style') || '';
-        const cleaned = existing.replace(/fill\s*:[^;]+;?/gi, '').trim();
-        const newStyle = (cleaned ? cleaned + '; ' : '') + 'fill: ' + color + ' !important';
-        el.setAttribute('style', newStyle);
+        el.style.fill = color;
     }
 
+    /* Cache child <path> lists per territory to avoid querySelectorAll every frame */
+    const childPathCache = {};
+    /* Track last applied colour to skip no-ops */
+    const lastColour = {};
+
     function colourTerritory(code, color) {
+        if (lastColour[code] === color) return;  /* skip if unchanged */
+        lastColour[code] = color;
         const el = pathCache[code];
         if (!el) return;
         const tag = (el.tagName || '').toLowerCase();
         if (tag === 'g') {
             forceFill(el, color);
-            el.querySelectorAll('path').forEach(p => forceFill(p, color));
+            if (!childPathCache[code]) childPathCache[code] = [...el.querySelectorAll('path')];
+            childPathCache[code].forEach(p => forceFill(p, color));
         } else {
             forceFill(el, color);
         }
     }
 
+    /* Debounce colourAllTerritories — coalesces multiple calls into one rAF */
+    let _colourRaf = 0;
+
     function colourAllTerritories() {
+        if (_colourRaf) return;
+        _colourRaf = requestAnimationFrame(_doColourAll);
+    }
+
+    function _doColourAll() {
+        _colourRaf = 0;
         if (typeof GameEngine === 'undefined') return;
         const state = GameEngine.getState();
         if (!state || !state.territories) return;
-
-        resizeFx();
 
         for (const code of SVG_IDS) {
             const owner = state.territories[code];
@@ -214,7 +257,6 @@ const MapRenderer = (() => {
             }
         }
 
-        /* Update garrison overlay after recolouring */
         updateGarrisonOverlay();
     }
 
@@ -314,12 +356,20 @@ const MapRenderer = (() => {
         panY = Math.max(minY, Math.min(maxY, panY));
     }
 
+    let _rafRescale = 0;
     function applyTransform() {
         clampPan();
         const wrapper = document.getElementById('svg-wrapper');
         if (wrapper) {
             wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
             wrapper.style.transformOrigin = '0 0';
+        }
+        /* Throttle garrison rescale to one per animation frame */
+        if (!_rafRescale) {
+            _rafRescale = requestAnimationFrame(() => {
+                _rafRescale = 0;
+                rescaleGarrisonOverlay();
+            });
         }
     }
 
@@ -377,9 +427,10 @@ const MapRenderer = (() => {
             if (!target) return;
             const code = target.id;
             /* Check if it's inside a <g> with a territory id */
-            const gParent = target.closest('g.land');
-            const finalCode = gParent ? gParent.id : code;
-            if (SVG_IDS.includes(finalCode)) {
+            const gParent = target.closest('g[id]');
+            const finalCode = (gParent && idSet.has(gParent.id)) ? gParent.id
+                            : idSet.has(code) ? code : null;
+            if (finalCode) {
                 if (onTerritoryClick) onTerritoryClick(finalCode, e);
             }
         });
@@ -388,9 +439,10 @@ const MapRenderer = (() => {
             if (dragging) return;
             const target = e.target.closest('[id]');
             if (!target) { if (onTerritoryLeave) onTerritoryLeave(); return; }
-            const gParent = target.closest('g.land');
-            const code = gParent ? gParent.id : target.id;
-            if (SVG_IDS.includes(code)) {
+            const gParent = target.closest('g[id]');
+            const code = (gParent && idSet.has(gParent.id)) ? gParent.id
+                       : idSet.has(target.id) ? target.id : null;
+            if (code) {
                 if (onTerritoryHover) onTerritoryHover(code, e);
             } else {
                 if (onTerritoryLeave) onTerritoryLeave();
@@ -463,9 +515,10 @@ const MapRenderer = (() => {
                 if (el) {
                     const target = el.closest('[id]');
                     if (target) {
-                        const gParent = target.closest('g.land');
-                        const finalCode = gParent ? gParent.id : target.id;
-                        if (SVG_IDS.includes(finalCode)) {
+                        const gParent = target.closest('g[id]');
+                        const finalCode = (gParent && idSet.has(gParent.id)) ? gParent.id
+                                        : idSet.has(target.id) ? target.id : null;
+                        if (finalCode) {
                             /* Fire tap callback on mobile */
                             if (onTerritoryTap) {
                                 onTerritoryTap(finalCode, { clientX: touch.clientX, clientY: touch.clientY });
@@ -509,12 +562,24 @@ const MapRenderer = (() => {
         const el = pathCache[code];
         if (!el) return;
         const tag = (el.tagName || '').toLowerCase();
-        const paths = tag === 'g' ? [...el.querySelectorAll('path')] : [el];
-        paths.forEach(p => {
-            const orig = p.getAttribute('fill') || '#2a3a4a';
-            forceFill(p, color);
-            setTimeout(() => forceFill(p, orig), duration);
-        });
+        const paths = tag === 'g' ? (childPathCache[code] || (childPathCache[code] = [...el.querySelectorAll('path')])) : [el];
+        paths.forEach(p => forceFill(p, color));
+        if (tag === 'g') forceFill(el, color);
+        /* Invalidate colour cache so next colourTerritory actually applies */
+        delete lastColour[code];
+        setTimeout(() => {
+            /* Re-read current owner color from game state (ownership may have changed during flash) */
+            let restoreColor = '#2a3a4a';
+            if (typeof GameEngine !== 'undefined') {
+                const st = GameEngine.getState();
+                if (st && st.territories[code]) {
+                    const owner = st.territories[code];
+                    const n = st.nations[owner] || getNation(owner);
+                    restoreColor = n?.color || '#2a3a4a';
+                }
+            }
+            colourTerritory(code, restoreColor);
+        }, duration);
     }
 
     /* ════════════════ GARRISON OVERLAY — Clean & Simple ════════════════
@@ -547,6 +612,9 @@ const MapRenderer = (() => {
         none:   { bg: 'rgba(120,120,120,0.6)', ring: '#9e9e9e', text: '#fff', stroke: 'rgba(0,0,0,0.5)' }   // grey
     };
 
+    /* Track last garrison state to skip unchanged territories */
+    const _lastGarrison = {};  // code → 'strength|total|dominant'
+
     function updateGarrisonOverlay() {
         if (typeof GameEngine === 'undefined') return;
         const state = GameEngine.getState();
@@ -564,30 +632,42 @@ const MapRenderer = (() => {
         });
 
         for (const code of SVG_IDS) {
-            const owner = state.territories[code];
             const garrison = allGarrisons[code];
-            const centroid = getCentroid(code);
 
-            if (!centroid || !garrison || garrison.total === 0) {
+            /* Skip micro-islands owned by a larger nation — they are visual
+               extensions of their parent country, not independent garrisons.
+               e.g. Canary Islands (es territory), Réunion (fr), etc. */
+            const isMicro = microIslandSet.has(code);
+            const owner = state.territories[code];
+            const skipGarrison = isMicro && owner && owner !== code;
+
+            if (!garrison || garrison.total === 0 || skipGarrison) {
                 if (garrisonLayer[code]) {
                     garrisonLayer[code].remove();
                     delete garrisonLayer[code];
+                    delete _lastGarrison[code];
                 }
                 continue;
             }
 
-            const ownerN = state.nations[owner];
-            if (!ownerN) continue;
+            const centroid = getCentroid(code);
+            if (!centroid) continue;
 
-            /* Pick the dominant unit emoji */
+            /* Skip if unchanged since last update */
+            const key = `${garrison.strength}|${Math.round(garrison.total)}|${garrison.dominant}`;
+            if (_lastGarrison[code] === key && garrisonLayer[code]) continue;
+            _lastGarrison[code] = key;
+
             const emoji = UNIT_EMOJI[garrison.dominant] || '🪖';
             const strength = garrison.strength || 'none';
             const colors = STRENGTH_COLORS[strength] || STRENGTH_COLORS.none;
-
-            /* Badge size: bigger for heavy, but always readable */
-            const sz = strength === 'heavy' ? 14 : strength === 'medium' ? 12 : 10;
-            const emojiSize = sz * 1.2;
+            const sz = strength === 'heavy' ? 26 : strength === 'medium' ? 22 : 18;
+            const emojiSize = sz * 1.1;
             const numSize = sz * 0.7;
+            const cx = centroid.x;
+            const cy = centroid.y;
+            const badgeW = sz * 2.8;
+            const badgeH = sz * 1.6;
 
             let gEl = garrisonLayer[code];
             if (!gEl) {
@@ -597,15 +677,26 @@ const MapRenderer = (() => {
                 svgEl.appendChild(gEl);
                 garrisonLayer[code] = gEl;
             }
-            gEl.innerHTML = '';
 
-            const cx = centroid.x;
-            const cy = centroid.y;
+            /* Reuse existing children if they exist, else create */
+            let badge, emojiText, numText;
+            if (gEl.childNodes.length === 3) {
+                badge = gEl.childNodes[0];
+                emojiText = gEl.childNodes[1];
+                numText = gEl.childNodes[2];
+            } else {
+                gEl.innerHTML = '';
+                badge = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                emojiText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                gEl.appendChild(badge);
+                gEl.appendChild(emojiText);
+                gEl.appendChild(numText);
+            }
 
-            /* ── Rounded badge background ── */
-            const badge = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            const badgeW = sz * 2.8;
-            const badgeH = sz * 1.6;
+            gEl._cx = cx;
+            gEl._cy = cy;
+
             badge.setAttribute('x', cx - badgeW / 2);
             badge.setAttribute('y', cy - badgeH / 2);
             badge.setAttribute('width', badgeW);
@@ -615,19 +706,13 @@ const MapRenderer = (() => {
             badge.setAttribute('fill', colors.bg);
             badge.setAttribute('stroke', colors.ring);
             badge.setAttribute('stroke-width', '1.5');
-            gEl.appendChild(badge);
 
-            /* ── Emoji icon (left side of badge) ── */
-            const emojiText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             emojiText.setAttribute('x', cx - badgeW * 0.2);
             emojiText.setAttribute('y', cy + emojiSize * 0.35);
             emojiText.setAttribute('text-anchor', 'middle');
             emojiText.setAttribute('font-size', emojiSize);
             emojiText.textContent = emoji;
-            gEl.appendChild(emojiText);
 
-            /* ── Troop count number (right side of badge) ── */
-            const numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             numText.setAttribute('x', cx + badgeW * 0.22);
             numText.setAttribute('y', cy + numSize * 0.4);
             numText.setAttribute('text-anchor', 'middle');
@@ -639,14 +724,33 @@ const MapRenderer = (() => {
             numText.setAttribute('stroke', colors.stroke);
             numText.setAttribute('stroke-width', '2.5');
             numText.textContent = Math.round(garrison.total);
-            gEl.appendChild(numText);
         }
+
+        rescaleGarrisonOverlay();
+    }
+
+    /**
+     * Re-scale garrison badges so they keep a constant visual size
+     * regardless of the current zoom level.
+     * Each <g> uses  translate(cx,cy) scale(1/s) translate(-cx,-cy)
+     * to shrink around its own centroid.
+     */
+    function rescaleGarrisonOverlay() {
+        const invS = 1 / scale;
+        Object.values(garrisonLayer).forEach(gEl => {
+            const cx = gEl._cx;
+            const cy = gEl._cy;
+            if (cx == null || cy == null) return;
+            gEl.setAttribute('transform',
+                `translate(${cx},${cy}) scale(${invS}) translate(${-cx},${-cy})`);
+        });
     }
 
     /** Remove all garrison overlays (call on game end or reset) */
     function clearGarrisonOverlay() {
         Object.values(garrisonLayer).forEach(el => el.remove());
         Object.keys(garrisonLayer).forEach(k => delete garrisonLayer[k]);
+        Object.keys(_lastGarrison).forEach(k => delete _lastGarrison[k]);
     }
 
     /* ════════════════ PUBLIC API ════════════════ */

@@ -8,9 +8,17 @@ const UI = (() => {
     let els = {};
 
     /** Parse flag emoji → Twemoji <img> for cross-platform rendering (esp. Windows) */
+    const _emojiOpts = { folder: 'svg', ext: '.svg' };
     function parseEmoji(el) {
         if (typeof twemoji !== 'undefined' && el) {
-            try { twemoji.parse(el, { folder: 'svg', ext: '.svg' }); } catch(e) {}
+            try { twemoji.parse(el, _emojiOpts); } catch(e) {}
+        }
+    }
+    /* Lightweight: only parse if element contains emoji codepoints (avoids full DOM walk) */
+    const _emojiRe = /[\u{1F1E0}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1FA00}-\u{1FA9F}]/u;
+    function parseEmojiIfNeeded(el) {
+        if (typeof twemoji !== 'undefined' && el && _emojiRe.test(el.textContent)) {
+            try { twemoji.parse(el, _emojiOpts); } catch(e) {}
         }
     }
 
@@ -40,7 +48,6 @@ const UI = (() => {
             'production-popup','production-display','btn-close-production',
             'economy-popup','economy-display','btn-close-economy',
             'gameover-popup','gameover-title','gameover-text','gameover-stats','btn-restart',
-            'ai-turn-overlay',
             'spy-popup','spy-popup-title','spy-popup-display','btn-close-spy',
             'revolt-alert-popup','revolt-alert-display','btn-close-revolt-alert'
         ];
@@ -67,6 +74,10 @@ const UI = (() => {
         click('btn-close-revolt-alert', () => hide('revolt-alert-popup'));
         click('btn-close-left', () => hide('left-panel'));
         click('btn-restart', () => location.reload());
+        click('btn-view-map', () => {
+            hide('gameover-popup');
+            showVictoryBanner();
+        });
     }
 
     function click(id, fn) {
@@ -136,6 +147,63 @@ const UI = (() => {
                 hideTooltip();
             }, 50);
         });
+    }
+
+    /* ════════════════ ATTACK CHAIN HELPER ════════════════ */
+    /**
+     * Build a visual "attack chain" showing numbered phases.
+     * E.g.:  ① 🚀 Missili  →  ② ✈️ Aerei  →  ③ 🗺️ Fanteria
+     * @param {object}  reach    — result from canReachTerritory()
+     * @param {boolean} compact  — true for tooltip (inline), false for sidebar (rows)
+     */
+    function buildAttackChainHtml(reach, compact) {
+        const phaseInfo = {
+            land:          { icon: '🗺️', label: 'Terra' },
+            sea_transport: { icon: '⚓',  label: 'Mare' },
+            naval:         { icon: '⚓',  label: 'Mare' },
+            air:           { icon: '✈️', label: 'Aereo' },
+            missile:       { icon: '🚀', label: 'Missili' },
+        };
+        const circled = ['①','②','③','④','⑤'];
+
+        /* Build ordered phases: MAIN method first, then support */
+        const phases = [];
+        const main = phaseInfo[reach.method] || { icon: '⚔️', label: 'Attacco' };
+        main._role = 'main';
+        phases.push(main);
+        if (reach.support && reach.support.length > 0) {
+            reach.support.forEach(s => {
+                const info = { ...(phaseInfo[s] || { icon: '❓', label: s }), _role: 'support' };
+                phases.push(info);
+            });
+        }
+
+        if (compact) {
+            /* Tooltip: single-line chain with arrows */
+            let chain = phases.map((p, i) => {
+                const num = circled[i] || `${i+1}`;
+                const color = i === 0 ? '#00e676' : '#90caf9';
+                return `<span style="color:${color}">${num} ${p.icon} ${p.label}</span>`;
+            }).join(' <span style="color:#455a64">→</span> ');
+            return `<div class="tt-res" style="color:#00e676;line-height:1.5;">✅ ${chain}</div>`;
+        } else {
+            /* Sidebar: vertical steps */
+            let html = '';
+            phases.forEach((p, i) => {
+                const num = circled[i] || `${i+1}`;
+                const isMain = i === 0;
+                const color = isMain ? '#00e676' : '#90caf9';
+                const role = isMain ? 'Principale' : 'Supporto';
+                html += `<div class="res-row" style="font-size:0.75rem;">`;
+                html += `<span style="color:${color};font-weight:700;">${num} ${p.icon} ${p.label}</span>`;
+                html += `<span class="val" style="color:var(--text-dim);font-size:0.6rem;">${role}</span>`;
+                html += `</div>`;
+                if (i < phases.length - 1) {
+                    html += `<div style="text-align:center;color:#37474f;font-size:0.55rem;margin:-1px 0;">+</div>`;
+                }
+            });
+            return html;
+        }
     }
 
     /* ════════════════ TOOLTIP ════════════════ */
@@ -213,19 +281,7 @@ const UI = (() => {
             if (playerN && playerN.alive) {
                 const reach = canReachTerritory(state.player, code, playerN.army);
                 if (reach.reachable) {
-                    const methodLabels = {
-                        land: '🗺️ Attacco via terra', sea_transport: '⚓ Attacco via mare',
-                        naval: '⚓ Attacco via mare', air: '✈️ Attacco aereo', missile: '🚀 Attacco missilistico'
-                    };
-                    const supportLabels = {
-                        missile: '🚀 missilistico', air: '✈️ aereo', naval: '⚓ navale'
-                    };
-                    let label = methodLabels[reach.method] || 'Raggiungibile';
-                    if (reach.support && reach.support.length > 0) {
-                        const supText = reach.support.map(s => supportLabels[s] || s).join(' e ');
-                        label += ` <span style="color:#90caf9;font-size:0.7rem">+ supporto ${supText}</span>`;
-                    }
-                    html += `<div class="tt-res" style="color:#00e676;">✅ ${label}</div>`;
+                    html += buildAttackChainHtml(reach, true);
                 } else {
                     html += `<div class="tt-res" style="color:#ff6e40;">🚫 Non raggiungibile</div>`;
                 }
@@ -360,7 +416,7 @@ const UI = (() => {
         /* Show preview */
         const n = NATIONS[code];
         show('nation-preview');
-        els['preview-flag'].textContent = n.flag;
+        els['preview-flag'].innerHTML = n.flag;
         els['preview-name'].textContent = n.name;
 
         let statsHtml = '';
@@ -371,6 +427,7 @@ const UI = (() => {
         statsHtml += statBox('🪖 Esercito', Object.values(n.army).reduce((a,b)=>a+b,0));
         statsHtml += statBox('Profilo', n.profile.toUpperCase());
         els['preview-stats'].innerHTML = statsHtml;
+        parseEmoji(document.getElementById('nation-preview'));
     }
 
     function statBox(label, val) {
@@ -442,9 +499,11 @@ const UI = (() => {
 
         /* Update map legend */
         updateMapLegend();
-        parseEmoji(els['top-hud']);
+        /* Only parse emoji for the flag element, not the entire HUD */
+        parseEmojiIfNeeded(els['hud-nation-flag']);
     }
 
+    let _lastLegendHtml = '';
     function updateMapLegend() {
         const state = GameEngine.getState();
         if (!state) return;
@@ -496,6 +555,9 @@ const UI = (() => {
             html += `<div class="legend-item ${cls}" data-code="${code}"><div class="legend-swatch" style="background:${n.color}"></div><span>${n.flag} ${n.name}</span><span class="legend-count">${count}</span></div>`;
         });
 
+        /* Skip DOM write + Twemoji parse if nothing changed */
+        if (html === _lastLegendHtml) return;
+        _lastLegendHtml = html;
         legend.innerHTML = html;
         parseEmoji(legend);
     }
@@ -532,26 +594,49 @@ const UI = (() => {
         if (myTerritories.length === 0) {
             resHtml += `<div class="res-row"><span style="color:var(--text-dim)">Nessun territorio</span></div>`;
         } else {
-            /* Group: show original + conquered separately */
-            const originalTerr = NATIONS[code]?.territories || [];
-            const conquered = myTerritories.filter(t => !originalTerr.includes(t));
-            const original = myTerritories.filter(t => originalTerr.includes(t));
+            /* Group: homeland vs conquered */
+            const homeland = n.homeland || code;
 
-            if (original.length > 0) {
-                resHtml += `<div style="font-size:0.6rem;color:var(--text-dim);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px;">Originali (${original.length})</div>`;
-                original.forEach(t => {
-                    const tb = getNation(t);
-                    resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;"><span>${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}</span></div>`;
-                });
+            /* Homeland */
+            if (myTerritories.includes(homeland)) {
+                const tb = getNation(homeland);
+                let hGarDot = '';
+                if (typeof GameEngine.getGarrison === 'function') {
+                    const hg = GameEngine.getGarrison(homeland);
+                    const hgColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
+                    const hgc = hgColors[hg?.strength] || '#ff1744';
+                    hGarDot = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${hgc};box-shadow:0 0 4px ${hgc};margin-right:4px;vertical-align:middle;" title="Guarnigione: ${hg?.strength?.toUpperCase()||'NONE'}"></span>`;
+                }
+                resHtml += `<div style="font-size:0.6rem;color:var(--text-dim);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px;">🏠 Patria</div>`;
+                resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;cursor:pointer;" onclick="UI.showTerritoryPanel('${homeland}')"><span>${hGarDot}${tb.flag||'🏳️'} ${tb.name||homeland.toUpperCase()}</span></div>`;
             }
+
+            /* Conquered territories (with garrison dot + unrest info + clickable) */
+            const conquered = myTerritories.filter(t => t !== homeland);
             if (conquered.length > 0) {
                 resHtml += `<div style="font-size:0.6rem;color:var(--gold);margin:6px 0 2px;text-transform:uppercase;letter-spacing:1px;">⚔ Conquistati (${conquered.length})</div>`;
                 conquered.forEach(t => {
                     const tb = getNation(t);
-                    resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;"><span>${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}</span></div>`;
+                    /* Garrison strength dot */
+                    let garDot = '';
+                    if (typeof GameEngine.getGarrison === 'function') {
+                        const g = GameEngine.getGarrison(t);
+                        const gColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
+                        const gc = gColors[g?.strength] || '#ff1744';
+                        garDot = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${gc};box-shadow:0 0 4px ${gc};margin-right:4px;vertical-align:middle;" title="Guarnigione: ${g?.strength?.toUpperCase()||'NONE'}"></span>`;
+                    }
+                    /* Unrest tag */
+                    const unrest = typeof GameEngine.getUnrest === 'function' ? GameEngine.getUnrest(t) : 0;
+                    let unrestTag = '';
+                    if (unrest > 0) {
+                        const uc = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
+                        unrestTag = ` <span style="font-size:0.55rem;color:${uc};">(🔥${Math.round(unrest)}%)</span>`;
+                    }
+                    resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;cursor:pointer;" onclick="UI.showTerritoryPanel('${t}')"><span>${garDot}${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}${unrestTag}</span></div>`;
                 });
             }
         }
+
         els['panel-resources'].innerHTML = resHtml;
 
         /* ── Resources ── */
@@ -653,6 +738,17 @@ const UI = (() => {
         }
         els['panel-territory-owner'].innerHTML = ownerBadge;
 
+        /* Colony indicator: compact inline badge matching ownership style */
+        if (code !== owner && n) {
+            const colonyBadge = `<div style="margin-top:4px;display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.7rem;" onclick="UI.showNationDetail('${owner}')">
+                <span style="color:#ff9100;">👑</span>
+                <div style="width:8px;height:8px;border-radius:50%;background:${n.color||'#607d8b'};flex-shrink:0;"></div>
+                <span style="color:#ffd740;font-weight:600;">${n.flag||''} ${n.name||owner.toUpperCase()}</span>
+                <span style="color:var(--text-dim);font-size:0.6rem;margin-left:auto;">→</span>
+            </div>`;
+            els['panel-territory-owner'].innerHTML += colonyBadge;
+        }
+
         /* Resources */
         let resHtml = '<h4>RISORSE PRODOTTE</h4>';
         let hasRes = false;
@@ -711,37 +807,70 @@ const UI = (() => {
         }
         els['panel-military'].innerHTML = milHtml;
 
-        /* Garrison on this specific territory */
-        let garHtml = '<h4>🏰 GUARNIGIONE LOCALE</h4>';
+        /* Garrison card for this specific territory */
+        let garHtml = '<h4>🏰 GUARNIGIONE</h4>';
         if (typeof GameEngine.getGarrison === 'function') {
             const g = GameEngine.getGarrison(code);
             if (g && g.total > 0) {
-                const strengthColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
-                const sCol = strengthColors[g.strength] || '#607d8b';
-                garHtml += `<div class="res-row"><span>Forza</span><span class="val" style="color:${sCol};">${g.strength.toUpperCase()} (${g.total.toFixed(0)} unità)</span></div>`;
-                garHtml += `<div class="res-row"><span>Tipo Dominante</span><span class="val">${g.icon} ${g.dominant}</span></div>`;
-                const revoltMod = g.strength === 'heavy' ? '-6' : g.strength === 'medium' ? '-4' : g.strength === 'light' ? '-2' : '+5';
-                const revColor = g.strength === 'none' ? '#ff1744' : '#00e676';
-                garHtml += `<div class="res-row"><span>Mod. Malcontento</span><span class="val" style="color:${revColor};">${revoltMod}/turno</span></div>`;
+                const sColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
+                const sLabels = { heavy: 'HEAVY', medium: 'MEDIUM', light: 'LIGHT', none: 'NONE' };
+                const sCol = sColors[g.strength] || '#607d8b';
+                const defMod = g.strength === 'heavy' ? '+25%' : g.strength === 'medium' ? '+12%' : g.strength === 'light' ? '+5%' : '−10%';
+                const defColor = g.strength === 'none' ? '#ff1744' : '#00e676';
+                const unrestMod = g.strength === 'heavy' ? '−6' : g.strength === 'medium' ? '−4' : g.strength === 'light' ? '−2' : '+5';
+                const unrestColor = g.strength === 'none' ? '#ff1744' : '#00e676';
+                /* Meter: troops/20 capped at 100% */
+                const meterPct = Math.min(100, Math.round(g.total / 20 * 100));
+
+                garHtml += `<div class="gar-card">`;
+                /* ─ Header: dot + label + troop count ─ */
+                garHtml += `<div class="gar-header">`;
+                garHtml += `<div class="gar-strength-dot" style="color:${sCol};background:${sCol};"></div>`;
+                garHtml += `<span class="gar-strength-label" style="color:${sCol};">${sLabels[g.strength]}</span>`;
+                garHtml += `<span class="gar-troops">${g.icon} ${g.total} unità</span>`;
+                garHtml += `</div>`;
+                /* ─ Meter bar ─ */
+                garHtml += `<div class="gar-meter"><div class="gar-meter-fill" style="width:${meterPct}%;background:${sCol};"></div></div>`;
+                /* ─ Stats 2×2 grid ─ */
+                garHtml += `<div class="gar-stats">`;
+                garHtml += `<div class="gar-stat"><span class="gar-stat-val" style="color:${defColor};">${defMod}</span><span class="gar-stat-lbl">🛡️ Difesa</span></div>`;
+                garHtml += `<div class="gar-stat"><span class="gar-stat-val" style="color:${unrestColor};">${unrestMod}/t</span><span class="gar-stat-lbl">🔥 Malcont.</span></div>`;
+                garHtml += `<div class="gar-stat"><span class="gar-stat-val">${g.icon}</span><span class="gar-stat-lbl">Dominante</span></div>`;
+                const isHomeland = code === (n?.homeland || owner);
+                const isFront = GameEngine.isAtWar && (() => {
+                    const wars = GameEngine.getState()?.wars || [];
+                    return wars.some(w => {
+                        const enemy = w.attacker === owner ? w.defender : (w.defender === owner ? w.attacker : null);
+                        if (!enemy) return false;
+                        const nb = typeof getNeighborsOf === 'function' ? getNeighborsOf(code) : [];
+                        return nb.some(nc => state.territories[nc] === enemy);
+                    });
+                })();
+                const roleLabel = isHomeland ? '🏠 Patria' : isFront ? '⚔️ Fronte' : '🌍 Retro';
+                const roleWeight = isHomeland ? '2×' : isFront ? '1.5×' : '1×';
+                garHtml += `<div class="gar-stat"><span class="gar-stat-val">${roleWeight}</span><span class="gar-stat-lbl">${roleLabel}</span></div>`;
+                garHtml += `</div>`; /* close gar-stats */
+
+                /* ─ Unrest section (only for conquered territories) ─ */
+                if (code !== owner && typeof GameEngine.getUnrest === 'function') {
+                    const unrest = GameEngine.getUnrest(code);
+                    const barColor = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
+                    const uLabel = unrest >= 80 ? 'CRITICO' : unrest >= 60 ? 'ALTO' : unrest >= 40 ? 'MEDIO' : 'BASSO';
+                    garHtml += `<div class="gar-unrest">`;
+                    garHtml += `<div class="gar-unrest-row"><span class="gar-unrest-label">🔥 Malcontento</span><span class="gar-unrest-val" style="color:${barColor};">${uLabel} ${Math.round(unrest)}%</span></div>`;
+                    garHtml += `<div class="unrest-bar-mini"><div class="unrest-bar-mini-fill" style="width:${unrest}%;background:${barColor}"></div></div>`;
+                    if (unrest >= 60) {
+                        garHtml += `<div style="font-size:0.6rem;color:#ff9100;margin-top:3px;">⚠ Rivolta a 100% — rafforza la guarnigione!</div>`;
+                    }
+                    garHtml += `</div>`;
+                }
+
+                garHtml += `</div>`; /* close gar-card */
             } else {
-                garHtml += `<div class="res-row"><span style="color:#ff1744;">⚠ Nessuna guarnigione — malcontento elevato (+5/turno)</span></div>`;
+                garHtml += `<div class="gar-card"><div class="gar-empty"><span class="gar-empty-icon">⚠</span><span>Nessuna guarnigione<br><small style="color:var(--text-dim);">Malcontento +5/turno · Difesa −10%</small></span></div></div>`;
             }
         } else {
             garHtml += '<div class="res-row"><span style="color:var(--text-dim)">Non disponibile</span></div>';
-        }
-
-        /* Unrest bar for conquered territories */
-        if (code !== owner && typeof GameEngine.getUnrest === 'function') {
-            const unrest = GameEngine.getUnrest(code);
-            if (unrest > 0) {
-                const barColor = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
-                const label = unrest >= 80 ? '🔴 CRITICO' : unrest >= 60 ? '🟠 ALTO' : unrest >= 40 ? '🟡 MEDIO' : '🟢 BASSO';
-                garHtml += `<div class="res-row"><span>🔥 Malcontento</span><span class="val" style="color:${barColor};">${label} ${Math.round(unrest)}%</span></div>`;
-                garHtml += `<div class="unrest-bar-mini"><div class="unrest-bar-mini-fill" style="width:${unrest}%;background:${barColor}"></div></div>`;
-                if (unrest >= 60) {
-                    garHtml += `<div class="res-row"><span style="color:#ff9100;font-size:0.65rem;">⚠ Rivolta imminente se raggiunge 100%!</span></div>`;
-                }
-            }
         }
 
         /* Insert garrison section after military */
@@ -754,19 +883,7 @@ const UI = (() => {
                 let reachHtml = '<h4>📡 RAGGIUNGIBILITÀ</h4>';
                 const reach = canReachTerritory(state.player, code, playerN.army);
                 if (reach.reachable) {
-                    const methodLabels = {
-                        land: '🗺️ Via terra', sea_transport: '⚓ Via mare',
-                        naval: '⚓ Via mare', air: '✈️ Via aerea', missile: '🚀 Missilistico'
-                    };
-                    const supportLabels = {
-                        missile: '🚀 missilistico', air: '✈️ aereo', naval: '⚓ navale'
-                    };
-                    let methodLabel = methodLabels[reach.method] || 'Raggiungibile';
-                    reachHtml += `<div class="res-row"><span style="color:#00e676;">✅ ${methodLabel}</span></div>`;
-                    if (reach.support && reach.support.length > 0) {
-                        const supText = reach.support.map(s => supportLabels[s] || s).join(', ');
-                        reachHtml += `<div class="res-row"><span style="color:#90caf9;font-size:0.7rem;">+ Supporto: ${supText}</span></div>`;
-                    }
+                    reachHtml += buildAttackChainHtml(reach, false);
                 } else {
                     reachHtml += `<div class="res-row"><span style="color:#ff6e40;">🚫 Non raggiungibile</span></div>`;
                 }
@@ -902,6 +1019,20 @@ const UI = (() => {
         /* Show battle popup */
         showBattleResult(result);
 
+        /* ── Mid-turn unrest check: spreading thin triggers revolts ── */
+        if (result.conquered) {
+            const midRevolts = GameEngine.checkMidTurnUnrest(state.player);
+            if (midRevolts.length > 0) {
+                MapRenderer.colourAllTerritories();
+                midRevolts.forEach(r => {
+                    Animations.spawnRevoltFX(r.territory);
+                    addEventToLog({ turn: state.turn, type: 'battle',
+                        msg: `🔥 <strong>RIVOLTA!</strong> ${state.nations[r.to]?.flag||''} ${state.nations[r.to]?.name||r.territory} si ribella — guarnigione troppo debole!`
+                    });
+                });
+            }
+        }
+
         /* Refresh */
         updateHUD();
         updateMilitaryBar();
@@ -909,18 +1040,18 @@ const UI = (() => {
     }
 
     /* ── Reachability alert popup ── */
+    let _reachAlertTimeout = 0;
     function showReachabilityAlert(reason, defInfo) {
-        /* Use the battle popup container temporarily */
-        const popup = els['battle-popup'];
-        if (!popup) { alert(reason); return; }
-        popup.classList.remove('hidden');
-        popup.style.display = '';
+        /* Reuse the battle popup but write to battle-display (not destroy the popup!) */
+        const display = els['battle-display'];
+        if (!display) { alert(reason); return; }
+        show('battle-popup');
 
         const defName = defInfo?.name || '???';
         const defFlag = defInfo?.flag || '';
 
-        popup.innerHTML = `
-            <div class="battle-result" style="border-color:#ff6e40">
+        display.innerHTML = `
+            <div style="text-align:center">
                 <div style="font-size:1.3rem;font-weight:800;color:#ff6e40;margin-bottom:8px">
                     🚫 ATTACCO IMPOSSIBILE
                 </div>
@@ -928,19 +1059,18 @@ const UI = (() => {
                     Obiettivo: ${defFlag} <b>${defName}</b>
                 </div>
                 <div style="margin:10px 0;padding:10px;background:rgba(255,110,64,0.12);border-radius:8px;
-                    border-left:3px solid #ff6e40;font-size:0.8rem;color:#ffd740;line-height:1.4">
+                    border-left:3px solid #ff6e40;font-size:0.8rem;color:#ffd740;line-height:1.4;text-align:left">
                     ${reason}
                 </div>
-                <div style="margin-top:10px;font-size:0.7rem;color:#90a4ae">
+                <div style="margin-top:10px;font-size:0.7rem;color:#90a4ae;text-align:left">
                     💡 <b>Suggerimento:</b> Costruisci unità navali (🚢 Flotta, 🐟 Sottomarino) per trasporto via mare,
                     o unità aeree (✈️ Caccia, 🛩️ Bombardiere, 🤖 Drone) e missili (🚀) per attacchi a lunga distanza.
                 </div>
-                <button onclick="this.closest('.battle-result').parentElement.classList.add('hidden')"
-                    style="margin-top:12px;padding:6px 20px;background:#ff6e40;color:#fff;border:none;border-radius:6px;
-                    cursor:pointer;font-weight:700;font-size:0.8rem">CHIUDI</button>
             </div>`;
-        /* Auto-hide after 6s */
-        setTimeout(() => { popup.classList.add('hidden'); }, 6000);
+        parseEmoji(display);
+        /* Auto-hide after 6s — cancel any previous timer */
+        clearTimeout(_reachAlertTimeout);
+        _reachAlertTimeout = setTimeout(() => { hide('battle-popup'); }, 6000);
     }
 
     /* ════════════════ REVOLT ALERT ════════════════ */
@@ -966,11 +1096,23 @@ const UI = (() => {
             Se il malcontento raggiunge il 100%, scoppierà una rivolta!
         </div>`;
 
+        /* "Seda Tutte" button */
+        const playerN = state.nations[state.player];
+        const totalCostMoney = alertList.length * 15;
+        const totalCostInf   = alertList.length * 2;
+        const canSuppressAll  = (playerN.res.money >= totalCostMoney && (playerN.army.infantry || 0) >= totalCostInf);
+        html += `<div style="margin-bottom:12px;text-align:center;">
+            <button class="revolt-btn-suppress" style="width:100%;padding:8px 12px;font-size:0.85rem;" ${canSuppressAll ? '' : 'disabled'}
+                onclick="UI.doSuppressAllUnrest()">
+                🛡️ SEDA TUTTE (${alertList.length})
+            </button>
+            <div class="revolt-cost" style="margin-top:4px;">Costo totale: 💰${totalCostMoney} + 🪖${totalCostInf}</div>
+        </div>`;
+
         alertList.forEach(t => {
             const pct = Math.round(t.unrest);
             const barColor = pct >= 80 ? '#ff1744' : pct >= 60 ? '#ff9100' : '#ffd740';
             const urgency = pct >= 80 ? '🔴 CRITICO' : pct >= 60 ? '🟠 ALTO' : '🟡 ATTENZIONE';
-            const playerN = state.nations[state.player];
             const canSuppress = (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
 
             html += `<div class="revolt-territory" id="revolt-row-${t.territory}">
@@ -1011,8 +1153,9 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
-        /* Refresh left panel if the territory is selected */
-        if (typeof showTerritoryDetail === 'function') showTerritoryDetail(tCode);
+        /* Refresh left panel if the territory (or its owner) is selected */
+        const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (sel) showTerritoryPanel(sel);
         /* If no more alerts, auto-close */
         const state = GameEngine.getState();
         const remaining = (GameEngine.getUnrestList(state.player) || []).filter(t => t.unrest >= 40);
@@ -1022,24 +1165,52 @@ const UI = (() => {
         }
     }
 
+    /** Suppress unrest in ALL alerted territories at once */
+    function doSuppressAllUnrest() {
+        const state = GameEngine.getState();
+        if (!state) return;
+        const list = (GameEngine.getUnrestList(state.player) || []).filter(t => t.unrest >= 40);
+        let suppressed = 0, failed = 0;
+        for (const t of list) {
+            const result = GameEngine.suppressUnrest(t.territory);
+            if (result.success) suppressed++;
+            else { failed++; break; }  // stop if we run out of resources
+        }
+        /* Refresh everything */
+        showRevoltAlert();
+        updateHUD();
+        updateMilitaryBar();
+        MapRenderer.colourAllTerritories();
+        const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (sel) showTerritoryPanel(sel);
+        /* Check if all done */
+        const remaining = (GameEngine.getUnrestList(state.player) || []).filter(t => t.unrest >= 40);
+        if (remaining.length === 0) {
+            hide('revolt-alert-popup');
+            addEventToLog({ turn: state.turn, type: 'game', msg: `✅ Tutte le rivolte sono state sedate! (${suppressed} territori)` });
+        } else if (failed > 0) {
+            addEventToLog({ turn: state.turn, type: 'game', msg: `⚠️ Sedate ${suppressed} rivolte, risorse insufficienti per le restanti ${remaining.length}` });
+        }
+    }
+
     function showBattleResult(result) {
+        clearTimeout(_reachAlertTimeout);  /* cancel any pending auto-hide from reachability alert */
         show('battle-popup');
         const state = GameEngine.getState();
         const atkN = state.nations[result.attacker];
         const defN = state.nations[result.defender];
 
-        /* Compact unit summary: returns { rows, totalBefore, totalLost } */
-        function unitRows(armyBefore, armyAfter) {
+        /* Build casualty rows from atkArmyBefore + casualties object */
+        function unitRows(armyBefore, casualties) {
             let rows = [];
             let totalBefore = 0, totalLost = 0;
             Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
                 const before = armyBefore[key] || 0;
-                const after  = armyAfter[key]  || 0;
+                const lost   = casualties[key] || 0;
                 if (before > 0) {
-                    const lost = before - after;
                     totalBefore += before;
                     totalLost += lost;
-                    rows.push({ icon: ut.icon, before, lost });
+                    rows.push({ icon: ut.icon, name: ut.name, before, lost, after: before - lost });
                 }
             });
             return { rows, totalBefore, totalLost };
@@ -1047,15 +1218,18 @@ const UI = (() => {
 
         const atkBefore = result.atkArmyBefore || atkN.army;
         const defBefore = result.defArmyBefore || (defN ? defN.army : {});
-        const atk = unitRows(atkBefore, atkN.army);
-        const def = unitRows(defBefore, defN ? defN.army : {});
+        const atkCas = result.atkCasualties || {};
+        const defCas = result.defCasualties || {};
+        const atk = unitRows(atkBefore, atkCas);
+        const def = unitRows(defBefore, defCas);
 
         /* Territory name */
         const tBase = getNation(result.territory);
         const tName = tBase.flag ? `${tBase.flag} ${tBase.name}` : result.territory.toUpperCase();
 
-        /* Build compact two-column layout */
-        let html = `<div class="btl-territory">${tName}</div>`;
+        /* Build structured layout: header → body → result → loot */
+        let html = `<div class="btl-header"><h3>⚔️ BATTAGLIA</h3><div class="btl-territory">${tName}</div></div>`;
+        html += `<div class="btl-body">`;
         html += `<div class="btl-grid">`;
 
         /* Attacker column */
@@ -1064,11 +1238,11 @@ const UI = (() => {
         html += `<div class="btl-units">`;
         atk.rows.forEach(r => {
             html += `<span class="btl-u">${r.icon}${r.before}`;
-            if (r.lost > 0) html += `<em>-${r.lost}</em>`;
+            if (r.lost > 0) html += `<em class="btl-dead">-${r.lost}</em>`;
             html += `</span>`;
         });
         html += `</div>`;
-        html += `<div class="btl-pow">⚔ ${result.atkPow} <span class="btl-dim">| -${atk.totalLost}/${atk.totalBefore}</span></div>`;
+        html += `<div class="btl-pow">⚔ ${result.atkPow} <span class="btl-dead">☠️ −${atk.totalLost}</span></div>`;
         html += `</div>`;
 
         /* VS divider */
@@ -1080,19 +1254,43 @@ const UI = (() => {
         html += `<div class="btl-units">`;
         def.rows.forEach(r => {
             html += `<span class="btl-u">${r.icon}${r.before}`;
-            if (r.lost > 0) html += `<em>-${r.lost}</em>`;
+            if (r.lost > 0) html += `<em class="btl-dead">-${r.lost}</em>`;
             html += `</span>`;
         });
         html += `</div>`;
-        html += `<div class="btl-pow">🛡 ${result.defPow} <span class="btl-dim">| -${def.totalLost}/${def.totalBefore}</span></div>`;
+        html += `<div class="btl-pow">🛡 ${result.defPow} <span class="btl-dead">☠️ −${def.totalLost}</span></div>`;
         html += `</div>`;
 
         html += `</div>`; /* close btl-grid */
 
         /* Result banner */
         html += `<div class="battle-result ${result.success ? 'win' : 'lose'}">`;
-        html += result.success ? '✅ VITTORIA — Territorio conquistato!' : '❌ SCONFITTA — Ritirata!';
+        if (result.success) {
+            html += result.conquered ? '✅ VITTORIA — Territorio conquistato!' : '✅ VITTORIA';
+        } else {
+            html += '❌ SCONFITTA — Ritirata!';
+        }
         html += `</div>`;
+
+        /* ── Loot / Seized Resources (no captured units — destroyed in war) ── */
+        const loot = result.loot || {};
+        const hasLoot = Object.values(loot).some(v => v > 0);
+
+        if (result.conquered && hasLoot) {
+            html += `<div class="btl-loot">`;
+            html += `<div class="btl-loot-title">📦 Bottino di guerra</div>`;
+            html += `<div class="btl-loot-items">`;
+            Object.entries(loot).forEach(([r, v]) => {
+                if (v > 0) {
+                    const ri = RESOURCES[r];
+                    html += `<span class="btl-loot-item">${ri?.icon||r} +${v}</span>`;
+                }
+            });
+            html += `</div>`;
+            html += `</div>`;
+        }
+
+        html += `</div>`; /* close btl-body */
 
         els['battle-display'].innerHTML = html;
         parseEmoji(els['battle-popup']);
@@ -1195,43 +1393,67 @@ const UI = (() => {
         if (!state) return;
         const n = state.nations[state.player];
 
-        let html = '<div class="tech-grid">';
-        TECHNOLOGIES.forEach(tech => {
-            const researched = n.techs.includes(tech.id);
-            const canRes = GameEngine.canResearch(state.player, tech.id);
-            const cls = researched ? 'researched' : (canRes ? 'available' : 'locked');
-            const costStr = Object.entries(tech.cost).map(([r,v]) => `${RESOURCES[r]?.icon||r}${v}`).join(' ');
+        let html = '';
 
-            /* Determine WHY it's locked */
-            let lockReason = '';
-            if (!researched && !canRes) {
-                const missingPrereqs = (tech.prereq || []).filter(p => !n.techs.includes(p));
-                const missingRes = Object.entries(tech.cost).filter(([r, v]) => (n.res[r] || 0) < v);
-                if (missingPrereqs.length > 0) {
-                    const prereqNames = missingPrereqs.map(p => {
-                        const pt = TECHNOLOGIES.find(t => t.id === p);
-                        return pt ? `${pt.icon} ${pt.name}` : p;
-                    }).join(', ');
-                    lockReason += `<div style="font-size:0.55rem;color:#ff6e40;margin-top:3px">🔒 Richiede: ${prereqNames}</div>`;
-                }
-                if (missingRes.length > 0 && missingPrereqs.length === 0) {
-                    const resText = missingRes.map(([r, v]) => {
-                        const have = n.res[r] || 0;
-                        return `${RESOURCES[r]?.icon||r} ${have}/${v}`;
-                    }).join(' ');
-                    lockReason += `<div style="font-size:0.55rem;color:#ffa726;margin-top:3px">💰 Risorse insufficienti: ${resText}</div>`;
-                }
-            }
+        /* Group into tiers based on prerequisites depth */
+        const tiers = [
+            { label: 'Base', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length === 0) },
+            { label: 'Avanzate', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length === 1) },
+            { label: 'Élite', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length >= 2) }
+        ].filter(tier => tier.techs.length > 0);
 
-            html += `<div class="tech-card ${cls}" ${canRes ? `onclick="UI.doResearch('${tech.id}')"` : ''}>`;
-            html += `<div class="tech-icon">${tech.icon}</div>`;
-            html += `<div class="tech-name">${tech.name}</div>`;
-            html += `<div class="tech-cost">${researched ? '✅' : costStr}</div>`;
-            html += `<div style="font-size:0.6rem;color:var(--text-dim)">${tech.desc}</div>`;
-            html += lockReason;
-            html += `</div>`;
+        tiers.forEach(tier => {
+            html += `<div class="tech-tier">`;
+            html += `<div class="tech-tier-label">${tier.label}</div>`;
+            html += `<div class="tech-tier-grid">`;
+            tier.techs.forEach(tech => {
+                const researched = n.techs.includes(tech.id);
+                const canRes = GameEngine.canResearch(state.player, tech.id);
+                const cls = researched ? 'researched' : (canRes ? 'available' : 'locked');
+                const costStr = Object.entries(tech.cost).map(([r,v]) => `${RESOURCES[r]?.icon||r}${v}`).join(' ');
+
+                /* Lock reason */
+                let lockReason = '';
+                if (!researched && !canRes) {
+                    const missingPrereqs = (tech.prereq || []).filter(p => !n.techs.includes(p));
+                    const missingRes = Object.entries(tech.cost).filter(([r, v]) => (n.res[r] || 0) < v);
+                    if (missingPrereqs.length > 0) {
+                        const prereqNames = missingPrereqs.map(p => {
+                            const pt = TECHNOLOGIES.find(t => t.id === p);
+                            return pt ? `${pt.icon} ${pt.name}` : p;
+                        }).join(', ');
+                        lockReason = `<div class="tech-lock">🔒 ${prereqNames}</div>`;
+                    } else if (missingRes.length > 0) {
+                        const resText = missingRes.map(([r, v]) => {
+                            const have = n.res[r] || 0;
+                            return `${RESOURCES[r]?.icon||r}${have}/${v}`;
+                        }).join(' ');
+                        lockReason = `<div class="tech-lock tech-lock-res">💰 ${resText}</div>`;
+                    }
+                }
+
+                /* Status indicator */
+                const statusIcon = researched ? '<span class="tech-status tech-done">✅</span>'
+                                 : canRes    ? '<span class="tech-status tech-ready">●</span>'
+                                 :             '<span class="tech-status tech-no">🔒</span>';
+
+                html += `<div class="tech-card ${cls}" ${canRes ? `onclick="UI.doResearch('${tech.id}')"` : ''}>`;
+                html +=   `<div class="tech-card-icon">${tech.icon}</div>`;
+                html +=   `<div class="tech-card-body">`;
+                html +=     `<div class="tech-card-header">`;
+                html +=       `<span class="tech-name">${tech.name}</span>`;
+                html +=       statusIcon;
+                html +=     `</div>`;
+                html +=     `<div class="tech-cost">${researched ? 'Ricercata' : costStr}</div>`;
+                html +=     `<div class="tech-desc">${tech.desc}</div>`;
+                if (tech.tip) html += `<div class="tech-tip">${tech.tip}</div>`;
+                html +=     lockReason;
+                html +=   `</div>`;
+                html += `</div>`;
+            });
+            html += `</div></div>`;
         });
-        html += '</div>';
+
         els['tech-tree-display'].innerHTML = html;
     }
 
@@ -1624,13 +1846,38 @@ const UI = (() => {
     function doNukeStrike(targetTerritory) {
         const state = GameEngine.getState();
         if (!state || state.phase !== 'player') return;
+
+        /* Capture nation info BEFORE the nuke (ownership may change) */
+        const atkN = state.nations[state.player];
+        const defOwner = state.territories[targetTerritory];
+        const defN = state.nations[defOwner];
+        const atkInfo = { code: state.player, name: atkN?.name, flag: atkN?.flag, color: atkN?.color };
+        const defInfo = { code: defOwner, name: defN?.name, flag: defN?.flag, color: defN?.color };
+
         const result = GameEngine.nukeStrike(state.player, targetTerritory);
         if (!result) {
             addEventToLog({ turn: state.turn, type:'game', msg:'❌ Attacco nucleare impossibile' });
             return;
         }
-        Animations.spawnNukeFX(state.player, targetTerritory);
+        Animations.spawnNukeFX(state.player, targetTerritory, atkInfo, defInfo);
         setTimeout(() => { MapRenderer.colourAllTerritories(); }, 600);
+
+        /* ── Mid-turn unrest check after nuke conquest ── */
+        if (result.conquered) {
+            const midRevolts = GameEngine.checkMidTurnUnrest(state.player);
+            if (midRevolts.length > 0) {
+                setTimeout(() => {
+                    MapRenderer.colourAllTerritories();
+                    midRevolts.forEach(r => {
+                        Animations.spawnRevoltFX(r.territory);
+                        addEventToLog({ turn: state.turn, type: 'battle',
+                            msg: `🔥 <strong>RIVOLTA!</strong> ${state.nations[r.to]?.flag||''} ${state.nations[r.to]?.name||r.territory} si ribella — guarnigione troppo debole!`
+                        });
+                    });
+                }, 800);
+            }
+        }
+
         updateHUD();
         updateMilitaryBar();
         const sel = MapRenderer.getSelected();
@@ -1788,7 +2035,6 @@ const UI = (() => {
             logAIAction(act, state);
 
             if (act.type === 'attack' && act.result) {
-                MapRenderer.resizeFx();
                 const _aN = state.nations[act.result.attacker];
                 const _dN = state.nations[act.result.defender];
                 const _aI = { code: act.result.attacker, name: _aN?.name, flag: _aN?.flag, color: _aN?.color };
@@ -1845,12 +2091,15 @@ const UI = (() => {
         /* DevLog: capture turn diagnostics for console analysis */
         if (typeof DevLog !== 'undefined') DevLog.onTurnEnd(allActions);
 
-        /* Log summary in event log */
-        const attackCount = allActions.filter(a => a.type === 'attack').length;
-        const warCount = allActions.filter(a => a.type === 'war_declare').length;
-        const nukeCount = allActions.filter(a => a.type === 'nuke').length;
-        const conquests = allActions.filter(a => a.type === 'attack' && a.result?.conquered).length;
-        const revoltCount = allActions.filter(a => a.type === 'revolt').length;
+        /* Log summary in event log — single pass instead of 5 filter() calls */
+        let attackCount = 0, warCount = 0, nukeCount = 0, conquests = 0, revoltCount = 0;
+        for (let i = 0; i < allActions.length; i++) {
+            const a = allActions[i];
+            if (a.type === 'attack') { attackCount++; if (a.result?.conquered) conquests++; }
+            else if (a.type === 'war_declare') warCount++;
+            else if (a.type === 'nuke') nukeCount++;
+            else if (a.type === 'revolt') revoltCount++;
+        }
         let summary = `📊 <strong>RIEPILOGO T${state.turn}:</strong> ${allActions.length} azioni | ⚔️${attackCount} battaglie | 🏴${conquests} conquiste | 🔥${warCount} guerre | ☢️${nukeCount} nucleari`;
         if (revoltCount > 0) summary += ` | 🔥${revoltCount} rivolte`;
         addEventToLog({ turn: state.turn, type:'game', msg: summary });
@@ -2151,14 +2400,17 @@ const UI = (() => {
 
     /* ════════════════ EVENT LOG ════════════════ */
     let evtAutoScroll = true;
+    let _programmaticScroll = false; /* flag to ignore scroll events triggered by our own auto-scroll */
 
     function setupEventLog() {
         const log = els['event-log'];
         if (!log) return;
 
-        /* Scroll detection: if user scrolls up, pause auto-scroll */
+        /* Scroll detection: if user scrolls up, pause auto-scroll.
+           Ignore scroll events caused by our own programmatic scrollTop assignment. */
         log.addEventListener('scroll', () => {
-            const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+            if (_programmaticScroll) return;
+            const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
             if (atBottom && !evtAutoScroll) {
                 evtAutoScroll = true;
                 hideLiveBtn();
@@ -2166,14 +2418,16 @@ const UI = (() => {
                 evtAutoScroll = false;
                 showLiveBtn();
             }
-        });
+        }, { passive: true });
 
         /* LIVE button */
         const btnLive = document.getElementById('btn-live');
         if (btnLive) {
             btnLive.addEventListener('click', () => {
                 evtAutoScroll = true;
+                _programmaticScroll = true;
                 log.scrollTop = log.scrollHeight;
+                requestAnimationFrame(() => { _programmaticScroll = false; });
                 hideLiveBtn();
             });
         }
@@ -2222,6 +2476,36 @@ const UI = (() => {
     function showLiveBtn() { const b = document.getElementById('btn-live'); if (b) b.classList.remove('hidden'); }
     function hideLiveBtn() { const b = document.getElementById('btn-live'); if (b) b.classList.add('hidden'); }
 
+    /* Cached colony/ally names — refreshed once per turn */
+    let _evtCacheTurn = -1;
+    let _evtPlayerName = '';
+    let _evtColonyNames = [];
+    let _evtAllyNames = [];
+
+    function _refreshEvtCache() {
+        const state = GameEngine.getState();
+        if (!state) return;
+        if (_evtCacheTurn === state.turn) return;
+        _evtCacheTurn = state.turn;
+        const pn = state.nations[state.player];
+        _evtPlayerName = pn?.name || '';
+        _evtColonyNames = Object.entries(state.territories)
+            .filter(([tCode, o]) => o === state.player && tCode !== state.player)
+            .map(([tCode]) => getNation(tCode)?.name)
+            .filter(Boolean);
+        _evtAllyNames = [];
+        const majorCodes = Object.keys(NATIONS);
+        for (const c of majorCodes) {
+            if (c !== state.player && GameEngine.isAlly(state.player, c)) {
+                const an = state.nations[c];
+                if (an) _evtAllyNames.push(an.name);
+            }
+        }
+    }
+
+    /* Deferred scroll — coalesces multiple addEventToLog calls into a single scrollHeight read */
+    let _scrollRaf = 0;
+
     function addEventToLog(entry) {
         const log = els['event-log'];
         if (!log) return;
@@ -2231,57 +2515,63 @@ const UI = (() => {
             tech: 'evt-tech', nuke: 'evt-nuke', game: ''
         };
 
-        /* Determine if event involves the player or an ally */
+        /* Classify using cached names (fast) */
+        _refreshEvtCache();
         let ownerClass = '';
-        const state = GameEngine.getState();
-        if (state && entry.msg) {
-            const pn = state.nations[state.player];
-            if (pn) {
-                const pName = pn.name;
-                if (entry.msg.includes(pName)) {
-                    ownerClass = 'evt-mine';
-                } else {
-                    /* Check allies */
-                    const majorCodes = Object.keys(NATIONS);
-                    for (const c of majorCodes) {
-                        if (c !== state.player && GameEngine.isAlly(state.player, c)) {
-                            const an = state.nations[c];
-                            if (an && entry.msg.includes(an.name)) {
-                                ownerClass = 'evt-ally';
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+        const msg = entry.msg || '';
+        if (_evtPlayerName && msg.includes(_evtPlayerName)) {
+            ownerClass = 'evt-mine';
+        } else if (_evtColonyNames.some(n => msg.includes(n))) {
+            ownerClass = 'evt-mine';
+        } else if (_evtAllyNames.some(n => msg.includes(n))) {
+            ownerClass = 'evt-ally';
         }
 
         const div = document.createElement('div');
         div.className = `event-item ${typeMap[entry.type] || ''} ${ownerClass}`.trim();
-        div.innerHTML = `<span class="evt-turn">T${entry.turn}</span> ${entry.msg}`;
-        parseEmoji(div);
+        div.innerHTML = `<span class="evt-turn">T${entry.turn}</span> ${msg}`;
+        parseEmojiIfNeeded(div);
         log.appendChild(div);
 
-        /* Auto-scroll only if in LIVE mode */
-        if (evtAutoScroll) {
-            log.scrollTop = log.scrollHeight;
-        } else {
+        /* Defer scroll to next frame — avoids forced reflow (scrollHeight) on every append */
+        if (evtAutoScroll && !_scrollRaf) {
+            _scrollRaf = requestAnimationFrame(() => {
+                _scrollRaf = 0;
+                if (log && evtAutoScroll) {
+                    _programmaticScroll = true;
+                    log.scrollTop = log.scrollHeight;
+                    /* Reset flag after the browser fires the scroll event */
+                    requestAnimationFrame(() => { _programmaticScroll = false; });
+                }
+            });
+        } else if (!evtAutoScroll) {
             showLiveBtn();
         }
 
-        /* Keep max 150 entries */
-        while (log.children.length > 150) log.removeChild(log.firstChild);
+        /* Keep max 80 entries in DOM (fewer = less rendering work) */
+        while (log.children.length > 80) log.removeChild(log.firstChild);
     }
 
     /* ════════════════ GAME OVER ════════════════ */
+    let _victoryVictor = null; // track for banner re-open
+
     function showGameOver(victor) {
         /* Hide autoplay banner if present */
         hideAutoPlayBanner();
+        _victoryVictor = victor;
 
         show('gameover-popup');
         const state = GameEngine.getState();
         const n = state.nations[victor];
         const isPlayer = victor === state.player;
+
+        /* Victory type labels */
+        const VICTORY_LABELS = {
+            military:  { icon: '⚔️', label: 'VITTORIA MILITARE',   desc: 'Dominazione territoriale (≥85% territori)' },
+            economic:  { icon: '💰', label: 'VITTORIA ECONOMICA',  desc: 'Supremazia economica (≥50K fondi + ≥30% territori)' },
+            strategic: { icon: '🎯', label: 'VITTORIA STRATEGICA', desc: 'Controllo di tutti gli asset strategici' }
+        };
+        const vt = VICTORY_LABELS[state.victoryType] || VICTORY_LABELS.military;
 
         if (isPlayer) {
             els['gameover-title'].textContent = '🏆 HAI VINTO!';
@@ -2300,12 +2590,49 @@ const UI = (() => {
         const victorTerr = GameEngine.getTerritoryCount(victor);
         const totalTerr = SVG_IDS.length;
         els['gameover-stats'].innerHTML = `
+            <div class="go-stat" style="grid-column:1/-1;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:8px;">
+                <div class="label">${vt.icon} Tipo di Vittoria</div>
+                <div class="val" style="font-size:1rem;color:var(--gold);">${vt.label}</div>
+                <div style="font-size:0.65rem;color:#90a4ae;margin-top:2px;">${vt.desc}</div>
+            </div>
             <div class="go-stat"><div class="label">Vincitore</div><div class="val">${n.flag} ${n.name}</div></div>
             <div class="go-stat"><div class="label">Turni</div><div class="val">${state.turn}</div></div>
             <div class="go-stat"><div class="label">Territori</div><div class="val">${victorTerr}/${totalTerr}</div></div>
             <div class="go-stat"><div class="label">Fondi</div><div class="val">💰${n.res.money}</div></div>
         `;
         parseEmoji(els['gameover-popup']);
+
+        /* Build the persistent victory banner text */
+        const bannerTitle = isPlayer
+            ? `🏆 ${n.flag} ${n.name} — ${vt.label} al turno ${state.turn}!`
+            : playerDead
+                ? `🏆 ${n.flag} ${n.name} ha vinto — ${vt.label}`
+                : `💀 ${n.flag} ${n.name} ha vinto — ${vt.label}`;
+
+        const banner = document.getElementById('victory-banner');
+        if (banner) {
+            banner.innerHTML = `
+                <span class="victory-banner-text">${bannerTitle}</span>
+                <button class="btn-sm btn-details-sm" id="btn-banner-details">📊 Dettagli</button>
+                <button class="btn-sm btn-restart-sm" id="btn-banner-restart">🔄 Ricomincia</button>
+            `;
+            /* Wire banner buttons */
+            document.getElementById('btn-banner-restart').addEventListener('click', () => location.reload());
+            document.getElementById('btn-banner-details').addEventListener('click', () => {
+                hideVictoryBanner();
+                show('gameover-popup');
+            });
+        }
+    }
+
+    function showVictoryBanner() {
+        const banner = document.getElementById('victory-banner');
+        if (banner) banner.classList.remove('hidden');
+    }
+
+    function hideVictoryBanner() {
+        const banner = document.getElementById('victory-banner');
+        if (banner) banner.classList.add('hidden');
     }
 
     /* ════════════════ HELPERS ════════════════ */
@@ -2337,6 +2664,9 @@ const UI = (() => {
         doPeaceFromPanel,
         doAllyFromPanel,
         doSuppressUnrest,
+        doSuppressAllUnrest,
+        showNationDetail,
+        showTerritoryPanel,
         addEventToLog,
         startAutoPlay,
         stopAutoPlay
