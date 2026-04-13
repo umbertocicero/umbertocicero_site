@@ -592,7 +592,7 @@ const MapRenderer = (() => {
     /* Emoji icons by unit type — big, clear, universally recognizable */
     const UNIT_EMOJI = {
         infantry:        '🪖',
-        tank:            '🛡️',
+        tank:            '⚙️',
         artillery:       '💥',
         fighter:         '✈️',
         bomber:          '🛩️',
@@ -601,14 +601,14 @@ const MapRenderer = (() => {
         submarine:       '🐟',
         cruiseMissile:   '🚀',
         ballisticMissile:'☄️',
-        sam:             '⛨',
+        sam:             '📡',
         nuke:            '☢️'
     };
 
     /* Map unit types → local Twemoji SVG filenames for crisp rendering */
     const UNIT_SVG = {
         infantry:        'assets/emoji/1fa96.svg',
-        tank:            'assets/emoji/1f6e1-fe0f.svg',
+        tank:            'assets/emoji/2699.svg',
         artillery:       'assets/emoji/1f4a5.svg',
         fighter:         'assets/emoji/2708-fe0f.svg',
         bomber:          'assets/emoji/1f6e9-fe0f.svg',
@@ -617,7 +617,7 @@ const MapRenderer = (() => {
         submarine:       'assets/emoji/1f41f.svg',
         cruiseMissile:   'assets/emoji/1f680.svg',
         ballisticMissile:'assets/emoji/2604-fe0f.svg',
-        sam:             'assets/emoji/1f6e1-fe0f.svg',  /* fallback — ⛨ has no Twemoji */
+        sam:             'assets/emoji/1f4e1.svg',
         nuke:            'assets/emoji/2622-fe0f.svg'
     };
 
@@ -644,8 +644,11 @@ const MapRenderer = (() => {
         none:   { bg: 'rgba(120,120,120,0.6)', ring: '#9e9e9e', text: '#fff', stroke: 'rgba(0,0,0,0.5)' }   // grey
     };
 
-    /* Track last garrison state to skip unchanged territories */
-    const _lastGarrison = {};  // code → 'strength|total|dominant'
+    /* Track last garrison state to skip unchanged territories.
+       Key format: 'strength|roundedTotal|dominantType' — when this hasn't
+       changed, we skip the entire DOM update (including href) so no
+       browser re-fetches are triggered for the same <image> element. */
+    const _lastGarrison = {};  // code → key string
 
     function updateGarrisonOverlay() {
         if (typeof GameEngine === 'undefined') return;
@@ -685,12 +688,14 @@ const MapRenderer = (() => {
             const centroid = getCentroid(code);
             if (!centroid) continue;
 
+            /* Resolve emoji URL once (may be blob: or file path) */
+            const emojiSvg = _unitSvgUrl(garrison.dominant);
+
             /* Skip if unchanged since last update */
             const key = `${garrison.strength}|${Math.round(garrison.total)}|${garrison.dominant}`;
             if (_lastGarrison[code] === key && garrisonLayer[code]) continue;
             _lastGarrison[code] = key;
 
-            const emojiSvg = _unitSvgUrl(garrison.dominant);
             const strength = garrison.strength || 'none';
             const colors = STRENGTH_COLORS[strength] || STRENGTH_COLORS.none;
             const sz = strength === 'heavy' ? 26 : strength === 'medium' ? 22 : 18;
@@ -739,8 +744,11 @@ const MapRenderer = (() => {
             badge.setAttribute('stroke', colors.ring);
             badge.setAttribute('stroke-width', '1.5');
 
-            /* SVG <image> for crisp emoji — no OS font dependency */
-            emojiImg.setAttribute('href', emojiSvg);
+            /* SVG <image> for crisp emoji — only set href when it actually
+               changed to avoid triggering a browser re-fetch of the same blob */
+            if (emojiImg.getAttribute('href') !== emojiSvg) {
+                emojiImg.setAttribute('href', emojiSvg);
+            }
             emojiImg.setAttribute('x', cx - badgeW * 0.2 - emojiSize * 0.5);
             emojiImg.setAttribute('y', cy - emojiSize * 0.5);
             emojiImg.setAttribute('width', emojiSize);

@@ -23,18 +23,14 @@ const UI = (() => {
         callback: (icon) => {
             const cached = _svgBlobCache.get(icon);
             if (cached) return cached;
-            /* Not yet cached — schedule a background fetch so future uses
-               get the blob URL.  This first <img> uses the file path. */
+            /* Not yet cached — schedule a background fetch so FUTURE
+               twemoji.parse() calls will use the blob URL.
+               Do NOT patch existing <img> — changing src triggers a re-fetch. */
             if (_blobCacheReady && !_svgBlobCache.has(icon)) {
                 _svgBlobCache.set(icon, '');  // mark as in-flight
                 const url = _emojiBase + icon + '.svg';
                 fetch(url).then(r => r.blob()).then(blob => {
-                    const blobUrl = URL.createObjectURL(blob);
-                    _svgBlobCache.set(icon, blobUrl);
-                    /* Retroactively patch existing <img> for this icon */
-                    document.querySelectorAll(`img.emoji[src="${url}"]`).forEach(img => {
-                        img.src = blobUrl;
-                    });
+                    _svgBlobCache.set(icon, URL.createObjectURL(blob));
                 }).catch(() => _svgBlobCache.delete(icon));
             }
             return _emojiBase + icon + '.svg';
@@ -65,49 +61,45 @@ const UI = (() => {
     }
 
     /** Pre-fetch all emoji SVGs from assets/emoji/ and store as blob: URLs.
-     *  Called once after boot — scans the DOM for every <img> whose src
-     *  starts with the emoji base path, fetches the SVG text, builds a
-     *  Blob URL, and caches it.  The Twemoji callback and map-renderer
-     *  garrison overlay both consult _svgBlobCache, so after warm-up
-     *  there are ZERO file/network requests for emoji SVGs.
+     *  Called once after boot — scans the DOM for every <img.emoji> and
+     *  garrison <image> to discover which icon codes are needed, then
+     *  fetches each unique SVG once and stores the result as a blob: URL.
+     *
+     *  IMPORTANT: we do NOT replace existing DOM element src/href — that
+     *  would trigger redundant browser re-fetches.  Instead, only NEW
+     *  elements created after warm-up (via Twemoji callback or garrison
+     *  overlay update) will automatically use blob: URLs.
      *
      *  Also exposed on window so MapRenderer can use it:
      *      window._svgBlobCache
      */
     function _warmSvgBlobCache() {
-        /* Collect every unique emoji URL currently in the DOM */
-        const urls = new Set();
+        /* Collect every unique emoji icon code currently in use */
+        const icons = new Set();
         document.querySelectorAll('img.emoji').forEach(img => {
             const src = img.getAttribute('src') || '';
-            if (src.startsWith(_emojiBase)) urls.add(src);
+            if (src.startsWith(_emojiBase)) {
+                icons.add(src.slice(_emojiBase.length).replace(/\.svg$/i, ''));
+            }
         });
         /* Also include garrison overlay <image> hrefs */
         document.querySelectorAll('image[href^="assets/emoji/"]').forEach(img => {
-            urls.add(img.getAttribute('href'));
+            const href = img.getAttribute('href') || '';
+            icons.add(href.slice(_emojiBase.length).replace(/\.svg$/i, ''));
         });
 
         /* Expose cache on window for MapRenderer */
         window._svgBlobCache = _svgBlobCache;
 
-        if (urls.size === 0) { _blobCacheReady = true; return; }
+        if (icons.size === 0) { _blobCacheReady = true; return; }
 
         let done = 0;
-        const total = urls.size;
-        urls.forEach(url => {
-            /* Extract the icon code (e.g. '1f1ee-1f1f9' from 'assets/emoji/1f1ee-1f1f9.svg') */
-            const icon = url.slice(_emojiBase.length).replace(/\.svg$/i, '');
+        const total = icons.size;
+        icons.forEach(icon => {
             if (_svgBlobCache.has(icon)) { if (++done >= total) _blobCacheReady = true; return; }
+            const url = _emojiBase + icon + '.svg';
             fetch(url).then(r => r.blob()).then(blob => {
-                const blobUrl = URL.createObjectURL(blob);
-                _svgBlobCache.set(icon, blobUrl);
-                /* Replace existing <img> src in-place to free file handles */
-                document.querySelectorAll(`img.emoji[src="${url}"]`).forEach(img => {
-                    img.src = blobUrl;
-                });
-                /* Replace existing SVG <image> href in-place */
-                document.querySelectorAll(`image[href="${url}"]`).forEach(img => {
-                    img.setAttribute('href', blobUrl);
-                });
+                _svgBlobCache.set(icon, URL.createObjectURL(blob));
             }).catch(() => {}).finally(() => {
                 if (++done >= total) _blobCacheReady = true;
             });
@@ -2504,12 +2496,13 @@ const UI = (() => {
      * - User-initiated scroll UP disables auto-follow.
      * - User-initiated scroll to bottom re-enables auto-follow.
      *
-     * A boolean _isOurScroll is set true before programmatic scrollTop writes
-     * and cleared 80ms later, so the scroll listener ignores those events.
+     * _pendingScroll is incremented before any DOM mutation that shifts
+     * scrollTop (appendChild, removeChild) and decremented inside the
+     * rAF that calls _scrollToBottom.  While _pendingScroll > 0 the
+     * scroll listener ignores every event — no timers, no races.
      */
-    let evtAutoScroll = true;
-    let _isOurScroll  = false;
-    let _ourScrollTimer = 0;
+    let evtAutoScroll  = true;
+    let _pendingScroll = 0;   // > 0 → ignore scroll events (DOM mutation in flight)
 
     function setupEventLog() {
         const log = els['event-log'];
@@ -2519,8 +2512,8 @@ const UI = (() => {
         hideLiveBtn();
 
         log.addEventListener('scroll', () => {
-            /* Ignore scroll events triggered by our own scrollTop writes */
-            if (_isOurScroll) return;
+            /* Ignore scroll events caused by our own DOM mutations / scrollTop writes */
+            if (_pendingScroll > 0) return;
 
             const distFromBottom = log.scrollHeight - log.scrollTop - log.clientHeight;
 
@@ -2544,7 +2537,10 @@ const UI = (() => {
         if (btnLive) {
             btnLive.addEventListener('click', () => {
                 evtAutoScroll = true;
+                _pendingScroll++;
                 _scrollToBottom(log);
+                /* Let the resulting scroll event fire, then re-enable listener */
+                requestAnimationFrame(() => { _pendingScroll = 0; });
                 hideLiveBtn();
             });
         }
@@ -2588,13 +2584,11 @@ const UI = (() => {
         }
     }
 
-    /** Programmatic scroll-to-bottom: flags the scroll event as ours */
+    /** Programmatic scroll-to-bottom.
+     *  Decrements _pendingScroll so the scroll listener re-activates
+     *  only after all pending DOM mutations have been scrolled. */
     function _scrollToBottom(log) {
-        _isOurScroll = true;
-        clearTimeout(_ourScrollTimer);
         log.scrollTop = log.scrollHeight;
-        /* Keep flag up for 80ms so the resulting scroll event is ignored */
-        _ourScrollTimer = setTimeout(() => { _isOurScroll = false; }, 80);
     }
 
     function showLiveBtn() { const b = document.getElementById('btn-live'); if (b) b.classList.remove('hidden'); }
@@ -2655,22 +2649,35 @@ const UI = (() => {
         div.className = `event-item ${typeMap[entry.type] || ''} ${ownerClass}`.trim();
         div.innerHTML = `<span class="evt-turn">T${entry.turn}</span> ${msg}`;
         parseEmojiIfNeeded(div);
+
+        /* ── DOM mutations: guard with _pendingScroll so the scroll
+           listener ignores any layout-induced scroll events ── */
+        _pendingScroll++;
+
+        /* Trim old entries BEFORE appending the new one */
+        while (log.children.length >= 80) log.removeChild(log.firstChild);
+
         log.appendChild(div);
 
-        /* Auto-scroll to bottom on next frame (coalesced) */
+        /* Auto-scroll to bottom on next frame (coalesced).
+           The rAF clears _pendingScroll AFTER scrolling, so the listener
+           only re-activates once we're firmly at the bottom. */
         if (evtAutoScroll && !_scrollRaf) {
             _scrollRaf = requestAnimationFrame(() => {
                 _scrollRaf = 0;
                 if (log && evtAutoScroll) {
                     _scrollToBottom(log);
                 }
+                /* Release the guard — any scroll event after this is user-initiated */
+                _pendingScroll = 0;
             });
-        } else if (!evtAutoScroll) {
+        } else if (evtAutoScroll) {
+            /* rAF already scheduled — it will handle this event too.
+               _pendingScroll stays > 0 until the rAF fires. */
+        } else {
+            _pendingScroll = 0;  // not auto-scrolling, release guard
             showLiveBtn();
         }
-
-        /* Keep max 80 entries in DOM */
-        while (log.children.length > 80) log.removeChild(log.firstChild);
     }
 
     /* ════════════════ GAME OVER ════════════════ */
