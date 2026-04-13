@@ -50,7 +50,7 @@ const STRATEGIC_ASSETS = {
 
 const UNIT_TYPES = {
     infantry:        {icon:'🪖',name:'Fanteria',         atk:3,  def:4,  cost:{money:50},                      spd:1, rng:1},
-    tank:            {icon:'⚙️',name:'Corazzati',        atk:8,  def:6,  cost:{money:180,steel:10},            spd:2, rng:1},
+    tank:            {icon:'🚜',name:'Corazzati',        atk:8,  def:6,  cost:{money:180,steel:10},            spd:2, rng:1},
     artillery:       {icon:'💥',name:'Artiglieria',      atk:10, def:2,  cost:{money:200,steel:10},            spd:1, rng:2},
     fighter:         {icon:'✈️',name:'Caccia',           atk:12, def:5,  cost:{money:350,steel:20},            spd:5, rng:4},
     bomber:          {icon:'🛩️',name:'Bombardiere',      atk:18, def:3,  cost:{money:600,steel:30},            spd:3, rng:5},
@@ -652,15 +652,40 @@ function isSeaConnected(codeA, codeB) {
  * Returns { reachable, method, reason }
  *   method: 'land' | 'sea_transport' | 'naval' | 'air' | 'missile' | null
  *   reason: human-readable Italian explanation if NOT reachable
+ *
+ * PERF: caches myTerritories per attacker per turn to avoid O(n) scan
+ *       on every call (was 357ms in profiling).
  */
+const _reachTerritoryCache = { code: null, turn: -1, terrs: null };
+
 function canReachTerritory(attackerCode, defenderTerritoryCode, attackerArmy) {
     const army = attackerArmy || {};
 
-    /* Gather all territories owned by attacker */
-    const myTerritories = typeof GameEngine !== 'undefined'
-        ? Object.entries(GameEngine.getState().territories)
-            .filter(([, o]) => o === attackerCode).map(([c]) => c)
-        : [attackerCode];
+    /* Gather all territories owned by attacker — CACHED per attacker+turn+terrCount.
+       Invalidates when attacker changes, turn changes, OR territory count changes
+       (which happens mid-turn after conquests). */
+    let myTerritories;
+    if (typeof GameEngine !== 'undefined') {
+        const st = GameEngine.getState();
+        const turn = st ? st.turn : -1;
+        const tCount = GameEngine.getTerritoryCount(attackerCode);
+        if (_reachTerritoryCache.code === attackerCode
+            && _reachTerritoryCache.turn === turn
+            && _reachTerritoryCache.count === tCount) {
+            myTerritories = _reachTerritoryCache.terrs;
+        } else {
+            myTerritories = [];
+            for (const tCode of SVG_IDS) {
+                if (st.territories[tCode] === attackerCode) myTerritories.push(tCode);
+            }
+            _reachTerritoryCache.code = attackerCode;
+            _reachTerritoryCache.turn = turn;
+            _reachTerritoryCache.count = tCount;
+            _reachTerritoryCache.terrs = myTerritories;
+        }
+    } else {
+        myTerritories = [attackerCode];
+    }
 
     /* Detect available capabilities for support info */
     const hasNavy = (army.navy || 0) > 0 || (army.submarine || 0) > 0;

@@ -270,7 +270,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     color: var(--bg-dark); background: var(--accent);
     border-color: var(--accent);
 }
-.btn-hud-primary:hover { background: #33ecff; box-shadow: 0 0 12px rgba(0,229,255,0.35); }
+.btn-hud-primary:hover { background: #33ecff; color: var(--bg-dark); box-shadow: 0 0 12px rgba(0,229,255,0.35); }
 
 /* MAP */
 #map-container {

@@ -23,6 +23,8 @@ const MapRenderer = (() => {
     /* ── caches ── */
     const centroidCache = {};   // code → {x,y} in SVG coords
     const pathCache     = {};   // code → element(s)
+    let   _ctmCache     = null; // cached getScreenCTM result
+    let   _crCache      = null; // cached container bounding rect
 
     /* ── callbacks (set by UI) ── */
     let onTerritoryClick = null;
@@ -98,10 +100,10 @@ const MapRenderer = (() => {
             .ocean { fill: #0a1628 !important; stroke: none; }
             .land  {
                 stroke: #0d1b2a; stroke-width: 0.5; cursor: pointer;
-                transition: fill 0.3s ease, stroke 0.2s ease, stroke-width 0.2s ease, opacity 0.2s;
+                transition: fill 0.3s ease, stroke 0.2s ease, stroke-width 0.2s ease;
             }
             .land path { transition: fill 0.3s ease; }
-            .land:hover { stroke: #00e5ff; stroke-width: 1.4; filter: brightness(1.15); }
+            .land:hover { stroke: #00e5ff; stroke-width: 1.4; opacity: 0.92; }
             .lake  { fill: #0e2240 !important; stroke: none; }
             .aq    { fill: #1a2a3a !important; stroke: #0d1b2a; stroke-width: 0.3; }
             .circle { display: none !important; }
@@ -113,11 +115,10 @@ const MapRenderer = (() => {
                 cursor: pointer;
             }
             .circle.micro-island:hover { opacity: 0.55; stroke: #00e5ff; stroke-width: 1; }
-            .territory-selected { stroke: #ffd700 !important; stroke-width: 2.5 !important;
-                                  filter: drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
+            .territory-selected { stroke: #ffd700 !important; stroke-width: 2.5 !important; }
             @keyframes playerGlow {
-                0%, 100% { stroke-opacity: 1; filter: drop-shadow(0 0 4px rgba(0,229,255,0.6)); }
-                50% { stroke-opacity: 0.7; filter: drop-shadow(0 0 8px rgba(0,229,255,0.9)); }
+                0%, 100% { stroke-opacity: 1; stroke-width: 1.8; }
+                50%      { stroke-opacity: 0.65; stroke-width: 2.4; }
             }
             .territory-player path, path.territory-player {
                 stroke: #00e5ff !important; stroke-width: 1.8 !important;
@@ -127,6 +128,7 @@ const MapRenderer = (() => {
                 stroke: #00e5ff !important; stroke-width: 1.8 !important;
                 animation: playerGlow 2.5s ease-in-out infinite;
             }
+            .garrison-overlay { will-change: transform; }
         `;
         defs.appendChild(style);
     }
@@ -204,9 +206,11 @@ const MapRenderer = (() => {
     }
 
     /* ════════════════ COLOURING ════════════════ */
+    /** Set fill via attribute only — the embedded SVG <style> was already
+     *  stripped during init, so no CSS specificity battle.  Skipping
+     *  .style.fill halves the property write cost. */
     function forceFill(el, color) {
         el.setAttribute('fill', color);
-        el.style.fill = color;
     }
 
     /* Cache child <path> lists per territory to avoid querySelectorAll every frame */
@@ -237,23 +241,32 @@ const MapRenderer = (() => {
         _colourRaf = requestAnimationFrame(_doColourAll);
     }
 
+    /* Track which territories have the player class to avoid classList thrashing */
+    const _playerClassSet = new Set();
+
     function _doColourAll() {
         _colourRaf = 0;
         if (typeof GameEngine === 'undefined') return;
         const state = GameEngine.getState();
         if (!state || !state.territories) return;
 
+        const playerCode = state.player;
+
         for (const code of SVG_IDS) {
             const owner = state.territories[code];
             if (owner) {
                 const n = state.nations[owner] || getNation(owner);
                 colourTerritory(code, n.color);
-                const el = pathCache[code];
-                if (el) {
-                    if (owner === state.player) {
-                        el.classList.add('territory-player');
-                    } else {
-                        el.classList.remove('territory-player');
+                /* Only toggle classList when the state actually changed */
+                if (owner === playerCode) {
+                    if (!_playerClassSet.has(code)) {
+                        const el = pathCache[code];
+                        if (el) { el.classList.add('territory-player'); _playerClassSet.add(code); }
+                    }
+                } else {
+                    if (_playerClassSet.has(code)) {
+                        const el = pathCache[code];
+                        if (el) { el.classList.remove('territory-player'); _playerClassSet.delete(code); }
                     }
                 }
             } else {
@@ -281,6 +294,29 @@ const MapRenderer = (() => {
     function getSelected() { return selectedCode; }
 
     /* ════════════════ CENTROIDS ════════════════ */
+
+    /** Manual centroid overrides for territories whose bounding-box center
+     *  falls outside their actual land area (concave, crescent-shaped, or
+     *  split territories like Norway, Croatia, Chile, Malaysia, etc.).
+     *  Values are { dx, dy } offsets applied to the computed bbox center,
+     *  OR absolute { x, y } when prefixed with 'abs'. */
+    const CENTROID_OFFSETS = {
+        /* Norway: bbox center lands on Sweden because the mainland path
+           spans wide (fjords + Svalbard); shift marker far left */
+        no: { dx: -0.35, dy: 0.20 },
+        /* Croatia: concave crescent shape — center falls in Bosnia */
+        hr: { dx: -0.20, dy: -0.15 },
+        /* Chile: very tall & thin — center okay horizontally but
+           bbox may include distant islands; nudge slightly */
+        cl: { dx: 0.10, dy: 0 },
+        /* Malaysia: split between Malay Peninsula & Borneo */
+        my: { dx: -0.25, dy: 0 },
+        /* Indonesia: huge archipelago — center may land in the sea */
+        id: { dx: -0.15, dy: 0 },
+        /* USA: Alaska pulls bbox far left; nudge right to lower 48 */
+        us: { dx: 0.15, dy: 0.20 },
+    };
+
     function getCentroid(code) {
         if (centroidCache[code]) return centroidCache[code];
         const el = pathCache[code];
@@ -309,24 +345,37 @@ const MapRenderer = (() => {
             }
 
             const bbox = bestPath.getBBox();
-            const pt = { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
+            let px = bbox.x + bbox.width / 2;
+            let py = bbox.y + bbox.height / 2;
+
+            /* Apply manual offset for problematic territories */
+            const off = CENTROID_OFFSETS[code];
+            if (off) {
+                px += bbox.width  * (off.dx || 0);
+                py += bbox.height * (off.dy || 0);
+            }
+
+            const pt = { x: px, y: py };
             centroidCache[code] = pt;
             return pt;
         } catch { return null; }
     }
 
-    /** Convert SVG coordinate to screen pixel (for FX canvas) */
+    /** Convert SVG coordinate to screen pixel (for FX canvas).
+     *  Uses a cached CTM to avoid forced-layout from repeated getScreenCTM(). */
     function svgToScreen(svgX, svgY) {
         if (!svgEl) return null;
         try {
-            const pt = svgEl.createSVGPoint();
-            pt.x = svgX; pt.y = svgY;
-            const ctm = svgEl.getScreenCTM();
+            if (!_ctmCache) {
+                _ctmCache = svgEl.getScreenCTM();
+                _crCache  = container.getBoundingClientRect();
+            }
+            const ctm = _ctmCache;
             if (!ctm) return null;
-            const screen = pt.matrixTransform(ctm);
-            const cr = container.getBoundingClientRect();
-            const result = { x: screen.x - cr.left, y: screen.y - cr.top };
-            /* Validate the result is within reasonable bounds */
+            /* Manual matrix transform — avoids createSVGPoint overhead */
+            const sx = ctm.a * svgX + ctm.c * svgY + ctm.e;
+            const sy = ctm.b * svgX + ctm.d * svgY + ctm.f;
+            const result = { x: sx - _crCache.left, y: sy - _crCache.top };
             if (isNaN(result.x) || isNaN(result.y)) return null;
             return result;
         } catch (e) {
@@ -359,13 +408,46 @@ const MapRenderer = (() => {
     }
 
     let _rafRescale = 0;
+    let _rasterTimer = 0;       // debounce for re-rasterization after zoom settles
+    let _interacting = false;   // true while user is actively panning/zooming
+
+    /** Promote wrapper to GPU layer for smooth interaction */
+    function _beginInteraction() {
+        if (_interacting) return;
+        _interacting = true;
+        const wrapper = document.getElementById('svg-wrapper');
+        if (wrapper) wrapper.style.willChange = 'transform';
+    }
+
+    /** After interaction settles, remove will-change and force browser
+     *  to re-rasterize the SVG at the current zoom level so paths stay
+     *  crisp instead of being a scaled-up blurry texture.  */
+    function _scheduleRasterize() {
+        if (_rasterTimer) clearTimeout(_rasterTimer);
+        _rasterTimer = setTimeout(() => {
+            _rasterTimer = 0;
+            _interacting = false;
+            const wrapper = document.getElementById('svg-wrapper');
+            if (!wrapper) return;
+            /* Drop GPU layer hint — browser re-rasterizes at current size */
+            wrapper.style.willChange = 'auto';
+        }, 200);  // 200ms after last interaction
+    }
+
     function applyTransform() {
         clampPan();
+        /* Invalidate CTM cache — transform changed */
+        _ctmCache = null;
+        _crCache  = null;
+        /* Promote to GPU layer while interacting */
+        _beginInteraction();
         const wrapper = document.getElementById('svg-wrapper');
         if (wrapper) {
             wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
             wrapper.style.transformOrigin = '0 0';
         }
+        /* Schedule re-rasterization after interaction ends */
+        _scheduleRasterize();
         /* Throttle garrison rescale to one per animation frame */
         if (!_rafRescale) {
             _rafRescale = requestAnimationFrame(() => {
@@ -536,6 +618,9 @@ const MapRenderer = (() => {
     /* ════════════════ FX CANVAS ════════════════ */
     function resizeFx() {
         if (!fxCanvas || !container) return;
+        /* Invalidate CTM cache on resize */
+        _ctmCache = null;
+        _crCache  = null;
         const w = container.clientWidth;
         const h = container.clientHeight;
         /* Only resize if dimensions actually changed — setting canvas.width/height
@@ -608,7 +693,7 @@ const MapRenderer = (() => {
     /* Map unit types → local Twemoji SVG filenames for crisp rendering */
     const UNIT_SVG = {
         infantry:        'assets/emoji/1fa96.svg',
-        tank:            'assets/emoji/2699.svg',
+        tank:            'assets/emoji/1f69c.svg',
         artillery:       'assets/emoji/1f4a5.svg',
         fighter:         'assets/emoji/2708-fe0f.svg',
         bomber:          'assets/emoji/1f6e9-fe0f.svg',
@@ -656,31 +741,32 @@ const MapRenderer = (() => {
         if (!state) return;
         if (!svgEl) return;
 
-        /* Gather all garrison data */
+        /* Gather all garrison data — uses cached getGarrisons per nation */
         const majorCodes = typeof NATIONS !== 'undefined' ? Object.keys(NATIONS) : [];
         const allGarrisons = {};
-        majorCodes.forEach(code => {
+        for (let i = 0; i < majorCodes.length; i++) {
+            const code = majorCodes[i];
             const n = state.nations[code];
-            if (!n || !n.alive) return;
+            if (!n || !n.alive) continue;
             const g = GameEngine.getGarrisons(code);
-            Object.assign(allGarrisons, g);
-        });
+            /* Inline Object.assign for performance */
+            for (const k in g) allGarrisons[k] = g[k];
+        }
+
+        /* Collect removals first, then batch-remove outside the main loop
+           to avoid interleaving DOM reads/writes */
+        const toRemove = [];
 
         for (const code of SVG_IDS) {
             const garrison = allGarrisons[code];
 
-            /* Skip micro-islands owned by a larger nation — they are visual
-               extensions of their parent country, not independent garrisons.
-               e.g. Canary Islands (es territory), Réunion (fr), etc. */
             const isMicro = microIslandSet.has(code);
             const owner = state.territories[code];
             const skipGarrison = isMicro && owner && owner !== code;
 
             if (!garrison || garrison.total === 0 || skipGarrison) {
                 if (garrisonLayer[code]) {
-                    garrisonLayer[code].remove();
-                    delete garrisonLayer[code];
-                    delete _lastGarrison[code];
+                    toRemove.push(code);
                 }
                 continue;
             }
@@ -688,11 +774,9 @@ const MapRenderer = (() => {
             const centroid = getCentroid(code);
             if (!centroid) continue;
 
-            /* Resolve emoji URL once (may be blob: or file path) */
-            const emojiSvg = _unitSvgUrl(garrison.dominant);
-
             /* Skip if unchanged since last update */
-            const key = `${garrison.strength}|${Math.round(garrison.total)}|${garrison.dominant}`;
+            const roundedTotal = Math.round(garrison.total);
+            const key = `${garrison.strength}|${roundedTotal}|${garrison.dominant}`;
             if (_lastGarrison[code] === key && garrisonLayer[code]) continue;
             _lastGarrison[code] = key;
 
@@ -706,34 +790,45 @@ const MapRenderer = (() => {
             const badgeW = sz * 2.8;
             const badgeH = sz * 1.6;
 
+            /* Resolve emoji URL once (may be blob: or file path) */
+            const emojiSvg = _unitSvgUrl(garrison.dominant);
+
             let gEl = garrisonLayer[code];
+            let badge, emojiImg, numText;
+
             if (!gEl) {
+                /* Create new garrison element — set ALL static attributes once */
                 gEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 gEl.setAttribute('class', 'garrison-overlay');
                 gEl.setAttribute('pointer-events', 'none');
-                svgEl.appendChild(gEl);
-                garrisonLayer[code] = gEl;
-            }
 
-            /* Reuse existing children if they exist, else create */
-            let badge, emojiImg, numText;
-            if (gEl.childNodes.length === 3) {
-                badge = gEl.childNodes[0];
-                emojiImg = gEl.childNodes[1];
-                numText = gEl.childNodes[2];
-            } else {
-                gEl.innerHTML = '';
                 badge = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                badge.setAttribute('stroke-width', '1.5');
+
                 emojiImg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+
                 numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                numText.setAttribute('text-anchor', 'middle');
+                numText.setAttribute('font-family', 'Arial Black, sans-serif');
+                numText.setAttribute('font-weight', '900');
+                numText.setAttribute('paint-order', 'stroke');
+                numText.setAttribute('stroke-width', '2.5');
+
                 gEl.appendChild(badge);
                 gEl.appendChild(emojiImg);
                 gEl.appendChild(numText);
+                svgEl.appendChild(gEl);
+                garrisonLayer[code] = gEl;
+            } else {
+                badge = gEl.childNodes[0];
+                emojiImg = gEl.childNodes[1];
+                numText = gEl.childNodes[2];
             }
 
             gEl._cx = cx;
             gEl._cy = cy;
 
+            /* Dynamic attributes — only what changes between updates */
             badge.setAttribute('x', cx - badgeW / 2);
             badge.setAttribute('y', cy - badgeH / 2);
             badge.setAttribute('width', badgeW);
@@ -742,10 +837,7 @@ const MapRenderer = (() => {
             badge.setAttribute('ry', badgeH / 2);
             badge.setAttribute('fill', colors.bg);
             badge.setAttribute('stroke', colors.ring);
-            badge.setAttribute('stroke-width', '1.5');
 
-            /* SVG <image> for crisp emoji — only set href when it actually
-               changed to avoid triggering a browser re-fetch of the same blob */
             if (emojiImg.getAttribute('href') !== emojiSvg) {
                 emojiImg.setAttribute('href', emojiSvg);
             }
@@ -756,15 +848,18 @@ const MapRenderer = (() => {
 
             numText.setAttribute('x', cx + badgeW * 0.22);
             numText.setAttribute('y', cy + numSize * 0.4);
-            numText.setAttribute('text-anchor', 'middle');
             numText.setAttribute('font-size', numSize);
             numText.setAttribute('fill', colors.text);
-            numText.setAttribute('font-family', 'Arial Black, sans-serif');
-            numText.setAttribute('font-weight', '900');
-            numText.setAttribute('paint-order', 'stroke');
             numText.setAttribute('stroke', colors.stroke);
-            numText.setAttribute('stroke-width', '2.5');
-            numText.textContent = Math.round(garrison.total);
+            numText.textContent = roundedTotal;
+        }
+
+        /* Batch DOM removals — avoids layout thrashing from interleaved add/remove */
+        for (let i = 0; i < toRemove.length; i++) {
+            const code = toRemove[i];
+            garrisonLayer[code].remove();
+            delete garrisonLayer[code];
+            delete _lastGarrison[code];
         }
 
         rescaleGarrisonOverlay();
@@ -778,13 +873,14 @@ const MapRenderer = (() => {
      */
     function rescaleGarrisonOverlay() {
         const invS = 1 / scale;
-        Object.values(garrisonLayer).forEach(gEl => {
+        for (const code in garrisonLayer) {
+            const gEl = garrisonLayer[code];
             const cx = gEl._cx;
             const cy = gEl._cy;
-            if (cx == null || cy == null) return;
+            if (cx == null || cy == null) continue;
             gEl.setAttribute('transform',
                 `translate(${cx},${cy}) scale(${invS}) translate(${-cx},${-cy})`);
-        });
+        }
     }
 
     /** Remove all garrison overlays (call on game end or reset) */

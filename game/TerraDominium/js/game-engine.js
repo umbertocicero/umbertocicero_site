@@ -8,6 +8,11 @@ const GameEngine = (() => {
     let state = null;
     let onEvent = null;     // callback for UI log
 
+    /* ── Territory count cache: nationCode → count.
+       Updated incrementally on every ownership change.
+       Avoids O(n) full scans of state.territories. ── */
+    const _terrCountCache = {};
+
     /* ════════════════ INIT ════════════════ */
     function newGame(playerCode) {
         state = {
@@ -27,6 +32,12 @@ const GameEngine = (() => {
 
         /* Assign territory ownership: every SVG id is owned by itself initially */
         SVG_IDS.forEach(code => { state.territories[code] = code; });
+
+        /* Build initial territory count cache */
+        Object.keys(_terrCountCache).forEach(k => delete _terrCountCache[k]);
+        SVG_IDS.forEach(code => {
+            _terrCountCache[code] = (_terrCountCache[code] || 0) + 1;
+        });
 
         /* Build runtime data for all nations */
         const allCodes = new Set(SVG_IDS);
@@ -318,7 +329,7 @@ const GameEngine = (() => {
 
             if (isHomelandAttack && hasColonies) {
                 /* ════ HOMELAND SIEGE ════ */
-                state.territories[defenderTerritoryCode] = attackerCode;
+                _setTerritoryOwner(defenderTerritoryCode, attackerCode);
                 delete state.unrest[defenderTerritoryCode];
                 conquered = true;
 
@@ -346,7 +357,7 @@ const GameEngine = (() => {
                  * Territory's proportional share of the nation's resources is seized.
                  * If the defender only has 1 territory left → we take EVERYTHING.
                  */
-                state.territories[defenderTerritoryCode] = attackerCode;
+                _setTerritoryOwner(defenderTerritoryCode, attackerCode);
                 delete state.unrest[defenderTerritoryCode];
                 conquered = true;
 
@@ -453,7 +464,7 @@ const GameEngine = (() => {
         if (!n) return casualties;
 
         /* Engagement: larger empires commit fewer troops per battle */
-        const terrCount = Object.values(state.territories).filter(o => o === nationCode).length;
+        const terrCount = getTerritoryCount(nationCode);
         const engaged = engagedFraction || Math.min(0.6, Math.max(0.10, 1.0 / Math.max(1, terrCount)));
 
         const effectiveRate = rate * engaged;
@@ -495,7 +506,7 @@ const GameEngine = (() => {
             .map(([tCode]) => tCode);
 
         /* Transfer territory */
-        state.territories[defenderTerritoryCode] = attackerCode;
+        _setTerritoryOwner(defenderTerritoryCode, attackerCode);
         delete state.unrest[defenderTerritoryCode];  // fresh start
 
         /* If homeland nuked with colonies: trigger siege (nukes are overwhelming, 
@@ -686,7 +697,7 @@ const GameEngine = (() => {
             if (accumulated >= demand) break; /* Enough paid */
 
             /* Release colony to attacker */
-            state.territories[colony.code] = attackerCode;
+            _setTerritoryOwner(colony.code, attackerCode);
             delete state.unrest[colony.code];  // fresh start
             accumulated += colony.value;
             released.push(colony.code);
@@ -735,7 +746,7 @@ const GameEngine = (() => {
                 .map(([tCode]) => tCode);
 
             allRemaining.forEach(tCode => {
-                state.territories[tCode] = attackerCode;
+                _setTerritoryOwner(tCode, attackerCode);
                 delete state.unrest[tCode];  // fresh start
                 if (!released.includes(tCode)) released.push(tCode);
             });
@@ -750,7 +761,7 @@ const GameEngine = (() => {
     function checkElimination(nationCode) {
         const n = state.nations[nationCode];
         if (!n || !n.alive) return;
-        const owned = Object.values(state.territories).filter(o => o === nationCode).length;
+        const owned = getTerritoryCount(nationCode);
         if (owned === 0) {
             n.alive = false;
             emit('battle', `💀 ${n.flag} ${n.name} è stata eliminata!`);
@@ -764,7 +775,7 @@ const GameEngine = (() => {
         for (const code of Object.keys(state.nations)) {
             const n = state.nations[code];
             if (!n.alive) continue;
-            const owned = Object.values(state.territories).filter(o => o === code).length;
+            const owned = getTerritoryCount(code);
             const pct = owned / totalTerr;
 
             /* Military victory: 85% territories */
@@ -853,9 +864,19 @@ const GameEngine = (() => {
         return state.wars.filter(w => w.attacker === code || w.defender === code);
     }
 
-    /* Get nation territory count */
+    /* Get nation territory count — O(1) via cache */
     function getTerritoryCount(code) {
-        return Object.values(state.territories).filter(o => o === code).length;
+        return _terrCountCache[code] || 0;
+    }
+
+    /** Helper: transfer territory ownership and update the count cache.
+     *  MUST be used for ALL ownership changes so cache stays consistent. */
+    function _setTerritoryOwner(tCode, newOwner) {
+        const prev = state.territories[tCode];
+        if (prev === newOwner) return;
+        if (prev) _terrCountCache[prev] = Math.max(0, (_terrCountCache[prev] || 0) - 1);
+        state.territories[tCode] = newOwner;
+        _terrCountCache[newOwner] = (_terrCountCache[newOwner] || 0) + 1;
     }
 
     /* Get neighbors who own adjacent territories */
@@ -864,18 +885,20 @@ const GameEngine = (() => {
         if (!n) return [];
         const owners = new Set();
 
-        /* Gather ALL territories this nation currently owns */
-        const myTerritories = Object.entries(state.territories)
-            .filter(([, o]) => o === code).map(([c]) => c);
+        /* Gather ALL territories this nation currently owns (direct loop) */
+        const myTerritories = [];
+        for (const tCode of SVG_IDS) {
+            if (state.territories[tCode] === code) myTerritories.push(tCode);
+        }
 
         /* For each owned territory, use global ADJACENCY map */
-        myTerritories.forEach(tCode => {
-            const neighbors = getNeighborsOf(tCode);
-            neighbors.forEach(nb => {
-                const owner = state.territories[nb];
+        for (let i = 0; i < myTerritories.length; i++) {
+            const neighbors = getNeighborsOf(myTerritories[i]);
+            for (let j = 0; j < neighbors.length; j++) {
+                const owner = state.territories[neighbors[j]];
                 if (owner && owner !== code) owners.add(owner);
-            });
-        });
+            }
+        }
 
         return [...owners];
     }
@@ -1000,7 +1023,7 @@ const GameEngine = (() => {
 
             /* Instant revolt if unrest hits 100 */
             if (state.unrest[tCode] >= 100) {
-                state.territories[tCode] = tCode;
+                _setTerritoryOwner(tCode, tCode);
                 delete state.unrest[tCode];
                 if (originalNation && !originalNation.alive) {
                     originalNation.alive = true;
@@ -1035,7 +1058,7 @@ const GameEngine = (() => {
             /* Revolt triggers when unrest reaches 100 */
             if (state.unrest[tCode] >= 100) {
                 /* Revolt! Territory returns to original nation */
-                state.territories[tCode] = tCode;
+                _setTerritoryOwner(tCode, tCode);
                 delete state.unrest[tCode];
                 /* If original nation was dead, revive it */
                 if (!originalNation.alive) {
@@ -1097,21 +1120,32 @@ const GameEngine = (() => {
      *   dominant  = key of the most numerous unit type in national army
      *   icon      = emoji of dominant unit
      *   strength  = 'heavy' | 'medium' | 'light' | 'none'
+     *
+     * CACHE: Results are cached per nation+turn+armyHash. The cache
+     * is invalidated when the turn changes or army composition changes.
      */
+    const _garrisonCache = {};  // nationCode → { key, data }
+
     function getGarrisons(nationCode) {
         if (!state) return {};
         const n = state.nations[nationCode];
         if (!n || !n.alive) return {};
 
+        /* Build a lightweight cache key from turn + army hash + territory count */
+        const totalUnits = Object.values(n.army).reduce((a, b) => a + b, 0);
+        const terrCount  = getTerritoryCount(nationCode);
+        const cacheKey = `${state.turn}|${terrCount}|${totalUnits}`;
+        const cached = _garrisonCache[nationCode];
+        if (cached && cached.key === cacheKey) return cached.data;
+
         const ownedTerr = Object.entries(state.territories)
             .filter(([, o]) => o === nationCode).map(([c]) => c);
         if (ownedTerr.length === 0) return {};
 
-        /* Total army units */
-        const totalUnits = Object.values(n.army).reduce((a, b) => a + b, 0);
         if (totalUnits === 0) {
             const empty = {};
             ownedTerr.forEach(c => { empty[c] = { total: 0, dominant: null, icon: '', strength: 'none' }; });
+            _garrisonCache[nationCode] = { key: cacheKey, data: empty };
             return empty;
         }
 
@@ -1159,6 +1193,7 @@ const GameEngine = (() => {
             garrisons[tc] = { total: troops, dominant, icon: domIcon, strength };
         });
 
+        _garrisonCache[nationCode] = { key: cacheKey, data: garrisons };
         return garrisons;
     }
 
