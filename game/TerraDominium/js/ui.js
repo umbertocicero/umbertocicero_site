@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════════════════
    GeoDominion — UI Controller  (v2 — SVG)
    All UI interactions, popups, HUD, event log
    ═══════════════════════════════════════════════════════ */
@@ -9,21 +9,33 @@ const UI = (() => {
 
     /** Parse flag emoji → Twemoji <img> for cross-platform rendering (esp. Windows)
      *  Uses LOCAL SVG assets (assets/emoji/) instead of CDN — zero network calls.
-     *  A callback builds the src directly, no CDN fallback. */
+     *  A callback builds the src directly, no CDN fallback.
+     *  OPTIMISATION: skip elements that have no unparsed emoji text nodes left,
+     *  so repeated calls on the same DOM won't generate redundant <img> requests. */
     const _emojiBase = 'assets/emoji/';
     const _emojiOpts = {
         callback: (icon) => _emojiBase + icon + '.svg',
         ext: '.svg'
     };
+    const _emojiRe = /[\u{1F1E0}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1FA00}-\u{1FA9F}]/u;
+
+    /** Check if any real Text node (not img alt) still contains emoji */
+    function _hasUnparsedEmoji(el) {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+        let node;
+        while ((node = walker.nextNode())) {
+            if (_emojiRe.test(node.nodeValue)) return true;
+        }
+        return false;
+    }
+
     function parseEmoji(el) {
-        if (typeof twemoji !== 'undefined' && el) {
+        if (typeof twemoji !== 'undefined' && el && _hasUnparsedEmoji(el)) {
             try { twemoji.parse(el, _emojiOpts); } catch(e) {}
         }
     }
-    /* Lightweight: only parse if element contains emoji codepoints AND hasn't been parsed yet */
-    const _emojiRe = /[\u{1F1E0}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1FA00}-\u{1FA9F}]/u;
     function parseEmojiIfNeeded(el) {
-        if (typeof twemoji !== 'undefined' && el && _emojiRe.test(el.textContent)) {
+        if (typeof twemoji !== 'undefined' && el && _hasUnparsedEmoji(el)) {
             try { twemoji.parse(el, _emojiOpts); } catch(e) {}
         }
     }
@@ -2413,12 +2425,12 @@ const UI = (() => {
      * - User-initiated scroll UP disables auto-follow.
      * - User-initiated scroll to bottom re-enables auto-follow.
      *
-     * The key trick: we track whether we’re doing a programmatic scroll via a
-     * counter (_ignoreScrollN) instead of a boolean, and we detect “user scrolled up”
-     * by checking if scrollTop moved away from the bottom.
+     * A boolean _isOurScroll is set true before programmatic scrollTop writes
+     * and cleared 80ms later, so the scroll listener ignores those events.
      */
     let evtAutoScroll = true;
-    let _ignoreScrollN = 0; /* how many upcoming scroll events to ignore (programmatic) */
+    let _isOurScroll  = false;
+    let _ourScrollTimer = 0;
 
     function setupEventLog() {
         const log = els['event-log'];
@@ -2428,8 +2440,8 @@ const UI = (() => {
         hideLiveBtn();
 
         log.addEventListener('scroll', () => {
-            /* Skip scroll events caused by our own scrollTop assignments */
-            if (_ignoreScrollN > 0) { _ignoreScrollN--; return; }
+            /* Ignore scroll events triggered by our own scrollTop writes */
+            if (_isOurScroll) return;
 
             const distFromBottom = log.scrollHeight - log.scrollTop - log.clientHeight;
 
@@ -2497,12 +2509,13 @@ const UI = (() => {
         }
     }
 
-    /** Programmatic scroll-to-bottom — marks next scroll event(s) as “ignore” */
+    /** Programmatic scroll-to-bottom: flags the scroll event as ours */
     function _scrollToBottom(log) {
-        _ignoreScrollN = Math.min(_ignoreScrollN + 2, 6); /* cap to avoid runaway */
+        _isOurScroll = true;
+        clearTimeout(_ourScrollTimer);
         log.scrollTop = log.scrollHeight;
-        /* Safety reset: if scroll events don't fire (hidden panel, etc.) */
-        setTimeout(() => { _ignoreScrollN = 0; }, 200);
+        /* Keep flag up for 80ms so the resulting scroll event is ignored */
+        _ourScrollTimer = setTimeout(() => { _isOurScroll = false; }, 80);
     }
 
     function showLiveBtn() { const b = document.getElementById('btn-live'); if (b) b.classList.remove('hidden'); }
