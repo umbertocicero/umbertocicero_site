@@ -315,6 +315,8 @@ const MapRenderer = (() => {
         id: { dx: -0.15, dy: 0 },
         /* USA: Alaska pulls bbox far left; nudge right to lower 48 */
         us: { dx: 0.15, dy: 0.20 },
+        /* Eritrea: bbox center falls on Sudan; shift right to Red Sea coast */
+        er: { dx: 0.35, dy: 0.15 },
     };
 
     function getCentroid(code) {

@@ -49,18 +49,18 @@ const STRATEGIC_ASSETS = {
 };
 
 const UNIT_TYPES = {
-    infantry:        {icon:'🪖',name:'Fanteria',         atk:3,  def:4,  cost:{money:50},                      spd:1, rng:1},
-    tank:            {icon:'🚜',name:'Corazzati',        atk:8,  def:6,  cost:{money:180,steel:10},            spd:2, rng:1},
-    artillery:       {icon:'💥',name:'Artiglieria',      atk:10, def:2,  cost:{money:200,steel:10},            spd:1, rng:2},
-    fighter:         {icon:'✈️',name:'Caccia',           atk:12, def:5,  cost:{money:350,steel:20},            spd:5, rng:4},
-    bomber:          {icon:'🛩️',name:'Bombardiere',      atk:18, def:3,  cost:{money:600,steel:30},            spd:3, rng:5},
-    drone:           {icon:'🤖',name:'Drone',            atk:7,  def:1,  cost:{money:120,rareEarth:3},          spd:4, rng:3},
-    navy:            {icon:'🚢',name:'Flotta Navale',    atk:14, def:10, cost:{money:500,steel:35},            spd:3, rng:3},
-    submarine:       {icon:'🐟',name:'Sottomarino',      atk:16, def:8,  cost:{money:450,steel:30},            spd:2, rng:4},
-    cruiseMissile:   {icon:'🚀',name:'Missile Crociera', atk:25, def:0,  cost:{money:300,steel:15},            spd:8, rng:6, consumable:true},
-    ballisticMissile:{icon:'☄️',name:'Missile Balistico',atk:40, def:0,  cost:{money:800,steel:20,uranium:2},  spd:10,rng:10,consumable:true},
-    sam:             {icon:'📡',name:'Sistema SAM',      atk:5,  def:20, cost:{money:250,steel:15},            spd:0, rng:3},
-    nuke:            {icon:'☢️',name:'Testata Nucleare', atk:200,def:0,  cost:{money:5000,uranium:50},         spd:10,rng:15,consumable:true,nuke:true}
+    infantry:        {icon:'🪖',name:'Fanteria',         atk:3,  def:4,  cost:{money:50},                               spd:1, rng:1},
+    tank:            {icon:'🚜',name:'Corazzati',        atk:8,  def:6,  cost:{money:180,steel:10},                     spd:2, rng:1},
+    artillery:       {icon:'💥',name:'Artiglieria',      atk:10, def:2,  cost:{money:200,steel:10},                     spd:1, rng:2},
+    fighter:         {icon:'✈️',name:'Caccia',           atk:12, def:5,  cost:{money:350,steel:20,gold:3},              spd:5, rng:4},
+    bomber:          {icon:'🛩️',name:'Bombardiere',      atk:18, def:3,  cost:{money:600,steel:30,gold:5},              spd:3, rng:5},
+    drone:           {icon:'🤖',name:'Drone',            atk:7,  def:1,  cost:{money:120,rareEarth:3,silver:2},         spd:4, rng:3},
+    navy:            {icon:'🚢',name:'Flotta Navale',    atk:14, def:10, cost:{money:500,steel:35,gold:3},              spd:3, rng:3},
+    submarine:       {icon:'🐟',name:'Sottomarino',      atk:16, def:8,  cost:{money:450,steel:30,silver:3},            spd:2, rng:4},
+    cruiseMissile:   {icon:'🚀',name:'Missile Crociera', atk:25, def:0,  cost:{money:300,steel:15,silver:2},            spd:8, rng:6, consumable:true},
+    ballisticMissile:{icon:'☄️',name:'Missile Balistico',atk:40, def:0,  cost:{money:800,steel:20,uranium:2,gold:3},    spd:10,rng:10,consumable:true},
+    sam:             {icon:'📡',name:'Sistema SAM',      atk:5,  def:20, cost:{money:250,steel:15},                     spd:0, rng:3},
+    nuke:            {icon:'☢️',name:'Testata Nucleare', atk:200,def:0,  cost:{money:5000,uranium:50,diamonds:10},       spd:10,rng:15,consumable:true,nuke:true}
 };
 
 const TECHNOLOGIES = [

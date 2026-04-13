@@ -772,7 +772,7 @@ const UI = (() => {
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">🔥 Dichiara Guerra</button>`;
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido</button>`;
             }
-            actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">🕵️ Spia (30💰)</button>`;
+            actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">🕵️ Spia (30💰 2🥇)</button>`;
         }
         els['panel-actions'].innerHTML = actHtml;
         parseEmoji(els['left-panel']);
@@ -1044,7 +1044,7 @@ const UI = (() => {
 
             /* Spy / Intel */
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Intelligence</div>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSpyMission('${owner}');"${_dis}>\u{1F575}\uFE0F Missione di Spionaggio</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSpyMission('${owner}');"${_dis}>\u{1F575}\uFE0F Spionaggio (30💰 2🥇)</button>`;
         }
 
         els['panel-actions'].innerHTML = actHtml;
@@ -1989,12 +1989,13 @@ const UI = (() => {
         const pn = state.nations[state.player];
         const tn = state.nations[targetCode];
 
-        /* Cost: 30 money */
-        if (pn.res.money < 30) {
-            addEventToLog({ turn: state.turn, type:'game', msg:'❌ Fondi insufficienti per la missione di spionaggio (costo: 30💰)' });
+        /* Cost: 30 money + 2 gold */
+        if (pn.res.money < 30 || (pn.res.gold || 0) < 2) {
+            addEventToLog({ turn: state.turn, type:'game', msg:'❌ Risorse insufficienti per spionaggio (costo: 30💰 + 2🥇)' });
             return;
         }
         pn.res.money -= 30;
+        pn.res.gold -= 2;
 
         /* Success chance: 60% base, +20% with cyberwarfare tech */
         let chance = 0.6;
