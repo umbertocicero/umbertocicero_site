@@ -704,6 +704,36 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     font-size: 0.9rem;
 }
 
+/* ── Colony Overview ── */
+.colonies-content { max-width: 560px; }
+.colonies-content h3 { color: #80cbc4; }
+.colony-summary {
+    display: flex; gap: 16px; justify-content: center; align-items: center;
+    padding: 8px 12px; margin-bottom: 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    font-size: 0.75rem; font-weight: 600;
+}
+.colony-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px;
+    margin: 6px 0; border-radius: 8px;
+    background: rgba(128,203,196,0.06); border: 1px solid rgba(128,203,196,0.18);
+    transition: border-color 0.2s;
+}
+.colony-row.colony-critical { background: rgba(255,23,68,0.08); border-color: rgba(255,23,68,0.3); }
+.colony-row.colony-high     { background: rgba(255,145,0,0.08); border-color: rgba(255,145,0,0.25); }
+.colony-row.colony-warning   { background: rgba(255,215,64,0.06); border-color: rgba(255,215,64,0.2); }
+.colony-info { flex: 1; min-width: 0; }
+.colony-name { font-weight: 700; font-size: 0.85rem; }
+.colony-meta { font-size: 0.65rem; color: var(--text-dim); margin-top: 2px; }
+.colony-stable-label { font-size: 0.7rem; color: #00e676; margin-top: 4px; }
+.colony-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.colony-btn-view {
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05); color: var(--text); cursor: pointer;
+    font-size: 0.7rem; transition: background 0.2s;
+}
+.colony-btn-view:hover { background: rgba(255,255,255,0.12); }
+
 /* ── Revolt Alert ── */
 .revolt-alert-content { max-width: 520px; }
 .revolt-alert-content h3 { color: #ff6e40; }

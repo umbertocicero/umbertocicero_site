@@ -133,7 +133,8 @@ const UI = (() => {
             'economy-popup','economy-display','btn-close-economy',
             'gameover-popup','gameover-title','gameover-text','gameover-stats','btn-restart',
             'spy-popup','spy-popup-title','spy-popup-display','btn-close-spy',
-            'revolt-alert-popup','revolt-alert-display','btn-close-revolt-alert'
+            'revolt-alert-popup','revolt-alert-display','btn-close-revolt-alert',
+            'colonies-popup','colonies-display','btn-close-colonies'
         ];
         ids.forEach(id => { els[id] = document.getElementById(id); });
     }
@@ -155,6 +156,8 @@ const UI = (() => {
         click('btn-close-production', () => hide('production-popup'));
         click('btn-close-economy', () => hide('economy-popup'));
         click('btn-close-spy', () => hide('spy-popup'));
+        click('btn-close-colonies', () => hide('colonies-popup'));
+        click('btn-colonies', showColonies);
         click('btn-close-revolt-alert', () => hide('revolt-alert-popup'));
         click('btn-close-left', () => hide('left-panel'));
         click('btn-restart', () => location.reload());
@@ -766,6 +769,7 @@ const UI = (() => {
             } else {
                 actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">🤝 Alleanza</button>`;
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">🔥 Dichiara Guerra</button>`;
+                actHtml += `<button class="btn-action btn-attack" onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido</button>`;
             }
             actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">🕵️ Spia (30💰)</button>`;
         }
@@ -1163,6 +1167,132 @@ const UI = (() => {
         /* Auto-hide after 6s — cancel any previous timer */
         clearTimeout(_reachAlertTimeout);
         _reachAlertTimeout = setTimeout(() => { hide('battle-popup'); }, 6000);
+    }
+
+    /* ════════════════ COLONY OVERVIEW ════════════════ */
+    function showColonies() {
+        if (!GameEngine.getColonyList) return;
+        const state = GameEngine.getState();
+        if (!state) return;
+
+        const colonies = GameEngine.getColonyList(state.player);
+        const display = els['colonies-display'];
+        if (!display) return;
+
+        let html = '';
+
+        if (colonies.length === 0) {
+            html += `<div style="text-align:center;padding:20px;color:var(--text-dim);font-size:0.85rem;">
+                <div style="font-size:2rem;margin-bottom:8px;">🗺️</div>
+                Non possiedi ancora territori conquistati.<br>Attacca altre nazioni per espandere il tuo impero!
+            </div>`;
+        } else {
+            /* Summary bar */
+            const withUnrest = colonies.filter(c => c.unrest > 0).length;
+            const critical   = colonies.filter(c => c.unrest >= 70).length;
+            html += `<div class="colony-summary">`;
+            html += `<span>🌍 ${colonies.length} colonie</span>`;
+            if (withUnrest > 0) html += `<span style="color:#ff9100;">⚠️ ${withUnrest} instabili</span>`;
+            if (critical > 0)   html += `<span style="color:#ff1744;">🔴 ${critical} critiche</span>`;
+            html += `</div>`;
+
+            /* "Seda Tutte" button — only if any territory has unrest ≥ 40 */
+            const alertList = colonies.filter(c => c.unrest >= 40);
+            if (alertList.length > 0) {
+                const playerN = state.nations[state.player];
+                const totalCostMoney = alertList.length * 15;
+                const totalCostInf   = alertList.length * 2;
+                const canAll = (playerN.res.money >= totalCostMoney && (playerN.army.infantry || 0) >= totalCostInf);
+                html += `<div style="margin-bottom:12px;text-align:center;">
+                    <button class="revolt-btn-suppress" style="width:100%;padding:8px 12px;font-size:0.85rem;" ${canAll ? '' : 'disabled'}
+                        onclick="UI.doSuppressAllFromColonies()">
+                        🛡️ SEDA TUTTE LE RIVOLTE (${alertList.length})
+                    </button>
+                    <div class="revolt-cost" style="margin-top:4px;">Costo totale: 💰${totalCostMoney} + 🪖${totalCostInf}</div>
+                </div>`;
+            }
+
+            colonies.forEach(c => {
+                const pct = Math.round(c.unrest);
+                const garrison = GameEngine.getGarrison(c.territory);
+                const garStr = garrison.total > 0 ? `🪖${garrison.total}` : '<span style="color:#ff6e40">Nessuna</span>';
+
+                let statusClass = 'colony-stable';
+                let statusLabel = '✅ Stabile';
+                let statusColor = '#00e676';
+                if (pct >= 80)      { statusClass = 'colony-critical'; statusLabel = '🔴 CRITICO';     statusColor = '#ff1744'; }
+                else if (pct >= 60) { statusClass = 'colony-high';     statusLabel = '🟠 Alto';        statusColor = '#ff9100'; }
+                else if (pct >= 40) { statusClass = 'colony-warning';  statusLabel = '🟡 Attenzione';  statusColor = '#ffd740'; }
+                else if (pct > 0)   { statusClass = 'colony-low';      statusLabel = '🟢 Basso';       statusColor = '#69f0ae'; }
+
+                const playerN = state.nations[state.player];
+                const canSuppress = pct > 0 && (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
+
+                html += `<div class="colony-row ${statusClass}" id="colony-row-${c.territory}">`;
+                html += `  <div class="colony-info">`;
+                html += `    <div class="colony-name">${c.flag} ${c.name}</div>`;
+                html += `    <div class="colony-meta">Guarnigione: ${garStr}</div>`;
+                if (pct > 0) {
+                    html += `    <div class="revolt-unrest-bar"><div class="revolt-unrest-fill" style="width:${pct}%;background:${statusColor}"></div></div>`;
+                    html += `    <div style="display:flex;justify-content:space-between;align-items:center">`;
+                    html += `      <span class="revolt-unrest-label" style="color:${statusColor}">${statusLabel} — ${pct}%</span>`;
+                    html += `      <span class="revolt-gain">+${c.gain}/turno</span>`;
+                    html += `    </div>`;
+                } else {
+                    html += `    <div class="colony-stable-label">${statusLabel}</div>`;
+                }
+                html += `  </div>`;
+                html += `  <div class="colony-actions">`;
+                if (pct > 0) {
+                    html += `<button class="revolt-btn-suppress" ${canSuppress ? '' : 'disabled'} onclick="UI.doSuppressFromColonies('${c.territory}');">🛡️ SEDA</button>`;
+                    html += `<div class="revolt-cost">💰15 + 🪖2</div>`;
+                }
+                html += `    <button class="colony-btn-view" onclick="UI.showTerritoryPanel('${c.territory}'); UI.hideColonies();">🔍</button>`;
+                html += `  </div>`;
+                html += `</div>`;
+            });
+        }
+
+        display.innerHTML = html;
+        parseEmoji(els['colonies-popup']);
+        show('colonies-popup');
+    }
+
+    function hideColonies() { hide('colonies-popup'); }
+
+    function doSuppressFromColonies(tCode) {
+        const result = GameEngine.suppressUnrest(tCode);
+        if (!result.success) {
+            addEventToLog({ turn: GameEngine.getState().turn, type: 'game', msg: `❌ ${result.reason}` });
+            return;
+        }
+        showColonies();   // refresh
+        updateHUD();
+        updateMilitaryBar();
+        MapRenderer.colourAllTerritories();
+        const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (sel) showTerritoryPanel(sel);
+    }
+
+    function doSuppressAllFromColonies() {
+        const state = GameEngine.getState();
+        if (!state) return;
+        const list = GameEngine.getColonyList(state.player).filter(c => c.unrest >= 40);
+        let suppressed = 0;
+        for (const c of list) {
+            const result = GameEngine.suppressUnrest(c.territory);
+            if (result.success) suppressed++;
+            else break;
+        }
+        showColonies();   // refresh
+        updateHUD();
+        updateMilitaryBar();
+        MapRenderer.colourAllTerritories();
+        const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (sel) showTerritoryPanel(sel);
+        if (suppressed > 0) {
+            addEventToLog({ turn: state.turn, type: 'game', msg: `🛡️ Sedate ${suppressed} rivolte dalle colonie` });
+        }
     }
 
     /* ════════════════ REVOLT ALERT ════════════════ */
@@ -2796,6 +2926,10 @@ const UI = (() => {
         doAllyFromPanel,
         doSuppressUnrest,
         doSuppressAllUnrest,
+        showColonies,
+        hideColonies,
+        doSuppressFromColonies,
+        doSuppressAllFromColonies,
         showNationDetail,
         showTerritoryPanel,
         addEventToLog,

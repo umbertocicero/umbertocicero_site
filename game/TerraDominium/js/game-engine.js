@@ -929,6 +929,26 @@ const GameEngine = (() => {
         return state.unrest[tCode] || 0;
     }
 
+    /** Get ALL conquered territories (colonies) for a nation, sorted by unrest desc */
+    function getColonyList(nationCode) {
+        const list = [];
+        Object.entries(state.territories).forEach(([tCode, owner]) => {
+            if (owner !== nationCode) return;
+            if (tCode === owner) return;        // homeland
+            const orig = state.nations[tCode];
+            const u = state.unrest[tCode] || 0;
+            list.push({
+                territory: tCode,
+                name: orig?.name || tCode.toUpperCase(),
+                flag: orig?.flag || '',
+                unrest: u,
+                gain: calcUnrestGain(tCode, owner)
+            });
+        });
+        list.sort((a, b) => b.unrest - a.unrest);
+        return list;
+    }
+
     /** Get all territories with unrest for a nation, sorted by urgency */
     function getUnrestList(nationCode) {
         const list = [];
@@ -1286,6 +1306,7 @@ const GameEngine = (() => {
         getGarrison,
         getUnrest,
         getUnrestList,
+        getColonyList,
         suppressUnrest
     };
 })();
