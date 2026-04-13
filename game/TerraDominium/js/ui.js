@@ -134,7 +134,8 @@ const UI = (() => {
             'gameover-popup','gameover-title','gameover-text','gameover-stats','btn-restart',
             'spy-popup','spy-popup-title','spy-popup-display','btn-close-spy',
             'revolt-alert-popup','revolt-alert-display','btn-close-revolt-alert',
-            'colonies-popup','colonies-display','btn-close-colonies'
+            'colonies-popup','colonies-display','btn-close-colonies',
+            'peace-popup','peace-display'
         ];
         ids.forEach(id => { els[id] = document.getElementById(id); });
     }
@@ -1784,11 +1785,7 @@ const UI = (() => {
     }
 
     function doPeace(code) {
-        const state = GameEngine.getState();
-        GameEngine.makePeace(state.player, code);
-        hide('diplomacy-popup');
-        updateHUD();
-        MapRenderer.colourAllTerritories();
+        showPeaceNegotiation(code, 'diplomacy-popup');
     }
 
     function doAlly(code) {
@@ -2107,18 +2104,137 @@ const UI = (() => {
     }
 
     function doPeaceFromPanel(ownerCode) {
-        const state = GameEngine.getState();
-        GameEngine.makePeace(state.player, ownerCode);
-        updateHUD();
-        MapRenderer.colourAllTerritories();
-        const sel = MapRenderer.getSelected();
-        if (sel) showTerritoryPanel(sel);
+        showPeaceNegotiation(ownerCode, null);
     }
 
     function doAllyFromPanel(ownerCode) {
         doAlly(ownerCode);
         const sel = MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
+    }
+
+    /* ════════════════ PEACE NEGOTIATION ════════════════ */
+    /** Track which popup to close when peace is resolved */
+    let _peaceOriginPopup = null;
+
+    /**
+     * Open the peace negotiation modal.
+     * @param {string} enemyCode — nation code of the enemy
+     * @param {string|null} originPopup — popup ID to hide when opening (e.g. 'diplomacy-popup')
+     */
+    function showPeaceNegotiation(enemyCode, originPopup) {
+        const state = GameEngine.getState();
+        if (!state) return;
+
+        if (originPopup) hide(originPopup);
+        _peaceOriginPopup = originPopup;
+
+        const pn = state.nations[state.player];
+        const en = state.nations[enemyCode];
+        if (!pn || !en) return;
+
+        const deal = GameEngine.calcPeaceDemands(state.player, enemyCode);
+        if (!deal) return;
+
+        const display = els['peace-display'];
+        if (!display) return;
+
+        let html = '';
+
+        /* ── Header: flags + mood ── */
+        html += `<div class="peace-header">`;
+        html += `<span class="peace-flag">${pn.flag}</span>`;
+        html += `<span class="peace-vs">⚔️ → 🕊️</span>`;
+        html += `<span class="peace-flag">${en.flag}</span>`;
+        html += `</div>`;
+        html += `<div class="peace-mood peace-mood-${deal.mood}">${deal.moodLabel}</div>`;
+
+        /* ── War situation summary ── */
+        html += `<div class="peace-info-grid">`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">⏱️ Durata guerra</span><span class="peace-info-val">${deal.warInfo.turns} turni</span></div>`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">⚔️ Rapporto forze</span><span class="peace-info-val">${deal.warInfo.powerRatio > 1 ? '🔴 Nemico più forte' : deal.warInfo.powerRatio < 0.7 ? '🟢 Tu sei più forte' : '🟡 Equilibrato'}</span></div>`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">🏳️ Aggressore</span><span class="peace-info-val">${deal.warInfo.requesterIsAggressor ? 'Tu (penalità)' : en.name}</span></div>`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">😤 Stanchezza</span><span class="peace-info-val">${deal.warInfo.weariness}%</span></div>`;
+        html += `</div>`;
+
+        /* ── Enemy demands ── */
+        html += `<div class="peace-demands-header">📜 ${en.name} chiede:</div>`;
+        html += `<div class="peace-demands-list">`;
+
+        let canAfford = true;
+        deal.demands.forEach(d => {
+            const playerHas = pn.res[d.resource] || 0;
+            const affordable = playerHas >= d.amount;
+            if (!affordable) canAfford = false;
+            html += `<div class="peace-demand-row ${affordable ? '' : 'peace-demand-lacking'}">`;
+            html += `<span class="peace-demand-res">${d.icon} ${d.name}</span>`;
+            html += `<span class="peace-demand-amt">${d.amount}</span>`;
+            html += `<span class="peace-demand-have" style="color:${affordable ? 'var(--text-dim)' : '#ff1744'};">(hai: ${playerHas})</span>`;
+            html += `</div>`;
+        });
+        html += `</div>`;
+
+        /* ── Warning if can't afford ── */
+        if (!canAfford) {
+            html += `<div class="peace-warning">⚠️ Non hai abbastanza risorse per soddisfare tutte le richieste!</div>`;
+        }
+
+        /* ── Action buttons ── */
+        html += `<div class="peace-actions">`;
+        html += `<button class="peace-btn peace-btn-accept ${canAfford ? '' : 'disabled'}" ${canAfford ? '' : 'disabled'} onclick="UI.acceptPeace('${enemyCode}');">`;
+        html += `✅ Accetta e firma la pace</button>`;
+        html += `<button class="peace-btn peace-btn-reject" onclick="UI.rejectPeace('${enemyCode}');">`;
+        html += `❌ Rifiuta — continua la guerra</button>`;
+        html += `</div>`;
+
+        /* ── Flavour text ── */
+        const flavour = deal.mood === 'generous' ? `${en.name} è disposta a condizioni vantaggiose. La guerra li ha indeboliti.`
+                       : deal.mood === 'fair' ? `Le condizioni riflettono un equilibrio di potere. Un accordo ragionevole.`
+                       : deal.mood === 'harsh' ? `${en.name} si sente in posizione di forza e pretende un prezzo alto.`
+                       : `${en.name} vuole umiliarti. Queste condizioni sono quasi un'estorsione.`;
+        html += `<div class="peace-flavour">💬 "${flavour}"</div>`;
+
+        display.innerHTML = html;
+        parseEmoji(els['peace-popup']);
+        show('peace-popup');
+    }
+
+    function acceptPeace(enemyCode) {
+        const state = GameEngine.getState();
+        if (!state) return;
+
+        const deal = GameEngine.calcPeaceDemands(state.player, enemyCode);
+        if (!deal) return;
+
+        const paid = GameEngine.applyPeaceDemands(state.player, enemyCode, deal.demands);
+        if (!paid) {
+            addEventToLog({ turn: state.turn, type: 'diplomacy', msg: '❌ Risorse insufficienti per pagare le condizioni di pace!' });
+            return;
+        }
+
+        GameEngine.makePeace(state.player, enemyCode);
+
+        /* Log the cost */
+        const costStr = deal.demands.map(d => `${d.icon}${d.amount}`).join(' ');
+        const en = state.nations[enemyCode];
+        addEventToLog({ turn: state.turn, type: 'diplomacy',
+            msg: `🕊️ Pace con ${fmtNation(en)} — Costo: ${costStr}` });
+
+        hide('peace-popup');
+        updateHUD();
+        updateMilitaryBar();
+        MapRenderer.colourAllTerritories();
+        const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (sel) showTerritoryPanel(sel);
+    }
+
+    function rejectPeace(enemyCode) {
+        const state = GameEngine.getState();
+        const en = state?.nations[enemyCode];
+        GameEngine.adjustRelation(enemyCode, state.player, -10);
+        addEventToLog({ turn: state.turn, type: 'diplomacy',
+            msg: `❌ Pace rifiutata con ${fmtNation(en)} — La guerra continua! (-10 relazione)` });
+        hide('peace-popup');
     }
 
     /* ════════════════ ECONOMY OVERVIEW ════════════════ */
@@ -2924,6 +3040,8 @@ const UI = (() => {
         doNukeStrike,
         doPeaceFromPanel,
         doAllyFromPanel,
+        acceptPeace,
+        rejectPeace,
         doSuppressUnrest,
         doSuppressAllUnrest,
         showColonies,

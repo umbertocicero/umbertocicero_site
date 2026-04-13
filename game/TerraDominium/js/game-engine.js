@@ -573,6 +573,182 @@ const GameEngine = (() => {
         emit('diplomacy', `🕊️ ${state.nations[codeA]?.flag || ''} ${codeA.toUpperCase()} e ${state.nations[codeB]?.flag || ''} ${codeB.toUpperCase()} firmano la pace`);
     }
 
+    /**
+     * PEACE NEGOTIATION ALGORITHM
+     * Calculates what the enemy demands to accept peace.
+     *
+     * Factors (board-game design):
+     *  1. Power balance — who has the stronger military right now?
+     *  2. War outcome — who conquered more territories during this war?
+     *  3. War duration — longer wars → war weariness → lower demands
+     *  4. Aggressor penalty — the one who declared war pays extra
+     *  5. Relation depth — deep hatred → higher demands
+     *  6. Resource scarcity — the enemy demands resources they lack most
+     *  7. Territory count — a large empire demands more than a small one
+     *
+     * Returns { demands: [{resource, amount, icon, name}], totalValue,
+     *           mood, moodLabel, chanceAccept, warInfo }
+     *   mood: 'generous' | 'fair' | 'harsh' | 'humiliating'
+     */
+    function calcPeaceDemands(requesterCode, enemyCode) {
+        const req = state.nations[requesterCode];
+        const enemy = state.nations[enemyCode];
+        if (!req || !enemy) return null;
+
+        /* ── War record ── */
+        const war = state.wars.find(w =>
+            (w.attacker === requesterCode && w.defender === enemyCode) ||
+            (w.attacker === enemyCode && w.defender === requesterCode));
+        const warTurns = war ? Math.max(1, state.turn - war.turn) : 1;
+        const requesterIsAggressor = war ? war.attacker === requesterCode : false;
+
+        /* ── Military power ratio (enemy vs requester) ── */
+        const reqAtk = calcMilitary(requesterCode, 'atk');
+        const reqDef = calcMilitary(requesterCode, 'def');
+        const eneAtk = calcMilitary(enemyCode, 'atk');
+        const eneDef = calcMilitary(enemyCode, 'def');
+        const reqPow = reqAtk + reqDef;
+        const enePow = eneAtk + eneDef;
+        const powerRatio = enePow / Math.max(1, reqPow);  // >1 = enemy stronger
+
+        /* ── Territory balance: who controls more land? ── */
+        const reqTerr = getTerritoryCount(requesterCode);
+        const eneTerr = getTerritoryCount(enemyCode);
+        const terrRatio = eneTerr / Math.max(1, reqTerr);  // >1 = enemy has more
+
+        /* ── War weariness: reduces demands over time ── */
+        const weariness = Math.min(0.5, warTurns * 0.06);  // up to 50% reduction after ~8 turns
+
+        /* ── Base demand multiplier ── */
+        // Power advantage + territory advantage, reduced by weariness
+        let baseMul = (0.4 * powerRatio + 0.3 * terrRatio + 0.3) * (1 - weariness);
+
+        // Aggressor penalty: if requester started the war, enemy demands more
+        if (requesterIsAggressor) baseMul *= 1.35;
+
+        // Relation: deeper hatred → higher demands (-100 → +40% demands)
+        const rel = getRelation(enemyCode, requesterCode);
+        const hatredBonus = Math.max(0, (-rel - 20) * 0.004);  // 0 to ~0.32
+        baseMul *= (1 + hatredBonus);
+
+        // Enemy empire size scale: larger empires expect more
+        const empireScale = Math.min(1.5, 0.7 + eneTerr * 0.04);
+        baseMul *= empireScale;
+
+        // Clamp multiplier: minimum 0.3, max 3.0
+        baseMul = Math.max(0.3, Math.min(3.0, baseMul));
+
+        /* ── Determine mood from multiplier ── */
+        let mood, moodLabel;
+        if (baseMul <= 0.5)      { mood = 'generous';    moodLabel = '🕊️ Generoso'; }
+        else if (baseMul <= 1.0) { mood = 'fair';        moodLabel = '⚖️ Equo'; }
+        else if (baseMul <= 1.8) { mood = 'harsh';       moodLabel = '💢 Duro'; }
+        else                     { mood = 'humiliating'; moodLabel = '🔥 Umiliante'; }
+
+        /* ── Pick which resources to demand ── */
+        // Enemy prefers resources they are LOW on (scarcity-driven strategy)
+        const resKeys = ['money','oil','gas','rareEarth','steel','food','uranium'];
+        const resScarcity = {};  // lower = enemy wants it more
+        resKeys.forEach(k => {
+            const enemyHas = enemy.res[k] || 0;
+            const reqHas   = req.res[k] || 0;
+            // Scarcity score: how much the enemy lacks it vs what requester has
+            resScarcity[k] = enemyHas / Math.max(1, reqHas);
+        });
+
+        // Sort by scarcity (lowest first = enemy wants most)
+        const sortedRes = [...resKeys].sort((a, b) => resScarcity[a] - resScarcity[b]);
+
+        /* ── Calculate demand amounts ── */
+        // Base demand "budget" scales with game stage and multiplier
+        const baseBudget = (30 + state.turn * 5) * baseMul;
+        const demands = [];
+
+        // Always demand money
+        const moneyDemand = Math.round(Math.max(10, baseBudget * 0.5));
+        if (moneyDemand > 0 && (req.res.money || 0) > 0) {
+            demands.push({
+                resource: 'money',
+                amount: Math.min(moneyDemand, Math.round((req.res.money || 0) * 0.6)),
+                icon: RESOURCES.money.icon,
+                name: RESOURCES.money.name
+            });
+        }
+
+        // Pick 1-3 additional scarce resources
+        const extraCount = mood === 'generous' ? 1 : mood === 'fair' ? 2 : 3;
+        let picked = 0;
+        for (const rk of sortedRes) {
+            if (rk === 'money') continue;
+            if (picked >= extraCount) break;
+            const reqHas = req.res[rk] || 0;
+            if (reqHas <= 0) continue;
+
+            // Demand scales with budget and what requester has
+            const weight = mood === 'humiliating' ? 0.4 : mood === 'harsh' ? 0.3 : 0.2;
+            let amt = Math.round(baseBudget * weight * 0.15);
+            amt = Math.max(1, Math.min(amt, Math.round(reqHas * 0.5)));
+
+            demands.push({
+                resource: rk,
+                amount: amt,
+                icon: RESOURCES[rk]?.icon || '❓',
+                name: RESOURCES[rk]?.name || rk
+            });
+            picked++;
+        }
+
+        // Ensure at least money is demanded if nothing else
+        if (demands.length === 0) {
+            demands.push({ resource: 'money', amount: 10, icon: '💰', name: 'Fondi' });
+        }
+
+        /* ── Chance enemy accepts even if we can't pay fully ── */
+        // Higher when enemy is weak, war is long, or requester is strong
+        const chanceAccept = Math.min(0.95, Math.max(0.1,
+            0.5 - (baseMul - 1) * 0.2 + weariness * 0.3
+        ));
+
+        /* ── Total "value" for display ── */
+        const totalValue = demands.reduce((sum, d) => sum + d.amount * (d.resource === 'money' ? 1 : 5), 0);
+
+        return {
+            demands,
+            totalValue,
+            mood,
+            moodLabel,
+            chanceAccept,
+            warInfo: {
+                turns: warTurns,
+                requesterIsAggressor,
+                powerRatio: Math.round(powerRatio * 100) / 100,
+                weariness: Math.round(weariness * 100)
+            }
+        };
+    }
+
+    /**
+     * Apply peace demands: deduct resources from payer, give to receiver.
+     * Returns true if the payer has enough.
+     */
+    function applyPeaceDemands(payerCode, receiverCode, demands) {
+        const payer = state.nations[payerCode];
+        const receiver = state.nations[receiverCode];
+        if (!payer || !receiver) return false;
+
+        // Check if payer can afford all demands
+        for (const d of demands) {
+            if ((payer.res[d.resource] || 0) < d.amount) return false;
+        }
+
+        // Transfer resources
+        for (const d of demands) {
+            payer.res[d.resource] -= d.amount;
+            receiver.res[d.resource] = (receiver.res[d.resource] || 0) + d.amount;
+        }
+        return true;
+    }
+
     function addSanction(fromCode, toCode) {
         const n = state.nations[toCode];
         if (!n) return;
@@ -1288,6 +1464,8 @@ const GameEngine = (() => {
         ensureWar,
         isAtWar,
         makePeace,
+        calcPeaceDemands,
+        applyPeaceDemands,
         addSanction,
         makeAlliance,
         isAlly,
