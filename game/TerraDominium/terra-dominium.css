@@ -801,6 +801,20 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 }
 .colony-btn-view:hover { background: rgba(255,255,255,0.12); }
 
+/* ── Turn Notice (sidebar flash) ── */
+.turn-notice {
+    text-align: center; padding: 8px 12px; margin-bottom: 10px;
+    border-radius: 8px; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.5px;
+    color: #00e676; background: rgba(0,230,118,0.12); border: 1px solid rgba(0,230,118,0.35);
+    animation: turnNoticeIn 0.4s ease-out;
+    transition: opacity 0.8s ease;
+}
+.turn-notice-out { opacity: 0; }
+@keyframes turnNoticeIn {
+    0%   { opacity: 0; transform: translateY(-8px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* ── Revolt Alert ── */
 .revolt-alert-content { max-width: 520px; }
 .revolt-alert-content h3 { color: #ff6e40; }

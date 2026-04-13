@@ -2470,6 +2470,15 @@ const UI = (() => {
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
 
+        /* Refresh the left sidebar if it was open — buttons go from disabled to active */
+        if (!autoPlayMode && !playerDead) {
+            const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+            if (sel && els['left-panel'] && !els['left-panel'].classList.contains('hidden')) {
+                showTerritoryPanel(sel);
+                _flashTurnNotice();
+            }
+        }
+
         /* Show revolt alert to player if any territory has high unrest */
         if (!autoPlayMode && !playerDead) {
             showRevoltAlert();
@@ -3010,6 +3019,29 @@ const UI = (() => {
     function hideVictoryBanner() {
         const banner = document.getElementById('victory-banner');
         if (banner) banner.classList.add('hidden');
+    }
+
+    /* ════════════════ TURN NOTICE (sidebar flash) ════════════════ */
+    /**
+     * Brief "It's your turn!" flash at the top of the left-panel actions.
+     * Auto-removes after 3 s with a fade-out animation.
+     */
+    function _flashTurnNotice() {
+        const container = els['panel-actions'];
+        if (!container) return;
+        /* Avoid duplicates */
+        const existing = container.querySelector('.turn-notice');
+        if (existing) existing.remove();
+
+        const notice = document.createElement('div');
+        notice.className = 'turn-notice';
+        notice.innerHTML = '🎯 È il tuo turno!';
+        container.prepend(notice);
+        parseEmojiIfNeeded(notice);
+
+        /* Fade out after 2.5 s, remove after 3.5 s */
+        setTimeout(() => notice.classList.add('turn-notice-out'), 2500);
+        setTimeout(() => notice.remove(), 3500);
     }
 
     /* ════════════════ HELPERS ════════════════ */
