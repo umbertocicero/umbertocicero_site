@@ -10,11 +10,35 @@ const UI = (() => {
     /** Parse flag emoji → Twemoji <img> for cross-platform rendering (esp. Windows)
      *  Uses LOCAL SVG assets (assets/emoji/) instead of CDN — zero network calls.
      *  A callback builds the src directly, no CDN fallback.
-     *  OPTIMISATION: skip elements that have no unparsed emoji text nodes left,
-     *  so repeated calls on the same DOM won't generate redundant <img> requests. */
+     *  OPTIMISATION 1: skip elements that have no unparsed emoji text nodes left,
+     *  so repeated calls on the same DOM won't generate redundant <img> requests.
+     *  OPTIMISATION 2: pre-fetched SVGs are stored as blob: URLs in _svgBlobCache,
+     *  so the browser never re-requests the same file — zero HTTP overhead after
+     *  initial load.  While the cache is warming, we fall back to the file path. */
     const _emojiBase = 'assets/emoji/';
+    const _svgBlobCache = new Map();   // 'icon-code' → 'blob:…' URL
+    let _blobCacheReady = false;
+
     const _emojiOpts = {
-        callback: (icon) => _emojiBase + icon + '.svg',
+        callback: (icon) => {
+            const cached = _svgBlobCache.get(icon);
+            if (cached) return cached;
+            /* Not yet cached — schedule a background fetch so future uses
+               get the blob URL.  This first <img> uses the file path. */
+            if (_blobCacheReady && !_svgBlobCache.has(icon)) {
+                _svgBlobCache.set(icon, '');  // mark as in-flight
+                const url = _emojiBase + icon + '.svg';
+                fetch(url).then(r => r.blob()).then(blob => {
+                    const blobUrl = URL.createObjectURL(blob);
+                    _svgBlobCache.set(icon, blobUrl);
+                    /* Retroactively patch existing <img> for this icon */
+                    document.querySelectorAll(`img.emoji[src="${url}"]`).forEach(img => {
+                        img.src = blobUrl;
+                    });
+                }).catch(() => _svgBlobCache.delete(icon));
+            }
+            return _emojiBase + icon + '.svg';
+        },
         ext: '.svg'
     };
     const _emojiRe = /[\u{1F1E0}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1FA00}-\u{1FA9F}]/u;
@@ -38,6 +62,56 @@ const UI = (() => {
         if (typeof twemoji !== 'undefined' && el && _hasUnparsedEmoji(el)) {
             try { twemoji.parse(el, _emojiOpts); } catch(e) {}
         }
+    }
+
+    /** Pre-fetch all emoji SVGs from assets/emoji/ and store as blob: URLs.
+     *  Called once after boot — scans the DOM for every <img> whose src
+     *  starts with the emoji base path, fetches the SVG text, builds a
+     *  Blob URL, and caches it.  The Twemoji callback and map-renderer
+     *  garrison overlay both consult _svgBlobCache, so after warm-up
+     *  there are ZERO file/network requests for emoji SVGs.
+     *
+     *  Also exposed on window so MapRenderer can use it:
+     *      window._svgBlobCache
+     */
+    function _warmSvgBlobCache() {
+        /* Collect every unique emoji URL currently in the DOM */
+        const urls = new Set();
+        document.querySelectorAll('img.emoji').forEach(img => {
+            const src = img.getAttribute('src') || '';
+            if (src.startsWith(_emojiBase)) urls.add(src);
+        });
+        /* Also include garrison overlay <image> hrefs */
+        document.querySelectorAll('image[href^="assets/emoji/"]').forEach(img => {
+            urls.add(img.getAttribute('href'));
+        });
+
+        /* Expose cache on window for MapRenderer */
+        window._svgBlobCache = _svgBlobCache;
+
+        if (urls.size === 0) { _blobCacheReady = true; return; }
+
+        let done = 0;
+        const total = urls.size;
+        urls.forEach(url => {
+            /* Extract the icon code (e.g. '1f1ee-1f1f9' from 'assets/emoji/1f1ee-1f1f9.svg') */
+            const icon = url.slice(_emojiBase.length).replace(/\.svg$/i, '');
+            if (_svgBlobCache.has(icon)) { if (++done >= total) _blobCacheReady = true; return; }
+            fetch(url).then(r => r.blob()).then(blob => {
+                const blobUrl = URL.createObjectURL(blob);
+                _svgBlobCache.set(icon, blobUrl);
+                /* Replace existing <img> src in-place to free file handles */
+                document.querySelectorAll(`img.emoji[src="${url}"]`).forEach(img => {
+                    img.src = blobUrl;
+                });
+                /* Replace existing SVG <image> href in-place */
+                document.querySelectorAll(`image[href="${url}"]`).forEach(img => {
+                    img.setAttribute('href', blobUrl);
+                });
+            }).catch(() => {}).finally(() => {
+                if (++done >= total) _blobCacheReady = true;
+            });
+        });
     }
 
     /* ════════════════ INIT ════════════════ */
@@ -484,6 +558,11 @@ const UI = (() => {
         /* Update HUD */
         updateHUD();
         updateMilitaryBar();
+
+        /* Pre-fetch all emoji SVGs into blob cache (async, non-blocking).
+           After this completes, every new <img.emoji> or SVG <image> will
+           use in-memory blob: URLs — zero further file/network requests. */
+        requestAnimationFrame(() => _warmSvgBlobCache());
     }
 
     /* ════════════════ HUD ════════════════ */

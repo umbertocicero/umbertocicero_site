@@ -421,17 +421,26 @@ const MapRenderer = (() => {
             if (container) container.style.cursor = 'grab';
         });
 
+        /* Walk up from el through ancestor <g id="…"> elements and return
+           the first id that belongs to idSet, or null. This handles SVG
+           territories that contain nested <g> sub-groups (e.g. Greenland). */
+        function _resolveTerritory(el) {
+            if (!el) return null;
+            let cur = el.closest('[id]');
+            while (cur && svgEl.contains(cur)) {
+                if (idSet.has(cur.id)) return cur.id;
+                /* Move to next ancestor with an id */
+                const parent = cur.parentElement;
+                cur = parent ? parent.closest('[id]') : null;
+            }
+            return null;
+        }
+
         /* Delegated click & hover on SVG paths */
         container.addEventListener('click', e => {
             /* Skip synthetic click from touch — handled via onTap */
             if (container._suppressNextClick) { container._suppressNextClick = false; return; }
-            const target = e.target.closest('[id]');
-            if (!target) return;
-            const code = target.id;
-            /* Check if it's inside a <g> with a territory id */
-            const gParent = target.closest('g[id]');
-            const finalCode = (gParent && idSet.has(gParent.id)) ? gParent.id
-                            : idSet.has(code) ? code : null;
+            const finalCode = _resolveTerritory(e.target);
             if (finalCode) {
                 if (onTerritoryClick) onTerritoryClick(finalCode, e);
             }
@@ -439,11 +448,7 @@ const MapRenderer = (() => {
 
         container.addEventListener('mousemove', e => {
             if (dragging) return;
-            const target = e.target.closest('[id]');
-            if (!target) { if (onTerritoryLeave) onTerritoryLeave(); return; }
-            const gParent = target.closest('g[id]');
-            const code = (gParent && idSet.has(gParent.id)) ? gParent.id
-                       : idSet.has(target.id) ? target.id : null;
+            const code = _resolveTerritory(e.target);
             if (code) {
                 if (onTerritoryHover) onTerritoryHover(code, e);
             } else {
@@ -515,20 +520,12 @@ const MapRenderer = (() => {
                 const touch = e.changedTouches[0];
                 const el = document.elementFromPoint(touch.clientX, touch.clientY);
                 if (el) {
-                    const target = el.closest('[id]');
-                    if (target) {
-                        const gParent = target.closest('g[id]');
-                        const finalCode = (gParent && idSet.has(gParent.id)) ? gParent.id
-                                        : idSet.has(target.id) ? target.id : null;
-                        if (finalCode) {
-                            /* Fire tap callback on mobile */
-                            if (onTerritoryTap) {
-                                onTerritoryTap(finalCode, { clientX: touch.clientX, clientY: touch.clientY });
-                                /* Suppress the synthetic click that would follow */
-                                container._suppressNextClick = true;
-                                setTimeout(() => { container._suppressNextClick = false; }, 400);
-                            }
-                        }
+                    const finalCode = _resolveTerritory(el);
+                    if (finalCode && onTerritoryTap) {
+                        onTerritoryTap(finalCode, { clientX: touch.clientX, clientY: touch.clientY });
+                        /* Suppress the synthetic click that would follow */
+                        container._suppressNextClick = true;
+                        setTimeout(() => { container._suppressNextClick = false; }, 400);
                     }
                 }
             }
@@ -624,6 +621,21 @@ const MapRenderer = (() => {
         nuke:            'assets/emoji/2622-fe0f.svg'
     };
 
+    /** Return the best URL for a unit-type emoji SVG.
+     *  If the global blob cache (warmed by UI._warmSvgBlobCache) has an
+     *  in-memory blob: URL, use it — zero HTTP overhead.
+     *  Otherwise fall back to the file path (browser cache). */
+    function _unitSvgUrl(type) {
+        const filePath = UNIT_SVG[type] || UNIT_SVG.infantry;
+        const cache = window._svgBlobCache;
+        if (cache) {
+            const icon = filePath.slice(13).replace(/\.svg$/i, ''); // strip 'assets/emoji/' prefix
+            const blob = cache.get(icon);
+            if (blob) return blob;
+        }
+        return filePath;
+    }
+
     /* Strength → background color (vibrant, high contrast) */
     const STRENGTH_COLORS = {
         heavy:  { bg: 'rgba(0,230,118,0.85)', ring: '#00e676', text: '#fff', stroke: 'rgba(0,0,0,0.6)' },  // bright green
@@ -678,7 +690,7 @@ const MapRenderer = (() => {
             if (_lastGarrison[code] === key && garrisonLayer[code]) continue;
             _lastGarrison[code] = key;
 
-            const emojiSvg = UNIT_SVG[garrison.dominant] || UNIT_SVG.infantry;
+            const emojiSvg = _unitSvgUrl(garrison.dominant);
             const strength = garrison.strength || 'none';
             const colors = STRENGTH_COLORS[strength] || STRENGTH_COLORS.none;
             const sz = strength === 'heavy' ? 26 : strength === 'medium' ? 22 : 18;
