@@ -2517,6 +2517,9 @@ const UI = (() => {
         if (!autoPlayMode && state.phase !== 'player') return;
         aiTurnBusy = true;
 
+        /* Close sidebar */
+        hide('left-panel');
+
         /* Clear previous turn's missile trail traces */
         Animations.clearTurnTrails();
 
