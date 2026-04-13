@@ -575,7 +575,7 @@ const UI = (() => {
         const income = GameEngine.calcIncome(state.player);
 
         /* Resources bar: show current + income */
-        const topRes = ['money','oil','gas','rareEarth','steel','food','uranium'];
+        const topRes = ['money','oil','gas','rareEarth','steel','food','uranium','gold','silver','diamonds'];
         let resHtml = '';
         topRes.forEach(key => {
             const r = RESOURCES[key];
@@ -768,7 +768,7 @@ const UI = (() => {
             } else if (isAlly) {
                 actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${code}');">💔 Rompi Alleanza</button>`;
             } else {
-                actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">🤝 Alleanza</button>`;
+                actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">🤝 Alleanza (🥇10 💰30)</button>`;
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">🔥 Dichiara Guerra</button>`;
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido</button>`;
             }
@@ -1029,8 +1029,8 @@ const UI = (() => {
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Diplomazia</div>`;
 
             if (!isAlly && !atWar) {
-                actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.doAllyFromPanel('${owner}');"${_dis}>\u{1F91D} Proponi Alleanza</button>`;
-                actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doNonAggression('${owner}');"${_dis}>\u{1F4DD} Patto Non-Aggressione</button>`;
+                actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.doAllyFromPanel('${owner}');"${_dis}>\u{1F91D} Proponi Alleanza (🥇10 💰30)</button>`;
+                actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doNonAggression('${owner}');"${_dis}>\u{1F4DD} Patto Non-Aggressione (🥈5 💰15)</button>`;
             }
             if (isAlly) {
                 actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${owner}');"${_dis}>\u{1F494} Rompi Alleanza</button>`;
@@ -1763,7 +1763,7 @@ const UI = (() => {
             } else if (ally) {
                 c += `<button class="diplo-btn betray" onclick="UI.doBreakAlliance('${code}')">\ud83d\udc94 Rompi Alleanza</button>`;
             } else {
-                c += `<button class="diplo-btn ally" onclick="UI.doAlly('${code}')">\ud83e\udd1d Alleanza</button>`;
+                c += `<button class="diplo-btn ally" onclick="UI.doAlly('${code}')">\ud83e\udd1d Alleanza (\ud83e\udd4710 \ud83d\udcb030)</button>`;
                 c += `<button class="diplo-btn war" onclick="UI.doDeclareWar('${code}')">\ud83d\udd25 Dichiara Guerra</button>`;
             }
             c += `<button class="diplo-btn sanction" onclick="UI.doSanction('${code}')">\ud83d\udeab Sanzioni</button>`;
@@ -1790,14 +1790,26 @@ const UI = (() => {
 
     function doAlly(code) {
         const state = GameEngine.getState();
+        const pn = state.nations[state.player];
         const rel = GameEngine.getRelation(state.player, code);
+        /* Alliance costs: 🥇10 gold + 💰30 as diplomatic gift */
+        const goldCost = 10, moneyCost = 30;
+        if ((pn.res.gold || 0) < goldCost || (pn.res.money || 0) < moneyCost) {
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ Risorse insufficienti per alleanza (serve 🥇${goldCost} + 💰${moneyCost})` });
+            hide('diplomacy-popup');
+            return;
+        }
         if (rel < -10) {
             addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(state.nations[code])} <span class="evt-action">rifiuta alleanza (${rel})</span>` });
             hide('diplomacy-popup');
             return;
         }
+        pn.res.gold -= goldCost;
+        pn.res.money -= moneyCost;
         GameEngine.makeAlliance(state.player, code);
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🤝 Alleanza con ${fmtNation(state.nations[code])} (🥇${goldCost} + 💰${moneyCost})` });
         hide('diplomacy-popup');
+        updateHUD();
     }
 
     /* ══ NEW DIPLOMATIC ACTIONS ══ */
@@ -1834,10 +1846,20 @@ const UI = (() => {
     function doNonAggression(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
+        const pn = state.nations[state.player];
+        /* Non-aggression pact costs: 🥈5 silver + 💰15 */
+        const silverCost = 5, moneyCost = 15;
+        if ((pn.res.silver || 0) < silverCost || (pn.res.money || 0) < moneyCost) {
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ Risorse insufficienti per patto (serve 🥈${silverCost} + 💰${moneyCost})` });
+            hide('diplomacy-popup');
+            return;
+        }
+        pn.res.silver -= silverCost;
+        pn.res.money -= moneyCost;
         /* Simulate non-aggression pact as +15 relation boost */
         GameEngine.adjustRelation(state.player, targetCode, 15);
         GameEngine.adjustRelation(targetCode, state.player, 15);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">Patto con</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(+15)</span>` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">Patto con</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(🥈${silverCost} + 💰${moneyCost})</span>` });
         hide('diplomacy-popup');
     }
 
@@ -1873,10 +1895,13 @@ const UI = (() => {
         const tradeOptions = [
             { give: 'money', giveAmt: 50, get: 'oil', getAmt: 10, label: '💰50 → 🛢️10' },
             { give: 'money', giveAmt: 50, get: 'steel', getAmt: 15, label: '💰50 → 🔩15' },
-            { give: 'money', giveAmt: 80, get: 'rareEarth', getAmt: 8, label: '💰80 → 💎8' },
+            { give: 'money', giveAmt: 80, get: 'rareEarth', getAmt: 8, label: '💰80 → ⚗️8' },
             { give: 'oil', giveAmt: 15, get: 'money', getAmt: 40, label: '🛢️15 → 💰40' },
             { give: 'money', giveAmt: 100, get: 'uranium', getAmt: 5, label: '💰100 → ☢️5' },
             { give: 'food', giveAmt: 20, get: 'money', getAmt: 30, label: '🌾20 → 💰30' },
+            { give: 'gold', giveAmt: 10, get: 'money', getAmt: 60, label: '🥇10 → 💰60' },
+            { give: 'silver', giveAmt: 10, get: 'money', getAmt: 35, label: '🥈10 → 💰35' },
+            { give: 'diamonds', giveAmt: 5, get: 'money', getAmt: 80, label: '💎5 → 💰80' },
         ];
 
         tradeOptions.forEach((t, i) => {
@@ -1898,6 +1923,9 @@ const UI = (() => {
         { give: 'oil', giveAmt: 15, get: 'money', getAmt: 40 },
         { give: 'money', giveAmt: 100, get: 'uranium', getAmt: 5 },
         { give: 'food', giveAmt: 20, get: 'money', getAmt: 30 },
+        { give: 'gold', giveAmt: 10, get: 'money', getAmt: 60 },
+        { give: 'silver', giveAmt: 10, get: 'money', getAmt: 35 },
+        { give: 'diamonds', giveAmt: 5, get: 'money', getAmt: 80 },
     ];
 
     function executeTrade(targetCode, optionIdx) {

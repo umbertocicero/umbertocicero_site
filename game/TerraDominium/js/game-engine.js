@@ -149,6 +149,17 @@ const GameEngine = (() => {
             }
         });
 
+        /* Precious resources → money conversion each turn
+           Gold = 3💰/unit, Silver = 2💰/unit, Diamonds = 5💰/unit */
+        const preciousRates = { gold: 3, silver: 2, diamonds: 5 };
+        Object.entries(preciousRates).forEach(([res, rate]) => {
+            const qty = n.res[res] || 0;
+            if (qty > 0) {
+                const income = Math.round(qty * rate * 0.1);  // 10% of reserves converted
+                if (income > 0) n.res.money += income;
+            }
+        });
+
         /* Update territories owned list */
         n.territoriesOwned = ownedCodes;
     }
