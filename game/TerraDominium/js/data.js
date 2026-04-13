@@ -521,15 +521,44 @@ const MINOR_NAMES = {
 };
 
 const MINOR_IDS = new Set(SVG_IDS.filter(c => !NATIONS[c]));
+/* ── Resource overrides for notable minor nations ──
+   Gulf petrostates and other resource-rich minors get realistic production
+   instead of the generic minor defaults. */
+const MINOR_OVERRIDES = {
+    qa: { res:{money:180,oil:60,gas:90,rareEarth:0,gold:2,silver:0,diamonds:0,uranium:0,steel:3,food:2},
+          prod:{money:25,oil:10,gas:18} },
+    ae: { res:{money:250,oil:70,gas:30,rareEarth:1,gold:5,silver:1,diamonds:3,uranium:0,steel:5,food:3},
+          prod:{money:30,oil:12,gas:5} },
+    kw: { res:{money:150,oil:80,gas:15,rareEarth:0,gold:1,silver:0,diamonds:0,uranium:0,steel:2,food:1},
+          prod:{money:20,oil:14,gas:3} },
+    bh: { res:{money:80,oil:25,gas:10,rareEarth:0,gold:0,silver:0,diamonds:0,uranium:0,steel:1,food:1},
+          prod:{money:12,oil:5,gas:2} },
+    om: { res:{money:70,oil:40,gas:20,rareEarth:0,gold:1,silver:1,diamonds:0,uranium:0,steel:2,food:3},
+          prod:{money:10,oil:8,gas:4} },
+    ye: { res:{money:20,oil:15,gas:8,rareEarth:0,gold:0,silver:0,diamonds:0,uranium:0,steel:1,food:5},
+          prod:{money:3,oil:3,gas:1,food:1} },
+    ly: { res:{money:40,oil:60,gas:20,rareEarth:0,gold:2,silver:0,diamonds:0,uranium:0,steel:2,food:3},
+          prod:{money:5,oil:10,gas:3} },
+    ao: { res:{money:30,oil:50,gas:10,rareEarth:1,gold:1,silver:0,diamonds:8,uranium:0,steel:2,food:8},
+          prod:{money:4,oil:8,diamonds:1} },
+    az: { res:{money:40,oil:35,gas:25,rareEarth:0,gold:1,silver:0,diamonds:0,uranium:0,steel:3,food:6},
+          prod:{money:5,oil:6,gas:4} },
+    tm: { res:{money:25,oil:20,gas:60,rareEarth:0,gold:0,silver:0,diamonds:0,uranium:0,steel:2,food:5},
+          prod:{money:3,oil:3,gas:10} },
+    bn: { res:{money:80,oil:30,gas:25,rareEarth:0,gold:0,silver:0,diamonds:0,uranium:0,steel:1,food:2},
+          prod:{money:10,oil:5,gas:5} },
+};
+
 function getMinorNation(code) {
     /* Generate a visible distinct color per minor nation from its code */
     const h = ((code.charCodeAt(0) * 137 + code.charCodeAt(1) * 59) % 360);
     const minorColor = `hsl(${h}, 45%, 55%)`;
     const info = MINOR_NAMES[code] || { name: code.toUpperCase(), flag: '🏳️' };
+    const ovr = MINOR_OVERRIDES[code];
     return {
         name: info.name, flag: info.flag, color: minorColor, profile:'minor',
-        res:{money:60,oil:2,gas:1,rareEarth:1,gold:1,silver:0,diamonds:0,uranium:0,steel:5,food:15},
-        prod:{money:12,food:2,steel:1},
+        res:  ovr?.res  || {money:60,oil:2,gas:1,rareEarth:1,gold:1,silver:0,diamonds:0,uranium:0,steel:5,food:15},
+        prod: ovr?.prod || {money:12,food:2,steel:1},
         army:{infantry:5,tank:1,drone:1},
         assets:[], neighbors:[], power:8
     };
