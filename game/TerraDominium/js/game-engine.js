@@ -245,6 +245,65 @@ const GameEngine = (() => {
      * Attack: attacker → defender territory
      * Returns { success, atkLosses, defLosses, conquered, nukeUsed }
      */
+    /* ════════════════ ATTACK COST & FATIGUE ════════════════
+     * Each attack in the same turn gets progressively more expensive.
+     * This prevents carpet-bombing: conquering 15 nations in a single turn.
+     *
+     * Attack #  | Money | Infantry | Fatigue (ATK power penalty)
+     * ──────────┼───────┼──────────┼─────────────────────────────
+     *     1     |   0   |    0     |   0%
+     *     2     |   5   |    0     |   5%
+     *     3     |  15   |    1     |  12%
+     *     4     |  30   |    2     |  20%
+     *     5     |  50   |    3     |  30%
+     *     6+    |  75+  |    4+    |  42%+
+     */
+
+    /** How many attacks has this nation performed this turn? */
+    function getAttacksThisTurn(nationCode) {
+        if (!state._attacksThisTurn) state._attacksThisTurn = {};
+        return state._attacksThisTurn[nationCode] || 0;
+    }
+
+    /** Get cost for the NEXT attack this turn.
+     *  Returns { money, infantry, fatigue (0-1), attackNum } */
+    function getAttackCost(nationCode) {
+        const n = getAttacksThisTurn(nationCode);
+        const money    = n === 0 ? 0
+                       : n === 1 ? 5
+                       : n === 2 ? 15
+                       : n === 3 ? 30
+                       : n === 4 ? 50
+                       : 50 + (n - 4) * 25;     // 75, 100, 125...
+        const infantry = n <= 1 ? 0
+                       : n === 2 ? 1
+                       : n === 3 ? 2
+                       : Math.min(6, n - 1);     // 3, 4, 5, 6 cap
+        /* Fatigue: power penalty that grows with each attack */
+        const fatigue  = n === 0 ? 0
+                       : n === 1 ? 0.05
+                       : n === 2 ? 0.12
+                       : n === 3 ? 0.20
+                       : n === 4 ? 0.30
+                       : Math.min(0.60, 0.30 + (n - 4) * 0.12); // up to 60%
+        return { money, infantry, fatigue, attackNum: n + 1 };
+    }
+
+    /** Check if a nation can afford the next attack.
+     *  Returns { canAttack, cost, reason } */
+    function canAffordAttack(nationCode) {
+        const cost = getAttackCost(nationCode);
+        const n = state.nations[nationCode];
+        if (!n) return { canAttack: false, cost, reason: 'Nazione non valida' };
+        if (cost.money > 0 && (n.res.money || 0) < cost.money) {
+            return { canAttack: false, cost, reason: `Fondi insufficienti per ${cost.attackNum}° attacco: servono 💰${cost.money} (hai 💰${n.res.money||0})` };
+        }
+        if (cost.infantry > 0 && (n.army.infantry || 0) < cost.infantry) {
+            return { canAttack: false, cost, reason: `Fanteria insufficiente per ${cost.attackNum}° attacco: servono 🪖${cost.infantry} (hai 🪖${n.army.infantry||0})` };
+        }
+        return { canAttack: true, cost };
+    }
+
     function attack(attackerCode, defenderTerritoryCode) {
         const defender = state.territories[defenderTerritoryCode];
         if (!defender || defender === attackerCode) return null;
@@ -252,6 +311,13 @@ const GameEngine = (() => {
         const atk = state.nations[attackerCode];
         const def = state.nations[defender];
         if (!atk || !def || !atk.alive || !def.alive) return null;
+
+        /* ── Attack cost check (escalating) ── */
+        const affordCheck = canAffordAttack(attackerCode);
+        if (!affordCheck.canAttack) {
+            return { blocked: true, reason: affordCheck.reason };
+        }
+        const attackCost = affordCheck.cost;
 
         /* ── Reachability check ── */
         let attackMethod = 'land';
@@ -265,12 +331,23 @@ const GameEngine = (() => {
             launchFrom = reach.launchFrom || attackerCode;
         }
 
+        /* Pay attack cost (AFTER all checks pass) */
+        if (attackCost.money > 0)    atk.res.money    = (atk.res.money || 0) - attackCost.money;
+        if (attackCost.infantry > 0) atk.army.infantry = Math.max(0, (atk.army.infantry || 0) - attackCost.infantry);
+
+        /* Track attacks this turn */
+        if (!state._attacksThisTurn) state._attacksThisTurn = {};
+        state._attacksThisTurn[attackerCode] = (state._attacksThisTurn[attackerCode] || 0) + 1;
+
         /* Snapshot armies BEFORE combat for loss display */
         const atkArmyBefore = { ...atk.army };
         const defArmyBefore = { ...def.army };
 
         const atkPow = calcMilitary(attackerCode, 'atk');
         const defPow = calcMilitary(defender, 'def');
+
+        /* ── War fatigue: penalty for repeated attacks in the same turn ── */
+        const fatigueMult = 1 - attackCost.fatigue;   // e.g. 0.88 for 3rd attack
 
         /* Terrain bonus +20% defender */
         let defTotal = defPow * 1.2;
@@ -285,9 +362,9 @@ const GameEngine = (() => {
             defTotal *= garrisonMult;
         }
 
-        /* Random factor ±30% */
+        /* Random factor ±30%, reduced by fatigue */
         const rng = 0.7 + Math.random() * 0.6;
-        const atkTotal = atkPow * rng;
+        const atkTotal = atkPow * rng * fatigueMult;
 
         const success = atkTotal > defTotal;
 
@@ -428,16 +505,21 @@ const GameEngine = (() => {
             conquered,
             loot,                // {money:120, oil:30,...}
             capturedUnits,       // {infantry:3,...}
-            homelandSiege
+            homelandSiege,
+            attackCost,          // {money, infantry, fatigue, attackNum}
+            fatiguePct: Math.round(attackCost.fatigue * 100)
         };
 
         const icon = success ? '✅' : '❌';
         const atkDeadTotal = Object.values(atkCasualties).reduce((s,v)=>s+v, 0);
         const defDeadTotal = Object.values(defCasualties).reduce((s,v)=>s+v, 0);
+        const fatigueTag = attackCost.fatigue > 0 ? ` ⚡-${result.fatiguePct}%` : '';
+        const costTag = (attackCost.money > 0 || attackCost.infantry > 0)
+            ? ` [${attackCost.attackNum}° att. 💰${attackCost.money} 🪖${attackCost.infantry}]` : '';
         emit('battle',
             `${icon} ${atk.flag} ${atk.name} attacca ${def.flag} ${def.name} a ${defenderTerritoryCode.toUpperCase()} — ` +
             `ATK:${result.atkPow} vs DEF:${result.defPow} → ${success ? 'VITTORIA' : 'SCONFITTA'} ` +
-            `(☠️ ${atkDeadTotal} vs ${defDeadTotal})`);
+            `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${fatigueTag}${costTag}`);
 
         /* Check elimination */
         checkElimination(defender);
@@ -994,6 +1076,8 @@ const GameEngine = (() => {
     function startNewTurn() {
         state.turn++;
         state.phase = 'player';
+        /* Reset per-turn attack counters */
+        state._attacksThisTurn = {};
         /* Collect resources for player */
         collectResources(state.player);
 
@@ -1485,6 +1569,9 @@ const GameEngine = (() => {
         getUnrest,
         getUnrestList,
         getColonyList,
-        suppressUnrest
+        suppressUnrest,
+        getAttackCost,
+        canAffordAttack,
+        getAttacksThisTurn
     };
 })();

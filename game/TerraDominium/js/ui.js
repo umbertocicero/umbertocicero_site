@@ -763,14 +763,27 @@ const UI = (() => {
         /* ── Actions (diplomacy shortcuts) ── */
         let actHtml = '';
         if (!isPlayer) {
+            /* Attack cost for this nation detail panel too */
+            const _ndAtkCost = GameEngine.getAttackCost ? GameEngine.getAttackCost(state.player) : null;
+            const _ndCanAfford = GameEngine.canAffordAttack ? GameEngine.canAffordAttack(state.player) : { canAttack: true };
+            let _ndCostLbl = '';
+            if (_ndAtkCost && (_ndAtkCost.money > 0 || _ndAtkCost.infantry > 0)) {
+                _ndCostLbl = ` (💰${_ndAtkCost.money}`;
+                if (_ndAtkCost.infantry > 0) _ndCostLbl += ` 🪖${_ndAtkCost.infantry}`;
+                _ndCostLbl += `)`;
+            }
+            let _ndFatLbl = (_ndAtkCost && _ndAtkCost.fatigue > 0) ? ` ⚡-${Math.round(_ndAtkCost.fatigue*100)}%` : '';
+            const _ndAtkDis = !_ndCanAfford.canAttack ? ' disabled' : '';
+
             if (atWar) {
+                actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido${_ndCostLbl}${_ndFatLbl}</button>`;
                 actHtml += `<button class="btn-action btn-move" onclick="UI.doPeace('${code}');">🕊️ Negozia Pace</button>`;
             } else if (isAlly) {
                 actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${code}');">💔 Rompi Alleanza</button>`;
             } else {
                 actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">🤝 Alleanza (🥇10 💰30)</button>`;
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">🔥 Dichiara Guerra</button>`;
-                actHtml += `<button class="btn-action btn-attack" onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido</button>`;
+                actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido${_ndCostLbl}${_ndFatLbl}</button>`;
             }
             actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">🕵️ Spia (30💰 2🥇)</button>`;
         }
@@ -1015,15 +1028,38 @@ const UI = (() => {
             /* FOREIGN TERRITORY ACTIONS */
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Azioni Militari</div>`;
 
+            /* ── Attack cost & fatigue indicator ── */
+            const _atkCost = GameEngine.getAttackCost ? GameEngine.getAttackCost(state.player) : null;
+            const _atkNum = GameEngine.getAttacksThisTurn ? GameEngine.getAttacksThisTurn(state.player) : 0;
+            const _canAfford = GameEngine.canAffordAttack ? GameEngine.canAffordAttack(state.player) : { canAttack: true };
+            let _costLabel = '';
+            if (_atkCost && (_atkCost.money > 0 || _atkCost.infantry > 0)) {
+                _costLabel = ` (💰${_atkCost.money}`;
+                if (_atkCost.infantry > 0) _costLabel += ` 🪖${_atkCost.infantry}`;
+                _costLabel += `)`;
+            }
+            let _fatigueLabel = '';
+            if (_atkCost && _atkCost.fatigue > 0) {
+                _fatigueLabel = ` ⚡-${Math.round(_atkCost.fatigue*100)}%`;
+            }
+            const _atkDisabled = (!_canAfford.canAttack || notMyTurn) ? ' disabled' : '';
+            const _atkDisCls   = (!_canAfford.canAttack || notMyTurn) ? ' act-disabled' : '';
+
             if (atWar) {
-                actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doAttack('${code}');"${_dis}>\u2694\uFE0F Attacca Territorio</button>`;
+                actHtml += `<button class="btn-action btn-attack${_atkDisCls}" onclick="UI.doAttack('${code}');"${_atkDisabled}>\u2694\uFE0F Attacca${_costLabel}${_fatigueLabel}</button>`;
+                if (_atkNum >= 2 && _atkCost) {
+                    actHtml += `<div style="font-size:0.6rem;color:#ff9100;text-align:center;margin:-4px 0 4px;opacity:0.8;">⚡ ${_atkCost.attackNum}° attacco questo turno — truppe affaticate</div>`;
+                }
                 if ((state.nations[state.player]?.army?.nuke || 0) > 0) {
                     actHtml += `<button class="btn-action btn-attack${_disCls}" style="border-color:#ff00ff;color:#ff00ff;background:rgba(255,0,255,0.1)" onclick="UI.doNukeStrike('${code}');"${_dis}>\u2622\uFE0F Attacco Nucleare</button>`;
                 }
                 actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doPeaceFromPanel('${owner}');"${_dis}>\u{1F54A}\uFE0F Negozia Pace</button>`;
             } else {
                 actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doDeclareWar('${owner}');"${_dis}>\u{1F525} Dichiara Guerra</button>`;
-                actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doAttack('${code}');"${_dis}>\u2694\uFE0F Attacco Rapido</button>`;
+                actHtml += `<button class="btn-action btn-attack${_atkDisCls}" onclick="UI.doAttack('${code}');"${_atkDisabled}>\u2694\uFE0F Attacco Rapido${_costLabel}${_fatigueLabel}</button>`;
+                if (_atkNum >= 2 && _atkCost) {
+                    actHtml += `<div style="font-size:0.6rem;color:#ff9100;text-align:center;margin:-4px 0 4px;opacity:0.8;">⚡ ${_atkCost.attackNum}° attacco questo turno — truppe affaticate</div>`;
+                }
             }
 
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Diplomazia</div>`;
@@ -1074,9 +1110,9 @@ const UI = (() => {
             return;
         }
 
-        /* Blocked by reachability: show detailed alert */
+        /* Blocked by reachability OR insufficient funds: show detailed alert */
         if (result.blocked) {
-            addEventToLog({ turn: state.turn, type:'game', msg: result.reason || '🚫 Territorio non raggiungibile' });
+            addEventToLog({ turn: state.turn, type:'game', msg: result.reason || '🚫 Attacco impossibile' });
             showReachabilityAlert(result.reason, defInfo);
             return;
         }
@@ -1127,6 +1163,8 @@ const UI = (() => {
                         msg: `🔥 <strong>RIVOLTA!</strong> ${state.nations[r.to]?.flag||''} ${state.nations[r.to]?.name||r.territory} si ribella — guarnigione troppo debole!`
                     });
                 });
+                /* ── REVOLT ALERT MODAL: interrupt the player with a warning ── */
+                _showMidTurnRevoltAlert(midRevolts);
             }
         }
 
@@ -1134,6 +1172,68 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         showTerritoryPanel(targetTerritory);
+    }
+
+    /**
+     * Show a blocking modal when revolts happen mid-turn during attacks.
+     * Different from showRevoltAlert (end-of-turn unrest overview):
+     * this one specifically lists territories that JUST revolted.
+     */
+    function _showMidTurnRevoltAlert(revolts) {
+        const state = GameEngine.getState();
+        if (!state) return;
+        const display = els['revolt-alert-display'];
+        if (!display) return;
+
+        const lostCount = revolts.length;
+        const territoryNames = revolts.map(r => {
+            const n = state.nations[r.to];
+            return `${n?.flag||''} ${n?.name||r.territory}`;
+        });
+
+        /* Next attack cost preview */
+        const nextCost = GameEngine.getAttackCost(state.player);
+        const attackNum = GameEngine.getAttacksThisTurn(state.player);
+
+        let html = `
+            <div style="text-align:center;margin-bottom:12px;">
+                <div style="font-size:2rem;margin-bottom:6px;">⚠️🔥</div>
+                <div style="font-size:0.85rem;color:#ff6e40;font-weight:700;">
+                    ${lostCount === 1 ? 'UN TERRITORIO SI È RIBELLATO!' : `${lostCount} TERRITORI SI SONO RIBELLATI!`}
+                </div>
+                <div style="font-size:0.72rem;color:#ffab91;margin-top:6px;line-height:1.4;">
+                    Le tue truppe sono troppo sparse — le guarnigioni non riescono a mantenere il controllo.
+                    Ogni conquista indebolisce le difese delle colonie esistenti!
+                </div>
+            </div>`;
+
+        /* List revolted territories */
+        html += `<div style="margin-bottom:12px;">`;
+        revolts.forEach(r => {
+            const n = state.nations[r.to];
+            html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin:4px 0;
+                        background:rgba(255,23,68,0.12);border-radius:6px;border-left:3px solid #ff1744;">
+                <span style="font-size:1.1rem;">${n?.flag||'🏴'}</span>
+                <span style="font-weight:600;font-size:0.8rem;color:#ff8a80;">${n?.name||r.territory.toUpperCase()}</span>
+                <span style="margin-left:auto;font-size:0.65rem;color:#ff5252;">PERSO</span>
+            </div>`;
+        });
+        html += `</div>`;
+
+        /* War fatigue warning */
+        if (attackNum >= 2) {
+            html += `<div style="padding:8px 12px;background:rgba(255,152,0,0.12);border-radius:6px;
+                        border-left:3px solid #ff9100;margin-bottom:10px;font-size:0.72rem;color:#ffd740;line-height:1.4;">
+                <strong>⚡ FATICA BELLICA (${attackNum}° attacco)</strong><br>
+                Le tue truppe sono stanche. Prossimo attacco:
+                ${nextCost.money > 0 ? ` 💰${nextCost.money}` : ''}${nextCost.infantry > 0 ? ` 🪖${nextCost.infantry}` : ''}
+                | Penalità potenza: <strong style="color:#ff6e40;">-${Math.round(nextCost.fatigue*100)}%</strong>
+            </div>`;
+        }
+
+        display.innerHTML = html;
+        parseEmoji(els['revolt-alert-popup']);
+        show('revolt-alert-popup');
     }
 
     /* ── Reachability alert popup ── */
@@ -1510,6 +1610,18 @@ const UI = (() => {
                 }
             });
             html += `</div>`;
+            html += `</div>`;
+        }
+
+        /* ── Attack cost / fatigue info ── */
+        if (result.attackCost && (result.attackCost.money > 0 || result.attackCost.infantry > 0 || result.attackCost.fatigue > 0)) {
+            const ac = result.attackCost;
+            html += `<div style="margin-top:6px;padding:5px 10px;background:rgba(255,152,0,0.10);border-radius:6px;
+                        font-size:0.65rem;color:#ffd740;text-align:center;border:1px solid rgba(255,152,0,0.2);">`;
+            html += `⚡ ${ac.attackNum}° attacco`;
+            if (ac.money > 0 || ac.infantry > 0) html += ` — Costo: 💰${ac.money}`;
+            if (ac.infantry > 0) html += ` 🪖${ac.infantry}`;
+            if (result.fatiguePct > 0) html += ` | Fatica: <strong style="color:#ff6e40;">-${result.fatiguePct}%</strong> potenza`;
             html += `</div>`;
         }
 
