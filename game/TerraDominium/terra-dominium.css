@@ -704,6 +704,73 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     font-size: 0.9rem;
 }
 
+/* ── Peace Negotiation ── */
+.peace-content { max-width: 500px; }
+.peace-content h3 { color: #80cbc4; }
+.peace-header {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    margin-bottom: 8px; font-size: 2rem;
+}
+.peace-vs { font-size: 1.2rem; color: var(--text-dim); }
+.peace-mood {
+    text-align: center; font-size: 0.85rem; font-weight: 700; letter-spacing: 1px;
+    padding: 6px 14px; border-radius: 20px; margin: 0 auto 14px; width: fit-content;
+}
+.peace-mood-generous    { background: rgba(0,230,118,0.12); color: #00e676; border: 1px solid rgba(0,230,118,0.3); }
+.peace-mood-fair        { background: rgba(100,181,246,0.12); color: #64b5f6; border: 1px solid rgba(100,181,246,0.3); }
+.peace-mood-harsh       { background: rgba(255,145,0,0.12); color: #ff9100; border: 1px solid rgba(255,145,0,0.3); }
+.peace-mood-humiliating { background: rgba(255,23,68,0.12); color: #ff1744; border: 1px solid rgba(255,23,68,0.3); }
+.peace-info-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    margin-bottom: 14px; font-size: 0.72rem;
+}
+.peace-info-item {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+}
+.peace-info-label { color: var(--text-dim); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.peace-info-val { font-weight: 600; }
+.peace-demands-header {
+    font-size: 0.8rem; font-weight: 700; color: #ffab91; margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+.peace-demands-list { margin-bottom: 14px; }
+.peace-demand-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    margin: 4px 0; border-radius: 8px;
+    background: rgba(255,171,145,0.06); border: 1px solid rgba(255,171,145,0.15);
+}
+.peace-demand-lacking { border-color: rgba(255,23,68,0.4); background: rgba(255,23,68,0.08); }
+.peace-demand-res { flex: 1; font-weight: 600; font-size: 0.8rem; }
+.peace-demand-amt { font-weight: 700; font-size: 0.95rem; color: #ffab91; min-width: 40px; text-align: right; }
+.peace-demand-have { font-size: 0.65rem; min-width: 60px; text-align: right; }
+.peace-warning {
+    text-align: center; font-size: 0.7rem; color: #ff1744; padding: 6px 10px;
+    border-radius: 6px; background: rgba(255,23,68,0.08); margin-bottom: 10px;
+}
+.peace-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.peace-btn {
+    padding: 10px 16px; border-radius: 8px; border: 1px solid; cursor: pointer;
+    font-weight: 700; font-size: 0.8rem; text-align: center; transition: all 0.2s;
+}
+.peace-btn-accept {
+    border-color: #00e676; color: #00e676; background: rgba(0,230,118,0.1);
+}
+.peace-btn-accept:hover:not(:disabled) { background: rgba(0,230,118,0.25); }
+.peace-btn-accept:disabled, .peace-btn-accept.disabled {
+    opacity: 0.4; cursor: not-allowed; pointer-events: none;
+}
+.peace-btn-reject {
+    border-color: #ff6e40; color: #ff6e40; background: rgba(255,110,64,0.08);
+}
+.peace-btn-reject:hover { background: rgba(255,110,64,0.2); }
+.peace-flavour {
+    font-size: 0.7rem; color: var(--text-dim); font-style: italic;
+    text-align: center; padding: 8px 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+}
+
 /* ── Colony Overview ── */
 .colonies-content { max-width: 560px; }
 .colonies-content h3 { color: #80cbc4; }
