@@ -2052,7 +2052,8 @@ const UI = (() => {
         const acceptChance = Math.max(0.1, (rel + 100) / 200 * 0.8 + 0.2);
         if (Math.random() > acceptChance) {
             addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">rifiuta scambio</span>` });
-            hide('trade-popup');
+            /* Show inline refusal feedback, keep modal open */
+            _showTradeFeedback(targetCode, false, `${tn.flag} ${tn.name} rifiuta lo scambio!`);
             return;
         }
 
@@ -2063,9 +2064,42 @@ const UI = (() => {
         GameEngine.adjustRelation(state.player, targetCode, 5);
         GameEngine.adjustRelation(targetCode, state.player, 5);
 
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💱 <span class="evt-action">Scambio con</span> ${fmtNation(tn)} <span class="evt-action">(+5)</span>` });
-        hide('trade-popup');
+        const ri = RESOURCES || {};
+        const giveIcon = ri[t.give]?.icon || t.give;
+        const getIcon  = ri[t.get]?.icon || t.get;
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💱 <span class="evt-action">Scambio con</span> ${fmtNation(tn)}: ${giveIcon}${t.giveAmt} → ${getIcon}${t.getAmt} <span class="evt-action">(+5 rel.)</span>` });
+
+        /* Show inline success feedback, refresh modal to update affordability */
+        _showTradeFeedback(targetCode, true, `Scambio riuscito! ${giveIcon}${t.giveAmt} → ${getIcon}${t.getAmt}`);
         updateHUD();
+    }
+
+    /** Show trade feedback inline in the trade popup, then refresh the trade grid */
+    function _showTradeFeedback(targetCode, success, msg) {
+        const tradePop = document.getElementById('trade-popup');
+        if (!tradePop) return;
+        const display = tradePop.querySelector('.trade-display');
+        if (!display) return;
+
+        /* Flash a feedback bar above the grid */
+        let fb = tradePop.querySelector('.trade-feedback');
+        if (!fb) {
+            fb = document.createElement('div');
+            fb.className = 'trade-feedback';
+            display.parentNode.insertBefore(fb, display);
+        }
+        fb.style.color = success ? '#00e676' : '#ff5252';
+        fb.style.background = success ? 'rgba(0,230,118,0.10)' : 'rgba(255,82,82,0.10)';
+        fb.style.border = success ? '1px solid rgba(0,230,118,0.3)' : '1px solid rgba(255,82,82,0.3)';
+        fb.textContent = (success ? '✅ ' : '❌ ') + msg;
+        fb.style.display = 'block';
+
+        /* Auto-hide feedback after 2s */
+        clearTimeout(fb._timer);
+        fb._timer = setTimeout(() => { fb.style.display = 'none'; }, 2500);
+
+        /* Refresh the trade grid (button affordability may have changed) */
+        doTradeResources(targetCode);
     }
 
     function doDemandTribute(targetCode) {

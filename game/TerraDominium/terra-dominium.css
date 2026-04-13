@@ -1313,7 +1313,16 @@ body.spectator-active .side-panel {
     transition: all 0.2s;
 }
 .trade-option:hover { border-color: var(--accent); background: rgba(0,229,255,0.08); }
-.trade-option.disabled { opacity: 0.35; cursor: not-allowed; }
+.trade-option.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.trade-feedback {
+    display: none; text-align: center; padding: 6px 12px; border-radius: 6px;
+    font-size: 0.78rem; font-weight: 600; margin-bottom: 10px;
+    animation: tradeFeedbackIn 0.3s ease;
+}
+@keyframes tradeFeedbackIn {
+    0% { opacity: 0; transform: translateY(-6px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
 
 /* ═══════════════ IMPROVED TOOLTIP ═══════════════ */
 .map-tooltip .tt-badge {
