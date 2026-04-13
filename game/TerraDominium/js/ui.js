@@ -982,12 +982,19 @@ const UI = (() => {
 
         /* ── Actions ── */
         let actHtml = '';
+        const notMyTurn = state.phase !== 'player';
+        const _dis = notMyTurn ? ' disabled' : '';
+        const _disCls = notMyTurn ? ' act-disabled' : '';
+
+        if (notMyTurn) {
+            actHtml += `<div style="text-align:center;padding:6px 10px;margin-bottom:8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);font-size:0.7rem;color:var(--text-dim);letter-spacing:0.5px;">⏳ Attendi il tuo turno</div>`;
+        }
 
         if (isMyTerritory) {
             /* OWN TERRITORY ACTIONS */
-            actHtml += `<button class="btn-action btn-build" onclick="UI.showProduction()">\u{1F3ED} Produci Unit\u00E0</button>`;
-            actHtml += `<button class="btn-action btn-move" onclick="UI.showTechTree()">\u{1F52C} Ricerca Tecnologica</button>`;
-            actHtml += `<button class="btn-action btn-move" onclick="UI.showEconomy()">\u{1F4CA} Panoramica Economica</button>`;
+            actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.showProduction()"${_dis}>\u{1F3ED} Produci Unit\u00E0</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.showTechTree()"${_dis}>\u{1F52C} Ricerca Tecnologica</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.showEconomy()"${_dis}>\u{1F4CA} Panoramica Economica</button>`;
 
             /* Suppress unrest button on conquered territories with unrest */
             if (code !== state.player && typeof GameEngine.getUnrest === 'function') {
@@ -997,9 +1004,9 @@ const UI = (() => {
                     const canDo = (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
                     actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Controllo Territorio</div>`;
                     if (canDo) {
-                        actHtml += `<button class="btn-action" style="border-color:#ff6e40;color:#ff6e40;background:rgba(255,110,64,0.08)" onclick="UI.doSuppressUnrest('${code}');">🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
+                        actHtml += `<button class="btn-action${_disCls}" style="border-color:#ff6e40;color:#ff6e40;background:rgba(255,110,64,0.08)" onclick="UI.doSuppressUnrest('${code}');"${_dis}>🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
                     } else {
-                        actHtml += `<button class="btn-action" style="border-color:#ff6e40;color:#ff6e40;opacity:0.4;background:rgba(255,110,64,0.08)" disabled>🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
+                        actHtml += `<button class="btn-action${_disCls}" style="border-color:#ff6e40;color:#ff6e40;opacity:0.4;background:rgba(255,110,64,0.08)" disabled>🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
                     }
                 }
             }
@@ -1008,35 +1015,35 @@ const UI = (() => {
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Azioni Militari</div>`;
 
             if (atWar) {
-                actHtml += `<button class="btn-action btn-attack" onclick="UI.doAttack('${code}');">\u2694\uFE0F Attacca Territorio</button>`;
+                actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doAttack('${code}');"${_dis}>\u2694\uFE0F Attacca Territorio</button>`;
                 if ((state.nations[state.player]?.army?.nuke || 0) > 0) {
-                    actHtml += `<button class="btn-action btn-attack" style="border-color:#ff00ff;color:#ff00ff;background:rgba(255,0,255,0.1)" onclick="UI.doNukeStrike('${code}');">\u2622\uFE0F Attacco Nucleare</button>`;
+                    actHtml += `<button class="btn-action btn-attack${_disCls}" style="border-color:#ff00ff;color:#ff00ff;background:rgba(255,0,255,0.1)" onclick="UI.doNukeStrike('${code}');"${_dis}>\u2622\uFE0F Attacco Nucleare</button>`;
                 }
-                actHtml += `<button class="btn-action btn-move" onclick="UI.doPeaceFromPanel('${owner}');">\u{1F54A}\uFE0F Negozia Pace</button>`;
+                actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doPeaceFromPanel('${owner}');"${_dis}>\u{1F54A}\uFE0F Negozia Pace</button>`;
             } else {
-                actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${owner}');">\u{1F525} Dichiara Guerra</button>`;
-                actHtml += `<button class="btn-action btn-attack" onclick="UI.doAttack('${code}');">\u2694\uFE0F Attacco Rapido</button>`;
+                actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doDeclareWar('${owner}');"${_dis}>\u{1F525} Dichiara Guerra</button>`;
+                actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doAttack('${code}');"${_dis}>\u2694\uFE0F Attacco Rapido</button>`;
             }
 
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Diplomazia</div>`;
 
             if (!isAlly && !atWar) {
-                actHtml += `<button class="btn-action btn-build" onclick="UI.doAllyFromPanel('${owner}');">\u{1F91D} Proponi Alleanza</button>`;
-                actHtml += `<button class="btn-action btn-move" onclick="UI.doNonAggression('${owner}');">\u{1F4DD} Patto Non-Aggressione</button>`;
+                actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.doAllyFromPanel('${owner}');"${_dis}>\u{1F91D} Proponi Alleanza</button>`;
+                actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doNonAggression('${owner}');"${_dis}>\u{1F4DD} Patto Non-Aggressione</button>`;
             }
             if (isAlly) {
-                actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${owner}');">\u{1F494} Rompi Alleanza</button>`;
+                actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${owner}');"${_dis}>\u{1F494} Rompi Alleanza</button>`;
             }
 
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Economia</div>`;
-            actHtml += `<button class="btn-action btn-move" onclick="UI.doTradeResources('${owner}');">\u{1F4B1} Scambia Risorse</button>`;
-            actHtml += `<button class="btn-action btn-move" onclick="UI.doSanction('${owner}');">\u{1F6AB} Imponi Sanzioni</button>`;
-            actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doEmbargo('${owner}');">\u26D4 Embargo Commerciale</button>`;
-            actHtml += `<button class="btn-action btn-move" onclick="UI.doDemandTribute('${owner}');">\u{1F4B0} Richiedi Tributo</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doTradeResources('${owner}');"${_dis}>\u{1F4B1} Scambia Risorse</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSanction('${owner}');"${_dis}>\u{1F6AB} Imponi Sanzioni</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doEmbargo('${owner}');"${_dis}>\u26D4 Embargo Commerciale</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doDemandTribute('${owner}');"${_dis}>\u{1F4B0} Richiedi Tributo</button>`;
 
             /* Spy / Intel */
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Intelligence</div>`;
-            actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${owner}');">\u{1F575}\uFE0F Missione di Spionaggio</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSpyMission('${owner}');"${_dis}>\u{1F575}\uFE0F Missione di Spionaggio</button>`;
         }
 
         els['panel-actions'].innerHTML = actHtml;

@@ -396,6 +396,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     font-size: 0.8rem;
     text-align: center;
 }
+.btn-action:disabled, .btn-action.act-disabled {
+    opacity: 0.35 !important; cursor: not-allowed !important; pointer-events: none;
+    filter: grayscale(1); color: var(--text-dim) !important; border-color: var(--border) !important;
+    background: var(--bg-panel-alt) !important;
+}
 .btn-attack { background: rgba(255,23,68,0.15); color: var(--red); border-color: var(--red); }
 .btn-attack:hover { background: var(--red); color: #fff; }
 .btn-build { background: rgba(0,230,118,0.1); color: var(--green); border-color: var(--green); }
