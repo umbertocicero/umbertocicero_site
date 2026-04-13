@@ -283,7 +283,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     position: absolute; top: 0; left: 0;
     width: 100%; height: 100%;
     transform-origin: 0 0;
-    will-change: transform;
     contain: layout style;
 }
 #svg-wrapper svg {
@@ -294,7 +293,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     position: absolute; top: 0; left: 0;
     width: 100%; height: 100%;
     pointer-events: none; z-index: 10;
-    will-change: transform;
 }
 
 /* TOOLTIP */
@@ -509,6 +507,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     display: flex; align-items: center; justify-content: center;
 }
 .popup-content {
+    position: relative;
     background: var(--bg-panel);
     border: 1px solid var(--accent);
     border-radius: 12px;
@@ -518,6 +517,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     max-height: 80vh;
     overflow-y: auto;
 }
+.popup-close-x {
+    position: absolute; top: 10px; right: 14px;
+    background: none; border: none; color: var(--text-dim);
+    font-size: 1.3rem; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; line-height: 1; z-index: 1;
+    transition: color .15s, background .15s;
+}
+.popup-close-x:hover { color: var(--accent); background: rgba(255,255,255,0.08); }
 .popup-content h3, .popup-content h2 {
     font-family: var(--font-title);
     color: var(--accent);

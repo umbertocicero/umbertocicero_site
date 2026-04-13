@@ -54,6 +54,10 @@ const MapRenderer = (() => {
         svgEl = wrapper.querySelector('svg');
         if (!svgEl) { console.error('SVG not found after innerHTML insert'); return; }
 
+        /* Let viewBox drive the vector resolution — remove fixed pixel
+           width/height attributes that constrain the rasterization size */
+        svgEl.removeAttribute('width');
+        svgEl.removeAttribute('height');
         svgEl.style.width  = '100%';
         svgEl.style.height = '100%';
         svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -332,8 +336,6 @@ const MapRenderer = (() => {
 
     /** Get screen position of a territory centroid (for animations) */
     function getTerritoryScreenPos(code) {
-        /* Ensure canvas is sized */
-        resizeFx();
         const c = getCentroid(code);
         if (!c) return null;
         return svgToScreen(c.x, c.y);
@@ -539,7 +541,9 @@ const MapRenderer = (() => {
         if (!fxCanvas || !container) return;
         const w = container.clientWidth;
         const h = container.clientHeight;
-        if (w > 0 && h > 0) {
+        /* Only resize if dimensions actually changed — setting canvas.width/height
+           clears the entire canvas content, which would erase in-flight animations */
+        if (w > 0 && h > 0 && (fxCanvas.width !== w || fxCanvas.height !== h)) {
             fxCanvas.width  = w;
             fxCanvas.height = h;
         }
@@ -604,6 +608,22 @@ const MapRenderer = (() => {
         nuke:            '☢️'
     };
 
+    /* Map unit types → local Twemoji SVG filenames for crisp rendering */
+    const UNIT_SVG = {
+        infantry:        'assets/emoji/1fa96.svg',
+        tank:            'assets/emoji/1f6e1-fe0f.svg',
+        artillery:       'assets/emoji/1f4a5.svg',
+        fighter:         'assets/emoji/2708-fe0f.svg',
+        bomber:          'assets/emoji/1f6e9-fe0f.svg',
+        drone:           'assets/emoji/1f916.svg',
+        navy:            'assets/emoji/1f6a2.svg',
+        submarine:       'assets/emoji/1f41f.svg',
+        cruiseMissile:   'assets/emoji/1f680.svg',
+        ballisticMissile:'assets/emoji/2604-fe0f.svg',
+        sam:             'assets/emoji/1f6e1-fe0f.svg',  /* fallback — ⛨ has no Twemoji */
+        nuke:            'assets/emoji/2622-fe0f.svg'
+    };
+
     /* Strength → background color (vibrant, high contrast) */
     const STRENGTH_COLORS = {
         heavy:  { bg: 'rgba(0,230,118,0.85)', ring: '#00e676', text: '#fff', stroke: 'rgba(0,0,0,0.6)' },  // bright green
@@ -658,7 +678,7 @@ const MapRenderer = (() => {
             if (_lastGarrison[code] === key && garrisonLayer[code]) continue;
             _lastGarrison[code] = key;
 
-            const emoji = UNIT_EMOJI[garrison.dominant] || '🪖';
+            const emojiSvg = UNIT_SVG[garrison.dominant] || UNIT_SVG.infantry;
             const strength = garrison.strength || 'none';
             const colors = STRENGTH_COLORS[strength] || STRENGTH_COLORS.none;
             const sz = strength === 'heavy' ? 26 : strength === 'medium' ? 22 : 18;
@@ -679,18 +699,18 @@ const MapRenderer = (() => {
             }
 
             /* Reuse existing children if they exist, else create */
-            let badge, emojiText, numText;
+            let badge, emojiImg, numText;
             if (gEl.childNodes.length === 3) {
                 badge = gEl.childNodes[0];
-                emojiText = gEl.childNodes[1];
+                emojiImg = gEl.childNodes[1];
                 numText = gEl.childNodes[2];
             } else {
                 gEl.innerHTML = '';
                 badge = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                emojiText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                emojiImg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
                 numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 gEl.appendChild(badge);
-                gEl.appendChild(emojiText);
+                gEl.appendChild(emojiImg);
                 gEl.appendChild(numText);
             }
 
@@ -707,11 +727,12 @@ const MapRenderer = (() => {
             badge.setAttribute('stroke', colors.ring);
             badge.setAttribute('stroke-width', '1.5');
 
-            emojiText.setAttribute('x', cx - badgeW * 0.2);
-            emojiText.setAttribute('y', cy + emojiSize * 0.35);
-            emojiText.setAttribute('text-anchor', 'middle');
-            emojiText.setAttribute('font-size', emojiSize);
-            emojiText.textContent = emoji;
+            /* SVG <image> for crisp emoji — no OS font dependency */
+            emojiImg.setAttribute('href', emojiSvg);
+            emojiImg.setAttribute('x', cx - badgeW * 0.2 - emojiSize * 0.5);
+            emojiImg.setAttribute('y', cy - emojiSize * 0.5);
+            emojiImg.setAttribute('width', emojiSize);
+            emojiImg.setAttribute('height', emojiSize);
 
             numText.setAttribute('x', cx + badgeW * 0.22);
             numText.setAttribute('y', cy + numSize * 0.4);

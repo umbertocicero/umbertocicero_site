@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="terra-dominium.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <!-- Twemoji: cross-platform flag emoji rendering (Windows lacks native flag emoji support) -->
-    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
+    <!-- Twemoji: cross-platform flag emoji rendering (local — zero CDN calls) -->
+    <script src="js/twemoji.min.js"></script>
 </head>
 <body>
     <!-- ═══════════════════ INTRO SCREEN ═══════════════════ -->
@@ -150,6 +150,7 @@
         <!-- BATTLE POPUP -->
         <div id="battle-popup" class="popup hidden">
             <div class="popup-content battle-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <div id="battle-display"></div>
                 <button id="btn-close-battle" class="btn-main">CHIUDI</button>
             </div>
@@ -158,6 +159,7 @@
         <!-- TECH TREE POPUP -->
         <div id="tech-popup" class="popup hidden">
             <div class="popup-content tech-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <h3>🔬 ALBERO TECNOLOGICO</h3>
                 <div id="tech-tree-display"></div>
                 <button id="btn-close-tech" class="btn-main">CHIUDI</button>
@@ -167,6 +169,7 @@
         <!-- DIPLOMACY POPUP -->
         <div id="diplomacy-popup" class="popup hidden">
             <div class="popup-content diplomacy-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <h3>🤝 DIPLOMAZIA</h3>
                 <div id="diplomacy-display"></div>
                 <button id="btn-close-diplomacy" class="btn-main">CHIUDI</button>
@@ -176,6 +179,7 @@
         <!-- PRODUCTION POPUP -->
         <div id="production-popup" class="popup hidden">
             <div class="popup-content production-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <h3>🏭 PRODUCI UNITÀ</h3>
                 <div id="production-display"></div>
                 <button id="btn-close-production" class="btn-main">CHIUDI</button>
@@ -185,6 +189,7 @@
         <!-- ECONOMY POPUP -->
         <div id="economy-popup" class="popup hidden">
             <div class="popup-content economy-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <h3>📊 PANORAMICA ECONOMICA</h3>
                 <div id="economy-display"></div>
                 <button id="btn-close-economy" class="btn-main">CHIUDI</button>
@@ -194,6 +199,7 @@
         <!-- TRADE POPUP -->
         <div id="trade-popup" class="popup hidden">
             <div class="popup-content trade-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <h3>💱 SCAMBIA RISORSE</h3>
                 <div class="trade-display"></div>
                 <button class="btn-main" onclick="document.getElementById('trade-popup').classList.add('hidden')">CHIUDI</button>
@@ -203,6 +209,7 @@
         <!-- SPY INTEL POPUP -->
         <div id="spy-popup" class="popup hidden">
             <div class="popup-content spy-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <h3 id="spy-popup-title">🕵️ INTELLIGENCE</h3>
                 <div id="spy-popup-display"></div>
                 <button id="btn-close-spy" class="btn-main">CHIUDI</button>
@@ -212,6 +219,7 @@
         <!-- REVOLT ALERT POPUP -->
         <div id="revolt-alert-popup" class="popup hidden">
             <div class="popup-content revolt-alert-content">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <h3>🔥 ALLERTA RIVOLTA</h3>
                 <div id="revolt-alert-display"></div>
                 <button id="btn-close-revolt-alert" class="btn-main">CHIUDI</button>

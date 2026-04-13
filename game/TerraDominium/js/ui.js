@@ -7,14 +7,20 @@ const UI = (() => {
     /* ── refs (cached after DOM ready) ── */
     let els = {};
 
-    /** Parse flag emoji → Twemoji <img> for cross-platform rendering (esp. Windows) */
-    const _emojiOpts = { folder: 'svg', ext: '.svg' };
+    /** Parse flag emoji → Twemoji <img> for cross-platform rendering (esp. Windows)
+     *  Uses LOCAL SVG assets (assets/emoji/) instead of CDN — zero network calls.
+     *  A callback builds the src directly, no CDN fallback. */
+    const _emojiBase = 'assets/emoji/';
+    const _emojiOpts = {
+        callback: (icon) => _emojiBase + icon + '.svg',
+        ext: '.svg'
+    };
     function parseEmoji(el) {
         if (typeof twemoji !== 'undefined' && el) {
             try { twemoji.parse(el, _emojiOpts); } catch(e) {}
         }
     }
-    /* Lightweight: only parse if element contains emoji codepoints (avoids full DOM walk) */
+    /* Lightweight: only parse if element contains emoji codepoints AND hasn't been parsed yet */
     const _emojiRe = /[\u{1F1E0}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1FA00}-\u{1FA9F}]/u;
     function parseEmojiIfNeeded(el) {
         if (typeof twemoji !== 'undefined' && el && _emojiRe.test(el.textContent)) {
@@ -2399,35 +2405,55 @@ const UI = (() => {
     }
 
     /* ════════════════ EVENT LOG ════════════════ */
+    /**
+     * Auto-follow system:
+     * - `evtAutoScroll = true`  → every new event auto-scrolls to bottom. LIVE btn hidden.
+     * - `evtAutoScroll = false` → user scrolled up to read history. LIVE btn visible.
+     * - Clicking LIVE re-enables auto-follow.
+     * - User-initiated scroll UP disables auto-follow.
+     * - User-initiated scroll to bottom re-enables auto-follow.
+     *
+     * The key trick: we track whether we’re doing a programmatic scroll via a
+     * counter (_ignoreScrollN) instead of a boolean, and we detect “user scrolled up”
+     * by checking if scrollTop moved away from the bottom.
+     */
     let evtAutoScroll = true;
-    let _programmaticScroll = false; /* flag to ignore scroll events triggered by our own auto-scroll */
+    let _ignoreScrollN = 0; /* how many upcoming scroll events to ignore (programmatic) */
 
     function setupEventLog() {
         const log = els['event-log'];
         if (!log) return;
 
-        /* Scroll detection: if user scrolls up, pause auto-scroll.
-           Ignore scroll events caused by our own programmatic scrollTop assignment. */
+        /* Start with LIVE hidden (auto-follow is ON by default) */
+        hideLiveBtn();
+
         log.addEventListener('scroll', () => {
-            if (_programmaticScroll) return;
-            const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-            if (atBottom && !evtAutoScroll) {
-                evtAutoScroll = true;
-                hideLiveBtn();
-            } else if (!atBottom && evtAutoScroll) {
-                evtAutoScroll = false;
-                showLiveBtn();
+            /* Skip scroll events caused by our own scrollTop assignments */
+            if (_ignoreScrollN > 0) { _ignoreScrollN--; return; }
+
+            const distFromBottom = log.scrollHeight - log.scrollTop - log.clientHeight;
+
+            if (distFromBottom < 40) {
+                /* User scrolled back to bottom → re-enable auto-follow */
+                if (!evtAutoScroll) {
+                    evtAutoScroll = true;
+                    hideLiveBtn();
+                }
+            } else {
+                /* User scrolled up → disable auto-follow, show LIVE */
+                if (evtAutoScroll) {
+                    evtAutoScroll = false;
+                    showLiveBtn();
+                }
             }
         }, { passive: true });
 
-        /* LIVE button */
+        /* LIVE button — re-enable auto-follow and snap to bottom */
         const btnLive = document.getElementById('btn-live');
         if (btnLive) {
             btnLive.addEventListener('click', () => {
                 evtAutoScroll = true;
-                _programmaticScroll = true;
-                log.scrollTop = log.scrollHeight;
-                requestAnimationFrame(() => { _programmaticScroll = false; });
+                _scrollToBottom(log);
                 hideLiveBtn();
             });
         }
@@ -2452,7 +2478,6 @@ const UI = (() => {
                 if (!panel) return;
                 panel.classList.remove('evt-fullscreen');
                 panel.classList.toggle('hidden');
-                /* Show/hide the reopen button */
                 if (btnReopen) {
                     if (panel.classList.contains('hidden')) {
                         btnReopen.classList.remove('hidden');
@@ -2462,7 +2487,6 @@ const UI = (() => {
                 }
             });
         }
-        /* Reopen button: show event panel again */
         if (btnReopen) {
             btnReopen.addEventListener('click', () => {
                 const panel = els['right-panel'];
@@ -2471,6 +2495,14 @@ const UI = (() => {
                 btnReopen.classList.add('hidden');
             });
         }
+    }
+
+    /** Programmatic scroll-to-bottom — marks next scroll event(s) as “ignore” */
+    function _scrollToBottom(log) {
+        _ignoreScrollN = Math.min(_ignoreScrollN + 2, 6); /* cap to avoid runaway */
+        log.scrollTop = log.scrollHeight;
+        /* Safety reset: if scroll events don't fire (hidden panel, etc.) */
+        setTimeout(() => { _ignoreScrollN = 0; }, 200);
     }
 
     function showLiveBtn() { const b = document.getElementById('btn-live'); if (b) b.classList.remove('hidden'); }
@@ -2503,7 +2535,7 @@ const UI = (() => {
         }
     }
 
-    /* Deferred scroll — coalesces multiple addEventToLog calls into a single scrollHeight read */
+    /* Deferred scroll — coalesces multiple addEventToLog calls into a single scroll */
     let _scrollRaf = 0;
 
     function addEventToLog(entry) {
@@ -2533,22 +2565,19 @@ const UI = (() => {
         parseEmojiIfNeeded(div);
         log.appendChild(div);
 
-        /* Defer scroll to next frame — avoids forced reflow (scrollHeight) on every append */
+        /* Auto-scroll to bottom on next frame (coalesced) */
         if (evtAutoScroll && !_scrollRaf) {
             _scrollRaf = requestAnimationFrame(() => {
                 _scrollRaf = 0;
                 if (log && evtAutoScroll) {
-                    _programmaticScroll = true;
-                    log.scrollTop = log.scrollHeight;
-                    /* Reset flag after the browser fires the scroll event */
-                    requestAnimationFrame(() => { _programmaticScroll = false; });
+                    _scrollToBottom(log);
                 }
             });
         } else if (!evtAutoScroll) {
             showLiveBtn();
         }
 
-        /* Keep max 80 entries in DOM (fewer = less rendering work) */
+        /* Keep max 80 entries in DOM */
         while (log.children.length > 80) log.removeChild(log.firstChild);
     }
 
