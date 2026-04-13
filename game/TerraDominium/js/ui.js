@@ -120,7 +120,7 @@ const UI = (() => {
             'preview-flag','preview-name','preview-stats','btn-start-game',
             'tutorial-overlay','game-screen','top-hud',
             'hud-nation-flag','hud-nation-name','hud-turn','hud-resources',
-            'btn-end-turn','btn-tech-tree','btn-diplomacy',
+            'btn-end-turn','btn-tech-tree','btn-diplomacy','btn-production',
             'map-container','map-tooltip',
             'left-panel','panel-territory-name','panel-territory-owner',
             'panel-resources','panel-strategic','panel-military','panel-actions',
@@ -151,6 +151,7 @@ const UI = (() => {
         click('btn-tech-tree', showTechTree);
         click('btn-diplomacy', showDiplomacy);
         click('btn-economy', showEconomy);
+        click('btn-production', showProduction);
         click('btn-close-battle', () => hide('battle-popup'));
         click('btn-close-tech', () => hide('tech-popup'));
         click('btn-close-diplomacy', () => hide('diplomacy-popup'));
@@ -1990,6 +1991,9 @@ const UI = (() => {
         hide('diplomacy-popup');
     }
 
+    /* Track refused trades per nation per turn: { "turn:nation:idx": true } */
+    const _tradeRefusals = {};
+
     function doTradeResources(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
@@ -2017,9 +2021,13 @@ const UI = (() => {
         ];
 
         tradeOptions.forEach((t, i) => {
-            const canTrade = (pn.res[t.give] || 0) >= t.giveAmt && (tn.res[t.get] || 0) >= t.getAmt;
+            const canAfford = (pn.res[t.give] || 0) >= t.giveAmt && (tn.res[t.get] || 0) >= t.getAmt;
+            const refusalKey = `${state.turn}:${targetCode}:${i}`;
+            const refused = !!_tradeRefusals[refusalKey];
+            const canTrade = canAfford && !refused;
+            const refusedLabel = refused ? ' <span style="font-size:0.6rem;color:#ff5252;">🚫 rifiutato</span>' : '';
             html += `<div class="trade-option ${canTrade ? '' : 'disabled'}" onclick="${canTrade ? `UI.executeTrade('${targetCode}',${i})` : ''}">`;
-            html += `<span>${t.label}</span>`;
+            html += `<span>${t.label}${refusedLabel}</span>`;
             html += `</div>`;
         });
 
@@ -2051,9 +2059,11 @@ const UI = (() => {
         /* Trade acceptance: based on relations */
         const acceptChance = Math.max(0.1, (rel + 100) / 200 * 0.8 + 0.2);
         if (Math.random() > acceptChance) {
+            /* Mark this trade as refused for this turn — no retries */
+            _tradeRefusals[`${state.turn}:${targetCode}:${optionIdx}`] = true;
             addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">rifiuta scambio</span>` });
             /* Show inline refusal feedback, keep modal open */
-            _showTradeFeedback(targetCode, false, `${tn.flag} ${tn.name} rifiuta lo scambio!`);
+            _showTradeFeedback(targetCode, false, `${tn.flag} ${tn.name} rifiuta lo scambio! (non riprovabile questo turno)`);
             return;
         }
 
