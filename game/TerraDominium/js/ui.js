@@ -248,8 +248,6 @@ const UI = (() => {
             air:           { icon: '✈️', label: 'Aereo' },
             missile:       { icon: '🚀', label: 'Missili' },
         };
-        const circled = ['①','②','③','④','⑤'];
-
         /* Build ordered phases: MAIN method first, then support */
         const phases = [];
         const main = phaseInfo[reach.method] || { icon: '⚔️', label: 'Attacco' };
@@ -265,21 +263,19 @@ const UI = (() => {
         if (compact) {
             /* Tooltip: single-line chain with arrows */
             let chain = phases.map((p, i) => {
-                const num = circled[i] || `${i+1}`;
                 const color = i === 0 ? '#00e676' : '#90caf9';
-                return `<span style="color:${color}">${num} ${p.icon} ${p.label}</span>`;
+                return `<span style="color:${color}">${p.icon} ${p.label}</span>`;
             }).join(' <span style="color:#455a64">→</span> ');
             return `<div class="tt-res" style="color:#00e676;line-height:1.5;">✅ ${chain}</div>`;
         } else {
             /* Sidebar: vertical steps */
             let html = '';
             phases.forEach((p, i) => {
-                const num = circled[i] || `${i+1}`;
                 const isMain = i === 0;
                 const color = isMain ? '#00e676' : '#90caf9';
                 const role = isMain ? 'Principale' : 'Supporto';
                 html += `<div class="res-row" style="font-size:0.75rem;">`;
-                html += `<span style="color:${color};font-weight:700;">${num} ${p.icon} ${p.label}</span>`;
+                html += `<span style="color:${color};font-weight:700;">${p.icon} ${p.label}</span>`;
                 html += `<span class="val" style="color:var(--text-dim);font-size:0.6rem;">${role}</span>`;
                 html += `</div>`;
                 if (i < phases.length - 1) {
