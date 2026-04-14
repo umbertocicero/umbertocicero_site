@@ -320,9 +320,9 @@ const UI = (() => {
         }
 
         html += `<div class="tt-body">`;
-        html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">`;
+        html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">`;
         const ownerColor = n?.color || '#607d8b';
-        html += `<div style="width:14px;height:14px;border-radius:50%;background:${ownerColor};border:2px solid rgba(255,255,255,0.3);flex-shrink:0;"></div>`;
+        html += `<div style="width:14px;height:14px;border-radius:50%;background:${ownerColor};border:2px solid rgba(255,255,255,0.25);flex-shrink:0;box-shadow:0 0 6px ${ownerColor}60;"></div>`;
         html += `<div class="tt-name">${tBase.flag || '🏳️'} ${tBase.name || code.toUpperCase()}</div>`;
         html += `</div>`;
 
@@ -339,7 +339,9 @@ const UI = (() => {
 
         /* Show resources for own territories */
         if (isMyTerritory) {
-            html += `<div class="tt-res">💰${n.res.money} 🛢️${n.res.oil} 🔩${n.res.steel} 🌾${n.res.food}</div>`;
+            html += `<div class="tt-res" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">`;
+            html += `<span>💰${n.res.money}</span><span>🛢️${n.res.oil}</span><span>🔩${n.res.steel}</span><span>🌾${n.res.food}</span>`;
+            html += `</div>`;
         }
 
         /* Garrison info (all territories) */
@@ -348,9 +350,9 @@ const UI = (() => {
             if (g && g.total > 0) {
                 const strengthColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
                 const sCol = strengthColors[g.strength] || '#607d8b';
-                html += `<div class="tt-res" style="color:${sCol};">${g.icon} ${g.total.toFixed(0)} unità — ${g.strength.toUpperCase()}</div>`;
+                html += `<div class="tt-res" style="color:${sCol};margin-top:4px;">${g.icon} ${g.total.toFixed(0)} unità — <strong>${g.strength.toUpperCase()}</strong></div>`;
             } else {
-                html += `<div class="tt-res" style="color:#ff1744;">⚠ SENZA GUARNIGIONE</div>`;
+                html += `<div class="tt-res" style="color:#ff1744;margin-top:4px;">⚠ SENZA GUARNIGIONE</div>`;
             }
         }
 
@@ -570,7 +572,7 @@ const UI = (() => {
 
         const terrCount = GameEngine.getTerritoryCount(state.player);
         const year = 2025 + state.turn;
-        els['hud-turn'].textContent = `Turno ${state.turn} (${year}) | 🌍${terrCount}`;
+        els['hud-turn'].textContent = `Turno ${state.turn} (${year})  ·  🌍 ${terrCount}`;
 
         /* Calculate per-turn income from all owned territories */
         const income = GameEngine.calcIncome(state.player);
@@ -673,10 +675,11 @@ const UI = (() => {
         els['panel-territory-name'].textContent = `${n.flag} ${n.name}`;
 
         let badge = '';
-        if (isPlayer) badge = `<span style="background:rgba(0,229,255,0.2);color:#00e5ff;padding:2px 8px;border-radius:3px;font-size:0.75rem;">👑 LA TUA NAZIONE</span>`;
-        else if (atWar) badge = `<span style="background:rgba(255,23,68,0.2);color:#ff1744;padding:2px 8px;border-radius:3px;font-size:0.75rem;">⚔️ IN GUERRA</span>`;
-        else if (isAlly) badge = `<span style="background:rgba(0,230,118,0.2);color:#00e676;padding:2px 8px;border-radius:3px;font-size:0.75rem;">🤝 ALLEATO</span>`;
-        else badge = `<span style="color:var(--text-dim);font-size:0.75rem;">Relazione: ${rel}</span>`;
+        if (isPlayer) badge = `<span class="ui-badge ui-badge-mine">👑 LA TUA NAZIONE</span>`;
+        else if (!n.alive) badge = `<span class="ui-badge ui-badge-dead">💀 ELIMINATO</span>`;
+        else if (atWar) badge = `<span class="ui-badge ui-badge-war">⚔️ IN GUERRA</span>`;
+        else if (isAlly) badge = `<span class="ui-badge ui-badge-ally">🤝 ALLEATO</span>`;
+        else badge = `<span class="ui-badge ui-badge-neutral">Relazione: ${rel}</span>`;
         els['panel-territory-owner'].innerHTML = badge;
 
         /* ── Territories ── */
@@ -700,16 +703,16 @@ const UI = (() => {
                     const hg = GameEngine.getGarrison(homeland);
                     const hgColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
                     const hgc = hgColors[hg?.strength] || '#ff1744';
-                    hGarDot = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${hgc};box-shadow:0 0 4px ${hgc};margin-right:4px;vertical-align:middle;" title="Guarnigione: ${hg?.strength?.toUpperCase()||'NONE'}"></span>`;
+                    hGarDot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${hgc};box-shadow:0 0 5px ${hgc};margin-right:5px;vertical-align:middle;" title="Guarnigione: ${hg?.strength?.toUpperCase()||'NONE'}"></span>`;
                 }
-                resHtml += `<div style="font-size:0.6rem;color:var(--text-dim);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px;">🏠 Patria</div>`;
-                resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;cursor:pointer;" onclick="UI.showTerritoryPanel('${homeland}')"><span>${hGarDot}${tb.flag||'🏳️'} ${tb.name||homeland.toUpperCase()}</span></div>`;
+                resHtml += `<div style="font-size:0.6rem;color:var(--text-muted);margin:6px 0 3px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--font-title);font-weight:400;">🏠 Patria</div>`;
+                resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${homeland}')"><span>${hGarDot}${tb.flag||'🏳️'} ${tb.name||homeland.toUpperCase()}</span></div>`;
             }
 
             /* Conquered territories (with garrison dot + unrest info + clickable) */
             const conquered = myTerritories.filter(t => t !== homeland);
             if (conquered.length > 0) {
-                resHtml += `<div style="font-size:0.6rem;color:var(--gold);margin:6px 0 2px;text-transform:uppercase;letter-spacing:1px;">⚔ Conquistati (${conquered.length})</div>`;
+                resHtml += `<div style="font-size:0.6rem;color:var(--gold);margin:8px 0 3px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--font-title);font-weight:400;padding-top:4px;border-top:1px solid var(--border-subtle);">⚔ Conquistati (${conquered.length})</div>`;
                 conquered.forEach(t => {
                     const tb = getNation(t);
                     /* Garrison strength dot */
@@ -718,16 +721,16 @@ const UI = (() => {
                         const g = GameEngine.getGarrison(t);
                         const gColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
                         const gc = gColors[g?.strength] || '#ff1744';
-                        garDot = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${gc};box-shadow:0 0 4px ${gc};margin-right:4px;vertical-align:middle;" title="Guarnigione: ${g?.strength?.toUpperCase()||'NONE'}"></span>`;
+                        garDot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${gc};box-shadow:0 0 5px ${gc};margin-right:5px;vertical-align:middle;" title="Guarnigione: ${g?.strength?.toUpperCase()||'NONE'}"></span>`;
                     }
                     /* Unrest tag */
                     const unrest = typeof GameEngine.getUnrest === 'function' ? GameEngine.getUnrest(t) : 0;
                     let unrestTag = '';
                     if (unrest > 0) {
                         const uc = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
-                        unrestTag = ` <span style="font-size:0.55rem;color:${uc};">(🔥${Math.round(unrest)}%)</span>`;
+                        unrestTag = ` <span style="font-size:0.58rem;color:${uc};font-weight:600;">(🔥${Math.round(unrest)}%)</span>`;
                     }
-                    resHtml += `<div class="res-row" style="font-size:0.7rem;padding:1px 0;cursor:pointer;" onclick="UI.showTerritoryPanel('${t}')"><span>${garDot}${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}${unrestTag}</span></div>`;
+                    resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${t}')"><span>${garDot}${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}${unrestTag}</span></div>`;
                 });
             }
         }
@@ -836,22 +839,22 @@ const UI = (() => {
         /* Clear ownership badge */
         let ownerBadge = '';
         if (isMyTerritory) {
-            ownerBadge = `<span style="background:rgba(0,229,255,0.2);color:#00e5ff;padding:2px 8px;border-radius:3px;font-size:0.75rem;">\u{1F451} TUO TERRITORIO</span>`;
+            ownerBadge = `<span class="ui-badge ui-badge-mine">\u{1F451} TUO TERRITORIO</span>`;
         } else if (atWar) {
-            ownerBadge = `<span style="background:rgba(255,23,68,0.2);color:#ff1744;padding:2px 8px;border-radius:3px;font-size:0.75rem;">\u2694\uFE0F IN GUERRA</span>`;
+            ownerBadge = `<span class="ui-badge ui-badge-war">\u2694\uFE0F IN GUERRA</span>`;
         } else if (isAlly) {
-            ownerBadge = `<span style="background:rgba(0,230,118,0.2);color:#00e676;padding:2px 8px;border-radius:3px;font-size:0.75rem;">\u{1F91D} ALLEATO</span>`;
+            ownerBadge = `<span class="ui-badge ui-badge-ally">\u{1F91D} ALLEATO</span>`;
         } else {
             const relIcon = rel > 20 ? '\u{1F60A}' : rel < -20 ? '\u{1F620}' : '\u{1F610}';
-            ownerBadge = `<span style="color:var(--text-dim);font-size:0.75rem;">${n?.flag||''} ${n?.name||owner} ${relIcon} ${rel}</span>`;
+            ownerBadge = `<span class="ui-badge ui-badge-neutral">${n?.flag||''} ${n?.name||owner} ${relIcon} ${rel}</span>`;
         }
         els['panel-territory-owner'].innerHTML = ownerBadge;
 
         /* Colony indicator: compact inline badge matching ownership style */
         if (code !== owner && n) {
-            const colonyBadge = `<div style="margin-top:4px;display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.7rem;" onclick="UI.showNationDetail('${owner}')">
+            const colonyBadge = `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.72rem;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--border-subtle);transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--border)'" onmouseout="this.style.borderColor='var(--border-subtle)'" onclick="UI.showNationDetail('${owner}')">
                 <span style="color:#ff9100;">👑</span>
-                <div style="width:8px;height:8px;border-radius:50%;background:${n.color||'#607d8b'};flex-shrink:0;"></div>
+                <div style="width:9px;height:9px;border-radius:50%;background:${n.color||'#607d8b'};flex-shrink:0;box-shadow:0 0 4px ${n.color||'#607d8b'}40;"></div>
                 <span style="color:#ffd740;font-weight:600;">${n.flag||''} ${n.name||owner.toUpperCase()}</span>
                 <span style="color:var(--text-dim);font-size:0.6rem;margin-left:auto;">→</span>
             </div>`;
@@ -2754,9 +2757,9 @@ const UI = (() => {
             /* Just refresh the year text */
             if (existingLabel) {
                 if (needsDead) {
-                    existingLabel.textContent = `💀 ELIMINATO — Modalità spettatore · Anno ${year}`;
+                    existingLabel.innerHTML = `<span style="opacity:0.85">💀</span> <strong>ELIMINATO</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Modalità spettatore · Anno ${year}`;
                 } else {
-                    existingLabel.textContent = `⏩ AUTO-PLAY attivo · Anno ${year}`;
+                    existingLabel.innerHTML = `⏩ <strong>AUTO-PLAY</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Anno ${year}`;
                 }
             }
             return;
@@ -2768,7 +2771,7 @@ const UI = (() => {
         if (playerDead) {
             banner.classList.add('banner-dead');
             banner.innerHTML = `
-                <span class="spectator-label">💀 ELIMINATO — Modalità spettatore · Anno ${year}</span>
+                <span class="spectator-label"><span style="opacity:0.85">💀</span> <strong>ELIMINATO</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Modalità spettatore · Anno ${year}</span>
                 <div class="spectator-btns">
                     <button id="btn-auto-toggle" class="btn-sm">⏸ PAUSA</button>
                     <button id="btn-auto-restart" class="btn-sm btn-stop">🔄 RICOMINCIA</button>
@@ -2787,7 +2790,7 @@ const UI = (() => {
         } else {
             banner.classList.add('banner-auto');
             banner.innerHTML = `
-                <span class="spectator-label">⏩ AUTO-PLAY attivo · Anno ${year}</span>
+                <span class="spectator-label">⏩ <strong>AUTO-PLAY</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Anno ${year}</span>
                 <div class="spectator-btns">
                     <button id="btn-auto-stop" class="btn-sm">⏹ TORNA A GIOCARE</button>
                 </div>`;
