@@ -428,6 +428,26 @@ Ogni territorio raggiungibile riceve un punteggio composito:
 
 ---
 
+### ⏩ Modalità Auto-Play
+
+Il gioco include una modalità **Auto-Play** che permette di osservare la partita come spettatore.
+
+| Situazione | Attivazione | Comportamento |
+|---|---|---|
+| 🎮 **Player vivo** | Bottone ⏩ nell'HUD | Il player viene controllato dall'IA (stessa pipeline a 7 step) |
+| 💀 **Player eliminato** | Automatica | Il gioco continua senza il player, modalità spettatore |
+
+**Come funziona:**
+- Quando l'auto-play è attivo, la nazione del giocatore viene **aggiunta alla lista IA** e processata con lo stesso algoritmo delle altre nazioni
+- L'IA usa il **profilo di personalità** della nazione scelta (es. USA = `superpower`, Italia = `defensive`)
+- Il player raccoglie risorse, costruisce unità, fa diplomazia, attacca, ricerca e seda rivolte — tutto automaticamente
+- La velocità delle animazioni è raddoppiata (×1.8) per rendere la visione più fluida
+- È possibile **mettere in pausa** o **tornare al controllo manuale** in qualsiasi momento
+
+> 💡 L'auto-play è utile per osservare come le dinamiche geopolitiche evolvono senza intervento umano, o per testare l'equilibrio del gioco.
+
+---
+
 ## 🎲 Eventi Casuali
 
 Alla fine di ogni turno IA, il sistema può generare eventi globali:
