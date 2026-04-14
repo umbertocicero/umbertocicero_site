@@ -2674,7 +2674,7 @@ const UI = (() => {
         } else {
             GameEngine.adjustRelation(targetCode, state.player, -15);
             addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">${t('evt_tribute_refuse')} (😠 -15)</span>` });
-            _showActionToast('✋', t('toast_tribute_fail'),
+            _showActionToast('❌', t('toast_tribute_fail'),
                 `${tn.flag} ${tn.name} ${t('toast_tribute_refuse')} — 😠 ${t('toast_tribute_rel')} −15`, 'danger');
         }
         updateHUD();
