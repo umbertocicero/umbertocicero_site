@@ -460,7 +460,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .panel-section { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-subtle); }
 .panel-section h4 {
     font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase;
-    letter-spacing: 1.5px; margin-bottom: var(--sp-2);
+    letter-spacing: 1.5px; margin-bottom: var(--sp-2); padding-top: var(--sp-1);
     font-family: var(--font-title); font-weight: 400;
     display: flex; align-items: center; gap: var(--sp-1);
 }
@@ -664,9 +664,62 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 /* Close button spacing — detach from card content */
 .popup-content > .btn-main:last-child {
     margin-top: var(--sp-5);
+    margin-bottom: 0;
+    padding-bottom: 12px;
     display: block;
     margin-left: auto;
     margin-right: auto;
+    line-height: 1;
+}
+
+/* ═══════════════ SETTINGS POPUP ═══════════════ */
+.settings-content { text-align: center; }
+.settings-group {
+    margin: var(--sp-5) 0;
+    padding: var(--sp-4) var(--sp-5);
+    background: var(--bg-panel-alt);
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+}
+.settings-label {
+    display: block;
+    font-family: var(--font-title);
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: var(--sp-3);
+}
+.settings-lang-btns {
+    display: flex; gap: var(--sp-2); justify-content: center;
+}
+.settings-lang-btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: var(--fs-base);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.settings-lang-btn:hover {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.08);
+}
+.settings-lang-btn.active {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.15);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(0,229,255,0.2);
+}
+.lang-flag {
+    width: 22px; height: 22px;
+    vertical-align: middle;
+    margin-right: 4px;
+    border-radius: 3px;
 }
 
 /* ═══ BATTLE MODAL — polished UX ═══ */
@@ -1186,9 +1239,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .go-stat .label { font-size: var(--fs-sm); color: var(--text-dim); margin-bottom: 2px; }
 .go-stat .val { font-family: var(--font-mono); font-size: 1.3rem; color: var(--gold); font-weight: 700; }
 .go-buttons {
-    display: flex; gap: 10px; justify-content: center; margin-top: 18px;
+    display: flex; gap: 12px; justify-content: center; margin-top: 18px;
+    padding-bottom: 4px;
 }
-.go-buttons .btn-main { flex: 1; max-width: 200px; margin: 0; }
+.go-buttons .btn-main { flex: 0 1 200px; margin: 0; padding-bottom: 12px; line-height: 1; }
 .btn-view-map {
     background: transparent !important;
     border: 2px solid var(--accent) !important;
@@ -1468,6 +1522,101 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     100% { opacity: 1; transform: translateY(0); }
 }
 
+/* ═══════════════ ACTION TOAST ═══════════════ */
+.action-toast {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 600;
+    min-width: 280px;
+    max-width: 420px;
+    padding: 14px 22px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(17,24,39,0.97) 0%, rgba(13,18,30,0.98) 100%);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 0 1px rgba(0,229,255,0.15);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    pointer-events: none;
+    animation: toastIn 0.35s var(--ease-out) forwards;
+}
+.action-toast.hiding {
+    animation: toastOut 0.4s var(--ease-out) forwards;
+}
+.action-toast .toast-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+    line-height: 1;
+    filter: drop-shadow(0 0 6px currentColor);
+}
+.action-toast .toast-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.action-toast .toast-title {
+    font-family: var(--font-title);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.action-toast .toast-sub {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    line-height: 1.3;
+}
+/* Border-glow color variants */
+.action-toast.toast-warn    { border-color: rgba(255,152,0,0.5);  }
+.action-toast.toast-warn .toast-icon  { color: #ff9800; }
+.action-toast.toast-warn .toast-title { color: #ffcc80; }
+
+.action-toast.toast-danger  { border-color: rgba(255,23,68,0.5);  }
+.action-toast.toast-danger .toast-icon  { color: #ff1744; }
+.action-toast.toast-danger .toast-title { color: #ff8a80; }
+
+.action-toast.toast-success { border-color: rgba(0,230,118,0.45); }
+.action-toast.toast-success .toast-icon  { color: #00e676; }
+.action-toast.toast-success .toast-title { color: #b9f6ca; }
+
+.action-toast.toast-info    { border-color: rgba(0,229,255,0.45); }
+.action-toast.toast-info .toast-icon  { color: var(--accent); }
+.action-toast.toast-info .toast-title { color: #b2ebf2; }
+
+.action-toast.toast-gold    { border-color: rgba(255,215,0,0.45); }
+.action-toast.toast-gold .toast-icon  { color: var(--gold); }
+.action-toast.toast-gold .toast-title { color: #fff8e1; }
+
+/* Progress bar (auto-dismiss indicator) */
+.action-toast .toast-progress {
+    position: absolute;
+    bottom: 0; left: 0;
+    height: 3px;
+    border-radius: 0 0 12px 12px;
+    background: currentColor;
+    opacity: 0.4;
+    animation: toastProgress var(--toast-dur, 2.5s) linear forwards;
+}
+@keyframes toastIn {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(-18px) scale(0.95); }
+    100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+@keyframes toastOut {
+    0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.96); }
+}
+@keyframes toastProgress {
+    0%   { width: 100%; }
+    100% { width: 0%; }
+}
+
 /* ═══════════════ IMPROVED TOOLTIP ═══════════════ */
 .map-tooltip .tt-badge {
     display: inline-flex; align-items: center; gap: 4px;
@@ -1670,6 +1819,12 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     .evt-flag { width: 8px; height: 8px; }
     .btn-live { font-size: 0.6rem; padding: 3px 10px; }
     #right-panel.evt-fullscreen .event-item { font-size: 0.75rem; }
+
+    /* Action toast */
+    .action-toast { min-width: 220px; max-width: 88vw; padding: 10px 16px; gap: 10px; top: 46px; }
+    .action-toast .toast-icon { font-size: 1.4rem; }
+    .action-toast .toast-title { font-size: 0.72rem; }
+    .action-toast .toast-sub { font-size: 0.64rem; }
 }
 
 /* ── Small phones ── */

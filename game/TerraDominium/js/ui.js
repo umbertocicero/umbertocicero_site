@@ -60,6 +60,11 @@ const UI = (() => {
         }
     }
 
+    /** i18n shorthand: translate a key via I18n module (safe fallback) */
+    function t(key, params) {
+        return (typeof I18n !== 'undefined') ? I18n.t(key, params) : key;
+    }
+
     /** Pre-fetch all emoji SVGs from assets/emoji/ and store as blob: URLs.
      *  Called once after boot — scans the DOM for every <img.emoji> and
      *  garrison <image> to discover which icon codes are needed, then
@@ -167,6 +172,36 @@ const UI = (() => {
             hide('gameover-popup');
             showVictoryBanner();
         });
+
+        /* Settings popup */
+        click('btn-settings', () => {
+            _refreshSettingsUI();
+            show('settings-popup');
+        });
+        /* Language switch buttons */
+        document.querySelectorAll('.settings-lang-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const lang = btn.getAttribute('data-lang');
+                if (typeof I18n !== 'undefined') {
+                    I18n.setLang(lang);
+                    _refreshSettingsUI();
+                    _lastLegendHtml = '';   // force legend re-render
+                    /* Refresh any open dynamic content */
+                    updateHUD();
+                    updateMilitaryBar();
+                    const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+                    if (sel) showTerritoryPanel(sel);
+                }
+            });
+        });
+    }
+
+    /** Highlight active language button */
+    function _refreshSettingsUI() {
+        const lang = (typeof I18n !== 'undefined') ? I18n.getLang() : 'it';
+        document.querySelectorAll('.settings-lang-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+        });
     }
 
     function click(id, fn) {
@@ -185,9 +220,13 @@ const UI = (() => {
     function setupMapCallbacks() {
         /* Desktop click → open sidebar directly */
         MapRenderer.onClick = (code, e) => {
-            hideTooltip();
-            MapRenderer.selectTerritory(code);
-            showTerritoryPanel(code);
+            try {
+                hideTooltip();
+                MapRenderer.selectTerritory(code);
+                showTerritoryPanel(code);
+            } catch (err) {
+                console.error('[UI] onClick error for', code, err);
+            }
         };
 
         /* Desktop hover → show tooltip */
@@ -328,11 +367,11 @@ const UI = (() => {
 
         /* Ownership badge */
         if (isMyTerritory) {
-            html += `<div class="tt-badge mine">👑 TUO TERRITORIO</div>`;
+            html += `<div class="tt-badge mine">${t('badge_your_territory')}</div>`;
         } else if (atWar) {
-            html += `<div class="tt-badge enemy">⚔️ NEMICO — ${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
+            html += `<div class="tt-badge enemy">${t('badge_enemy')} — ${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
         } else if (isAlly) {
-            html += `<div class="tt-badge ally-badge">🤝 ALLEATO — ${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
+            html += `<div class="tt-badge ally-badge">${t('badge_allied')} — ${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
         } else {
             html += `<div class="tt-owner">${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
         }
@@ -350,9 +389,9 @@ const UI = (() => {
             if (g && g.total > 0) {
                 const strengthColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
                 const sCol = strengthColors[g.strength] || '#607d8b';
-                html += `<div class="tt-res" style="color:${sCol};margin-top:4px;">${g.icon} ${g.total.toFixed(0)} unità — <strong>${g.strength.toUpperCase()}</strong></div>`;
+                html += `<div class="tt-res" style="color:${sCol};margin-top:4px;">${g.icon} ${g.total.toFixed(0)} ${t('tt_units')} — <strong>${g.strength.toUpperCase()}</strong></div>`;
             } else {
-                html += `<div class="tt-res" style="color:#ff1744;margin-top:4px;">⚠ SENZA GUARNIGIONE</div>`;
+                html += `<div class="tt-res" style="color:#ff1744;margin-top:4px;">${t('tt_no_garrison')}</div>`;
             }
         }
 
@@ -370,14 +409,14 @@ const UI = (() => {
                 if (reach.reachable) {
                     html += buildAttackChainHtml(reach, true);
                 } else {
-                    html += `<div class="tt-res" style="color:#ff6e40;">🚫 Non raggiungibile</div>`;
+                    html += `<div class="tt-res" style="color:#ff6e40;">${t('nd_unreachable')}</div>`;
                 }
             }
         }
 
         /* Mobile hint to tap for details */
         if (interactive) {
-            html += `<div class="tt-hint">👆 Tocca per i dettagli</div>`;
+            html += `<div class="tt-hint">${t('tt_tap_details')}</div>`;
         }
 
         html += `</div>`; // close .tt-body
@@ -507,12 +546,12 @@ const UI = (() => {
         els['preview-name'].textContent = n.name;
 
         let statsHtml = '';
-        statsHtml += statBox('Potenza', n.power);
-        statsHtml += statBox('💰 Fondi', n.res.money);
-        statsHtml += statBox('🛢️ Petrolio', n.res.oil);
-        statsHtml += statBox('🔩 Acciaio', n.res.steel);
-        statsHtml += statBox('🪖 Esercito', Object.values(n.army).reduce((a,b)=>a+b,0));
-        statsHtml += statBox('Profilo', n.profile.toUpperCase());
+        statsHtml += statBox(t('preview_power'), n.power);
+        statsHtml += statBox(t('preview_funds'), n.res.money);
+        statsHtml += statBox(t('preview_oil'), n.res.oil);
+        statsHtml += statBox(t('preview_steel'), n.res.steel);
+        statsHtml += statBox(t('preview_army'), Object.values(n.army).reduce((a,b)=>a+b,0));
+        statsHtml += statBox(t('preview_profile'), n.profile.toUpperCase());
         els['preview-stats'].innerHTML = statsHtml;
         parseEmoji(document.getElementById('nation-preview'));
     }
@@ -529,7 +568,14 @@ const UI = (() => {
 
         /* Init game engine */
         const state = GameEngine.newGame(selectedNation);
-        GameEngine.setOnEvent(addEventToLog);
+
+        /* Wire EventBridge: wraps addEventToLog AND emits EventBus topics.
+           Must be called before any setOnEvent, since it replaces the callback. */
+        if (typeof EventBridge !== 'undefined') {
+            EventBridge.init(addEventToLog);
+        } else {
+            GameEngine.setOnEvent(addEventToLog);
+        }
 
         /* Initial resource collection */
         GameEngine.collectResources(selectedNation);
@@ -554,10 +600,72 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
 
+        /* Notify components of initial game state */
+        _emitBus('state:changed');
+        _emitBus('resources:changed');
+        _emitBus('army:changed');
+        _emitBus('hud:refresh');
+
         /* Pre-fetch all emoji SVGs into blob cache (async, non-blocking).
            After this completes, every new <img.emoji> or SVG <image> will
            use in-memory blob: URLs — zero further file/network requests. */
         requestAnimationFrame(() => _warmSvgBlobCache());
+    }
+
+    /* ════════════════ EVENT BUS HELPER ════════════════ */
+    /** Safely emit to EventBus if loaded. No-op otherwise. */
+    function _emitBus(topic, data) {
+        if (typeof EventBus !== 'undefined') EventBus.emit(topic, data);
+    }
+
+    /* ════════════════ ACTION TOAST ════════════════ */
+    /**
+     * Show a brief, auto-dismissing toast notification on the map area.
+     * Used for diplomacy actions, sanctions, embargo, etc. so the player
+     * always gets immediate visual feedback even if the event log is minimised.
+     *
+     * @param {string} icon     - Emoji or icon (displayed large)
+     * @param {string} title    - Main text (short, e.g. "Sanzioni imposte")
+     * @param {string} subtitle - Detail line (e.g. "🇯🇵 Giappone subisce -10% produzione")
+     * @param {'warn'|'danger'|'success'|'info'|'gold'} [variant='info'] - Colour scheme
+     * @param {number} [duration=2800] - ms before auto-dismiss
+     */
+    let _toastTimer = 0;
+    function _showActionToast(icon, title, subtitle, variant, duration) {
+        const el = document.getElementById('action-toast');
+        if (!el) return;
+        const dur = duration || 2800;
+        variant = variant || 'info';
+
+        /* Cancel any pending dismiss */
+        clearTimeout(_toastTimer);
+        el.classList.remove('hiding', 'hidden');
+
+        /* Set the CSS var for the progress bar duration */
+        el.style.setProperty('--toast-dur', dur + 'ms');
+
+        el.className = 'action-toast toast-' + variant;
+        el.innerHTML =
+            `<span class="toast-icon">${icon}</span>` +
+            `<div class="toast-body">` +
+              `<div class="toast-title">${title}</div>` +
+              (subtitle ? `<div class="toast-sub">${subtitle}</div>` : '') +
+            `</div>` +
+            `<div class="toast-progress"></div>`;
+
+        parseEmojiIfNeeded(el);
+
+        /* Force re-trigger animation */
+        void el.offsetWidth;
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+
+        /* Auto-dismiss */
+        _toastTimer = setTimeout(() => {
+            el.classList.add('hiding');
+            setTimeout(() => { el.classList.add('hidden'); }, 450);
+        }, dur);
     }
 
     /* ════════════════ HUD ════════════════ */
@@ -572,7 +680,7 @@ const UI = (() => {
 
         const terrCount = GameEngine.getTerritoryCount(state.player);
         const year = 2025 + state.turn;
-        els['hud-turn'].textContent = `Turno ${state.turn} (${year})  ·  🌍 ${terrCount}`;
+        els['hud-turn'].textContent = `${t('hud_turn')} ${state.turn} (${year})  ·  🌍 ${terrCount}`;
 
         /* Calculate per-turn income from all owned territories */
         const income = GameEngine.calcIncome(state.player);
@@ -593,6 +701,9 @@ const UI = (() => {
         updateMapLegend();
         /* Only parse emoji for the flag element, not the entire HUD */
         parseEmojiIfNeeded(els['hud-nation-flag']);
+
+        /* Notify components */
+        _emitBus('hud:refresh');
     }
 
     let _lastLegendHtml = '';
@@ -640,7 +751,7 @@ const UI = (() => {
             allNations.unshift(p);
         }
 
-        let html = '<div class="legend-title">🗺️ NAZIONI</div>';
+        let html = `<div class="legend-title">${t('nl_title')}</div>`;
 
         allNations.forEach(({ code, count, alive }) => {
             const n = state.nations[code];
@@ -675,11 +786,11 @@ const UI = (() => {
         els['panel-territory-name'].textContent = `${n.flag} ${n.name}`;
 
         let badge = '';
-        if (isPlayer) badge = `<span class="ui-badge ui-badge-mine">👑 LA TUA NAZIONE</span>`;
-        else if (!n.alive) badge = `<span class="ui-badge ui-badge-dead">💀 ELIMINATO</span>`;
-        else if (atWar) badge = `<span class="ui-badge ui-badge-war">⚔️ IN GUERRA</span>`;
-        else if (isAlly) badge = `<span class="ui-badge ui-badge-ally">🤝 ALLEATO</span>`;
-        else badge = `<span class="ui-badge ui-badge-neutral">Relazione: ${rel}</span>`;
+        if (isPlayer) badge = `<span class="ui-badge ui-badge-mine">${t('badge_your_nation')}</span>`;
+        else if (!n.alive) badge = `<span class="ui-badge ui-badge-dead">${t('badge_eliminated')}</span>`;
+        else if (atWar) badge = `<span class="ui-badge ui-badge-war">${t('badge_at_war')}</span>`;
+        else if (isAlly) badge = `<span class="ui-badge ui-badge-ally">${t('badge_allied')}</span>`;
+        else badge = `<span class="ui-badge ui-badge-neutral">${t('badge_relation')}: ${rel}</span>`;
         els['panel-territory-owner'].innerHTML = badge;
 
         /* ── Territories ── */
@@ -688,9 +799,9 @@ const UI = (() => {
             if (owner === code) myTerritories.push(tCode);
         });
 
-        let resHtml = `<h4>🌍 TERRITORI (${myTerritories.length})</h4>`;
+        let resHtml = `<h4>${t('nd_territories',{n:myTerritories.length})}</h4>`;
         if (myTerritories.length === 0) {
-            resHtml += `<div class="res-row"><span style="color:var(--text-dim)">Nessun territorio</span></div>`;
+            resHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('nd_no_territories')}</span></div>`;
         } else {
             /* Group: homeland vs conquered */
             const homeland = n.homeland || code;
@@ -703,34 +814,34 @@ const UI = (() => {
                     const hg = GameEngine.getGarrison(homeland);
                     const hgColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
                     const hgc = hgColors[hg?.strength] || '#ff1744';
-                    hGarDot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${hgc};box-shadow:0 0 5px ${hgc};margin-right:5px;vertical-align:middle;" title="Guarnigione: ${hg?.strength?.toUpperCase()||'NONE'}"></span>`;
+                    hGarDot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${hgc};box-shadow:0 0 5px ${hgc};margin-right:5px;vertical-align:middle;" title="${t('nd_garrison_title')}: ${hg?.strength?.toUpperCase()||'NONE'}"></span>`;
                 }
-                resHtml += `<div style="font-size:0.6rem;color:var(--text-muted);margin:6px 0 3px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--font-title);font-weight:400;">🏠 Patria</div>`;
+                resHtml += `<div style="font-size:0.6rem;color:var(--text-muted);margin:6px 0 3px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--font-title);font-weight:400;">${t('nd_homeland')}</div>`;
                 resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${homeland}')"><span>${hGarDot}${tb.flag||'🏳️'} ${tb.name||homeland.toUpperCase()}</span></div>`;
             }
 
             /* Conquered territories (with garrison dot + unrest info + clickable) */
             const conquered = myTerritories.filter(t => t !== homeland);
             if (conquered.length > 0) {
-                resHtml += `<div style="font-size:0.6rem;color:var(--gold);margin:8px 0 3px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--font-title);font-weight:400;padding-top:4px;border-top:1px solid var(--border-subtle);">⚔ Conquistati (${conquered.length})</div>`;
-                conquered.forEach(t => {
-                    const tb = getNation(t);
+                resHtml += `<div style="font-size:0.6rem;color:var(--gold);margin:8px 0 3px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--font-title);font-weight:400;padding-top:4px;border-top:1px solid var(--border-subtle);">${t('nd_conquered',{n:conquered.length})}</div>`;
+                conquered.forEach(tc => {
+                    const tb = getNation(tc);
                     /* Garrison strength dot */
                     let garDot = '';
                     if (typeof GameEngine.getGarrison === 'function') {
-                        const g = GameEngine.getGarrison(t);
+                        const g = GameEngine.getGarrison(tc);
                         const gColors = { heavy: '#00e5ff', medium: '#ffd740', light: '#ff9100', none: '#ff1744' };
                         const gc = gColors[g?.strength] || '#ff1744';
-                        garDot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${gc};box-shadow:0 0 5px ${gc};margin-right:5px;vertical-align:middle;" title="Guarnigione: ${g?.strength?.toUpperCase()||'NONE'}"></span>`;
+                        garDot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${gc};box-shadow:0 0 5px ${gc};margin-right:5px;vertical-align:middle;" title="${t('nd_garrison_title')}: ${g?.strength?.toUpperCase()||'NONE'}"></span>`;
                     }
                     /* Unrest tag */
-                    const unrest = typeof GameEngine.getUnrest === 'function' ? GameEngine.getUnrest(t) : 0;
+                    const unrest = typeof GameEngine.getUnrest === 'function' ? GameEngine.getUnrest(tc) : 0;
                     let unrestTag = '';
                     if (unrest > 0) {
                         const uc = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
                         unrestTag = ` <span style="font-size:0.58rem;color:${uc};font-weight:600;">(🔥${Math.round(unrest)}%)</span>`;
                     }
-                    resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${t}')"><span>${garDot}${tb.flag||'🏳️'} ${tb.name||t.toUpperCase()}${unrestTag}</span></div>`;
+                    resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${tc}')"><span>${garDot}${tb.flag||'🏳️'} ${tb.name||tc.toUpperCase()}${unrestTag}</span></div>`;
                 });
             }
         }
@@ -738,7 +849,7 @@ const UI = (() => {
         els['panel-resources'].innerHTML = resHtml;
 
         /* ── Resources ── */
-        let stratHtml = `<h4>💰 RISORSE</h4>`;
+        let stratHtml = `<h4>${t('nd_resources_title')}</h4>`;
         if (isPlayer || isAlly || atWar) {
             const rKeys = ['money','oil','steel','rareEarth','uranium','food'];
             rKeys.forEach(key => {
@@ -747,17 +858,21 @@ const UI = (() => {
                 if (r) stratHtml += `<div class="res-row"><span>${r.icon} ${r.name}</span><span class="val">${val}</span></div>`;
             });
         } else {
-            stratHtml += `<div class="res-row"><span style="color:var(--text-dim)">Intelligence non disponibile</span></div>`;
+            stratHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('nd_intel_unavailable')}</span></div>`;
         }
         els['panel-strategic'].innerHTML = stratHtml;
 
         /* ── Military ── */
-        let milHtml = `<h4>🪖 ESERCITO</h4>`;
+        let milHtml = `<h4>${t('nd_army_title')}</h4>`;
         const totalAtk = GameEngine.calcMilitary(code, 'atk');
         const totalDef = GameEngine.calcMilitary(code, 'def');
         const totalUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
 
-        milHtml += `<div class="res-row" style="font-weight:600;"><span>⚔️ ATK: ${totalAtk} | 🛡️ DEF: ${totalDef} | 🪖 ${totalUnits}</span></div>`;
+        milHtml += `<div class="res-row" style="font-weight:600;display:flex;align-items:center;gap:10px;justify-content:center;padding:4px 8px;background:rgba(0,229,255,0.04);border-radius:4px;">`;
+        milHtml += `<span style="color:var(--red);">⚔️ ${totalAtk}</span>`;
+        milHtml += `<span style="color:var(--accent);">🛡️ ${totalDef}</span>`;
+        milHtml += `<span style="color:var(--gold);">🪖 ${totalUnits}</span>`;
+        milHtml += `</div>`;
 
         if (isPlayer || atWar || isAlly) {
             Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
@@ -771,6 +886,16 @@ const UI = (() => {
 
         /* ── Actions (diplomacy shortcuts) ── */
         let actHtml = '';
+        /* If player is defeated, show spectator message instead of actions */
+        if (playerDead) {
+            actHtml += `<div style="text-align:center;padding:10px 12px;border-radius:8px;background:rgba(255,23,68,0.08);border:1px solid rgba(255,23,68,0.2);font-size:0.75rem;color:#ff8a80;letter-spacing:0.5px;line-height:1.5;">
+                <div style="font-size:1.2rem;margin-bottom:4px;">💀</div>
+                ${t('panel_defeated') || 'La tua nazione è stata sconfitta. Stai osservando la partita in modalità spettatore.'}
+            </div>`;
+            els['panel-actions'].innerHTML = actHtml;
+            parseEmoji(els['left-panel']);
+            return;
+        }
         if (!isPlayer) {
             /* Attack cost for this nation detail panel too */
             const _ndAtkCost = GameEngine.getAttackCost ? GameEngine.getAttackCost(state.player) : null;
@@ -785,16 +910,16 @@ const UI = (() => {
             const _ndAtkDis = !_ndCanAfford.canAttack ? ' disabled' : '';
 
             if (atWar) {
-                actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido${_ndCostLbl}${_ndFatLbl}</button>`;
-                actHtml += `<button class="btn-action btn-move" onclick="UI.doPeace('${code}');">🕊️ Negozia Pace</button>`;
+                actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">${t('btn_attack')}${_ndCostLbl}${_ndFatLbl}</button>`;
+                actHtml += `<button class="btn-action btn-move" onclick="UI.doPeace('${code}');">${t('btn_propose_peace')}</button>`;
             } else if (isAlly) {
-                actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${code}');">💔 Rompi Alleanza</button>`;
+                actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${code}');">${t('diplo_break_ally')}</button>`;
             } else {
-                actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">🤝 Alleanza (🥇10 💰30)</button>`;
-                actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">🔥 Dichiara Guerra</button>`;
-                actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">⚔️ Attacco Rapido${_ndCostLbl}${_ndFatLbl}</button>`;
+                actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">${t('diplo_ally')} (🥇10 💰30)</button>`;
+                actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">${t('diplo_declare_war')}</button>`;
+                actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">${t('btn_attack')}${_ndCostLbl}${_ndFatLbl}</button>`;
             }
-            actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">🕵️ Spia (30💰 2🥇)</button>`;
+            actHtml += `<button class="btn-action btn-move" onclick="UI.doSpyMission('${code}');">${t('diplo_spy')} (30💰 2🥇)</button>`;
         }
         els['panel-actions'].innerHTML = actHtml;
         parseEmoji(els['left-panel']);
@@ -818,6 +943,9 @@ const UI = (() => {
             }
         });
         els['military-bar'].innerHTML = html;
+
+        /* Notify components */
+        _emitBus('army:changed');
     }
 
     /* ════════════════ TERRITORY PANEL ════════════════ */
@@ -825,7 +953,17 @@ const UI = (() => {
         const state = GameEngine.getState();
         if (!state) return;
 
+        /* Show the panel FIRST so it's visible even if content rendering errors */
         show('left-panel');
+
+        /* Notify components of territory selection */
+        _emitBus('territory:selected', { code });
+
+        try { _renderTerritoryPanel(code, state); }
+        catch (err) { console.error('[UI] showTerritoryPanel error for', code, err); }
+    }
+
+    function _renderTerritoryPanel(code, state) {
         const owner = state.territories[code];
         const n = state.nations[owner];
         const tBase = getNation(code);
@@ -839,11 +977,11 @@ const UI = (() => {
         /* Clear ownership badge */
         let ownerBadge = '';
         if (isMyTerritory) {
-            ownerBadge = `<span class="ui-badge ui-badge-mine">\u{1F451} TUO TERRITORIO</span>`;
+            ownerBadge = `<span class="ui-badge ui-badge-mine">${t('badge_your_territory')}</span>`;
         } else if (atWar) {
-            ownerBadge = `<span class="ui-badge ui-badge-war">\u2694\uFE0F IN GUERRA</span>`;
+            ownerBadge = `<span class="ui-badge ui-badge-war">${t('badge_at_war')}</span>`;
         } else if (isAlly) {
-            ownerBadge = `<span class="ui-badge ui-badge-ally">\u{1F91D} ALLEATO</span>`;
+            ownerBadge = `<span class="ui-badge ui-badge-ally">${t('badge_allied')}</span>`;
         } else {
             const relIcon = rel > 20 ? '\u{1F60A}' : rel < -20 ? '\u{1F620}' : '\u{1F610}';
             ownerBadge = `<span class="ui-badge ui-badge-neutral">${n?.flag||''} ${n?.name||owner} ${relIcon} ${rel}</span>`;
@@ -862,21 +1000,21 @@ const UI = (() => {
         }
 
         /* Resources */
-        let resHtml = '<h4>RISORSE PRODOTTE</h4>';
+        let resHtml = `<h4>${t('panel_resources').toUpperCase()}</h4>`;
         let hasRes = false;
         if (tBase.prod) {
             Object.entries(tBase.prod).forEach(([key, val]) => {
                 if (val > 0) {
-                    resHtml += `<div class="res-row"><span>${RESOURCES[key]?.icon || ''} ${RESOURCES[key]?.name || key}</span><span class="val">+${val}/turno</span></div>`;
+                    resHtml += `<div class="res-row"><span>${RESOURCES[key]?.icon || ''} ${RESOURCES[key]?.name || key}</span><span class="val">+${val}${t('per_turn_label')}</span></div>`;
                     hasRes = true;
                 }
             });
         }
-        if (!hasRes) resHtml += '<div class="res-row"><span style="color:var(--text-dim)">Nessuna produzione</span></div>';
+        if (!hasRes) resHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('econ_no_assets')}</span></div>`;
         els['panel-resources'].innerHTML = resHtml;
 
         /* Strategic assets */
-        let assetHtml = '<h4>ASSET STRATEGICI</h4>';
+        let assetHtml = `<h4>${t('panel_strategic').toUpperCase()}</h4>`;
         const assets = tBase.assets || [];
         if (assets.length > 0) {
             assets.forEach(aId => {
@@ -887,12 +1025,12 @@ const UI = (() => {
                 }
             });
         } else {
-            assetHtml += '<div class="res-row"><span style="color:var(--text-dim)">Nessuno</span></div>';
+            assetHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('col_none')}</span></div>`;
         }
         els['panel-strategic'].innerHTML = assetHtml;
 
         /* Military */
-        let milHtml = '<h4>FORZE MILITARI</h4>';
+        let milHtml = `<h4>${t('nd_military_title')}</h4>`;
         if (isMyTerritory) {
             let totalUnits = 0;
             Object.entries(n.army).forEach(([key, count]) => {
@@ -902,25 +1040,25 @@ const UI = (() => {
                     totalUnits += count;
                 }
             });
-            if (totalUnits === 0) milHtml += '<div class="res-row"><span style="color:var(--text-dim)">Nessuna unit\u00E0</span></div>';
+            if (totalUnits === 0) milHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('nd_no_units')}</span></div>`;
             else {
                 const totalAtk = GameEngine.calcMilitary(state.player, 'atk');
                 const totalDef = GameEngine.calcMilitary(state.player, 'def');
-                milHtml += `<div class="res-row" style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;"><span style="font-weight:700;">\u2694\uFE0F Totale</span><span class="val">ATK:${totalAtk} DEF:${totalDef}</span></div>`;
+                milHtml += `<div class="res-row" style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;"><span style="font-weight:700;">${t('nd_total')}</span><span class="val">ATK:${totalAtk} DEF:${totalDef}</span></div>`;
             }
         } else if (atWar || isAlly) {
             /* During war or alliance, show estimated power */
             const ePow = GameEngine.calcMilitary(owner, 'atk');
             const eDef = GameEngine.calcMilitary(owner, 'def');
-            milHtml += `<div class="res-row"><span>\u2694\uFE0F Potenza Attacco</span><span class="val">${ePow}</span></div>`;
-            milHtml += `<div class="res-row"><span>\u{1F6E1}\uFE0F Potenza Difesa</span><span class="val">${eDef}</span></div>`;
+            milHtml += `<div class="res-row"><span>${t('nd_atk_power')}</span><span class="val">${ePow}</span></div>`;
+            milHtml += `<div class="res-row"><span>${t('nd_def_power')}</span><span class="val">${eDef}</span></div>`;
         } else {
-            milHtml += '<div class="res-row"><span style="color:var(--text-dim)">Intelligence non disponibile</span></div>';
+            milHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('nd_intel_unavailable')}</span></div>`;
         }
         els['panel-military'].innerHTML = milHtml;
 
         /* Garrison card for this specific territory */
-        let garHtml = '<h4>🏰 GUARNIGIONE</h4>';
+        let garHtml = `<h4>${t('nd_garrison')}</h4>`;
         if (typeof GameEngine.getGarrison === 'function') {
             const g = GameEngine.getGarrison(code);
             if (g && g.total > 0) {
@@ -939,15 +1077,15 @@ const UI = (() => {
                 garHtml += `<div class="gar-header">`;
                 garHtml += `<div class="gar-strength-dot" style="color:${sCol};background:${sCol};"></div>`;
                 garHtml += `<span class="gar-strength-label" style="color:${sCol};">${sLabels[g.strength]}</span>`;
-                garHtml += `<span class="gar-troops">${g.icon} ${g.total} unità</span>`;
+                garHtml += `<span class="gar-troops">${g.icon} ${g.total} ${t('nd_units')}</span>`;
                 garHtml += `</div>`;
                 /* ─ Meter bar ─ */
                 garHtml += `<div class="gar-meter"><div class="gar-meter-fill" style="width:${meterPct}%;background:${sCol};"></div></div>`;
                 /* ─ Stats 2×2 grid ─ */
                 garHtml += `<div class="gar-stats">`;
-                garHtml += `<div class="gar-stat"><span class="gar-stat-val" style="color:${defColor};">${defMod}</span><span class="gar-stat-lbl">🛡️ Difesa</span></div>`;
-                garHtml += `<div class="gar-stat"><span class="gar-stat-val" style="color:${unrestColor};">${unrestMod}/t</span><span class="gar-stat-lbl">🔥 Malcont.</span></div>`;
-                garHtml += `<div class="gar-stat"><span class="gar-stat-val">${g.icon}</span><span class="gar-stat-lbl">Dominante</span></div>`;
+                garHtml += `<div class="gar-stat"><span class="gar-stat-val" style="color:${defColor};">${defMod}</span><span class="gar-stat-lbl">${t('nd_defense')}</span></div>`;
+                garHtml += `<div class="gar-stat"><span class="gar-stat-val" style="color:${unrestColor};">${unrestMod}/t</span><span class="gar-stat-lbl">${t('nd_unrest_label')}</span></div>`;
+                garHtml += `<div class="gar-stat"><span class="gar-stat-val">${g.icon}</span><span class="gar-stat-lbl">${t('nd_dominant')}</span></div>`;
                 const isHomeland = code === (n?.homeland || owner);
                 const isFront = GameEngine.isAtWar && (() => {
                     const wars = GameEngine.getState()?.wars || [];
@@ -958,7 +1096,7 @@ const UI = (() => {
                         return nb.some(nc => state.territories[nc] === enemy);
                     });
                 })();
-                const roleLabel = isHomeland ? '🏠 Patria' : isFront ? '⚔️ Fronte' : '🌍 Retro';
+                const roleLabel = isHomeland ? t('nd_homeland') : isFront ? t('nd_front') : t('nd_rear');
                 const roleWeight = isHomeland ? '2×' : isFront ? '1.5×' : '1×';
                 garHtml += `<div class="gar-stat"><span class="gar-stat-val">${roleWeight}</span><span class="gar-stat-lbl">${roleLabel}</span></div>`;
                 garHtml += `</div>`; /* close gar-stats */
@@ -967,22 +1105,22 @@ const UI = (() => {
                 if (code !== owner && typeof GameEngine.getUnrest === 'function') {
                     const unrest = GameEngine.getUnrest(code);
                     const barColor = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
-                    const uLabel = unrest >= 80 ? 'CRITICO' : unrest >= 60 ? 'ALTO' : unrest >= 40 ? 'MEDIO' : 'BASSO';
+                    const uLabel = unrest >= 80 ? t('nd_unrest_critical') : unrest >= 60 ? t('nd_unrest_high') : unrest >= 40 ? t('nd_unrest_medium') : t('nd_unrest_low');
                     garHtml += `<div class="gar-unrest">`;
-                    garHtml += `<div class="gar-unrest-row"><span class="gar-unrest-label">🔥 Malcontento</span><span class="gar-unrest-val" style="color:${barColor};">${uLabel} ${Math.round(unrest)}%</span></div>`;
+                    garHtml += `<div class="gar-unrest-row"><span class="gar-unrest-label">${t('nd_unrest_discontent')}</span><span class="gar-unrest-val" style="color:${barColor};">${uLabel} ${Math.round(unrest)}%</span></div>`;
                     garHtml += `<div class="unrest-bar-mini"><div class="unrest-bar-mini-fill" style="width:${unrest}%;background:${barColor}"></div></div>`;
                     if (unrest >= 60) {
-                        garHtml += `<div style="font-size:0.6rem;color:#ff9100;margin-top:3px;">⚠ Rivolta a 100% — rafforza la guarnigione!</div>`;
+                        garHtml += `<div style="font-size:0.6rem;color:#ff9100;margin-top:3px;">${t('nd_revolt_warning')}</div>`;
                     }
                     garHtml += `</div>`;
                 }
 
                 garHtml += `</div>`; /* close gar-card */
             } else {
-                garHtml += `<div class="gar-card"><div class="gar-empty"><span class="gar-empty-icon">⚠</span><span>Nessuna guarnigione<br><small style="color:var(--text-dim);">Malcontento +5/turno · Difesa −10%</small></span></div></div>`;
+                garHtml += `<div class="gar-card"><div class="gar-empty"><span class="gar-empty-icon">⚠</span><span>${t('nd_no_garrison')}<br><small style="color:var(--text-dim);">${t('nd_no_garrison_desc')}</small></span></div></div>`;
             }
         } else {
-            garHtml += '<div class="res-row"><span style="color:var(--text-dim)">Non disponibile</span></div>';
+            garHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('nd_intel_unavailable')}</span></div>`;
         }
 
         /* Insert garrison section after military */
@@ -992,13 +1130,14 @@ const UI = (() => {
         if (!isMyTerritory && typeof canReachTerritory === 'function') {
             const playerN = state.nations[state.player];
             if (playerN && playerN.alive) {
-                let reachHtml = '<h4>📡 RAGGIUNGIBILITÀ</h4>';
+                let reachHtml = `<div style="padding-top:var(--sp-3);border-top:1px solid var(--border-subtle);margin-top:var(--sp-3);"><h4>${t('nd_reachability')}</h4>`;
                 const reach = canReachTerritory(state.player, code, playerN.army);
                 if (reach.reachable) {
                     reachHtml += buildAttackChainHtml(reach, false);
                 } else {
-                    reachHtml += `<div class="res-row"><span style="color:#ff6e40;">🚫 Non raggiungibile</span></div>`;
+                    reachHtml += `<div class="res-row"><span style="color:#ff6e40;">${t('nd_unreachable')}</span></div>`;
                 }
+                reachHtml += `</div>`; /* close reachability wrapper */
                 els['panel-military'].innerHTML += reachHtml;
             }
         }
@@ -1009,15 +1148,26 @@ const UI = (() => {
         const _dis = notMyTurn ? ' disabled' : '';
         const _disCls = notMyTurn ? ' act-disabled' : '';
 
+        /* If player is defeated, show defeated message and skip all action buttons */
+        if (playerDead) {
+            actHtml += `<div style="text-align:center;padding:10px 12px;border-radius:8px;background:rgba(255,23,68,0.08);border:1px solid rgba(255,23,68,0.2);font-size:0.75rem;color:#ff8a80;letter-spacing:0.5px;line-height:1.5;">
+                <div style="font-size:1.2rem;margin-bottom:4px;">💀</div>
+                ${t('panel_defeated') || 'La tua nazione è stata sconfitta. Stai osservando la partita in modalità spettatore.'}
+            </div>`;
+            els['panel-actions'].innerHTML = actHtml;
+            parseEmoji(els['left-panel']);
+            return;
+        }
+
         if (notMyTurn) {
-            actHtml += `<div style="text-align:center;padding:6px 10px;margin-bottom:8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);font-size:0.7rem;color:var(--text-dim);letter-spacing:0.5px;">⏳ Attendi il tuo turno</div>`;
+            actHtml += `<div style="text-align:center;padding:6px 10px;margin-bottom:8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);font-size:0.7rem;color:var(--text-dim);letter-spacing:0.5px;">⏳ ${t('panel_wait_turn')}</div>`;
         }
 
         if (isMyTerritory) {
             /* OWN TERRITORY ACTIONS */
-            actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.showProduction()"${_dis}>\u{1F3ED} Produci Unit\u00E0</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.showTechTree()"${_dis}>\u{1F52C} Ricerca Tecnologica</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.showEconomy()"${_dis}>\u{1F4CA} Panoramica Economica</button>`;
+            actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.showProduction()"${_dis}>${t('production_title')}</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.showTechTree()"${_dis}>${t('tech_title')}</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.showEconomy()"${_dis}>${t('economy_title')}</button>`;
 
             /* Suppress unrest button on conquered territories with unrest */
             if (code !== state.player && typeof GameEngine.getUnrest === 'function') {
@@ -1025,17 +1175,17 @@ const UI = (() => {
                 if (unrestLvl > 0) {
                     const playerN = state.nations[state.player];
                     const canDo = (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
-                    actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Controllo Territorio</div>`;
+                    actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">${t('panel_territory_ctrl')}</div>`;
                     if (canDo) {
-                        actHtml += `<button class="btn-action${_disCls}" style="border-color:#ff6e40;color:#ff6e40;background:rgba(255,110,64,0.08)" onclick="UI.doSuppressUnrest('${code}');"${_dis}>🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
+                        actHtml += `<button class="btn-action${_disCls}" style="border-color:#ff6e40;color:#ff6e40;background:rgba(255,110,64,0.08)" onclick="UI.doSuppressUnrest('${code}');"${_dis}>${t('panel_suppress')} (💰15 + 🪖2)</button>`;
                     } else {
-                        actHtml += `<button class="btn-action${_disCls}" style="border-color:#ff6e40;color:#ff6e40;opacity:0.4;background:rgba(255,110,64,0.08)" disabled>🛡️ Seda Rivolta (💰15 + 🪖2)</button>`;
+                        actHtml += `<button class="btn-action${_disCls}" style="border-color:#ff6e40;color:#ff6e40;opacity:0.4;background:rgba(255,110,64,0.08)" disabled>${t('panel_suppress')} (💰15 + 🪖2)</button>`;
                     }
                 }
             }
         } else {
             /* FOREIGN TERRITORY ACTIONS */
-            actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Azioni Militari</div>`;
+            actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">${t('panel_military_actions')}</div>`;
 
             /* ── Attack cost & fatigue indicator ── */
             const _atkCost = GameEngine.getAttackCost ? GameEngine.getAttackCost(state.player) : null;
@@ -1055,46 +1205,59 @@ const UI = (() => {
             const _atkDisCls   = (!_canAfford.canAttack || notMyTurn) ? ' act-disabled' : '';
 
             if (atWar) {
-                actHtml += `<button class="btn-action btn-attack${_atkDisCls}" onclick="UI.doAttack('${code}');"${_atkDisabled}>\u2694\uFE0F Attacca${_costLabel}${_fatigueLabel}</button>`;
+                actHtml += `<button class="btn-action btn-attack${_atkDisCls}" onclick="UI.doAttack('${code}');"${_atkDisabled}>${t('btn_attack')}${_costLabel}${_fatigueLabel}</button>`;
                 if (_atkNum >= 2 && _atkCost) {
-                    actHtml += `<div style="font-size:0.6rem;color:#ff9100;text-align:center;margin:-4px 0 4px;opacity:0.8;">⚡ ${_atkCost.attackNum}° attacco questo turno — truppe affaticate</div>`;
+                    actHtml += `<div style="font-size:0.6rem;color:#ff9100;text-align:center;margin:-4px 0 4px;opacity:0.8;">⚡ ${_atkCost.attackNum}° ${t('btl_attack_cost')}</div>`;
                 }
                 if ((state.nations[state.player]?.army?.nuke || 0) > 0) {
-                    actHtml += `<button class="btn-action btn-attack${_disCls}" style="border-color:#ff00ff;color:#ff00ff;background:rgba(255,0,255,0.1)" onclick="UI.doNukeStrike('${code}');"${_dis}>\u2622\uFE0F Attacco Nucleare</button>`;
+                    actHtml += `<button class="btn-action btn-attack${_disCls}" style="border-color:#ff00ff;color:#ff00ff;background:rgba(255,0,255,0.1)" onclick="UI.doNukeStrike('${code}');"${_dis}>${t('panel_nuke_strike')}</button>`;
                 }
-                actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doPeaceFromPanel('${owner}');"${_dis}>\u{1F54A}\uFE0F Negozia Pace</button>`;
+                actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doPeaceFromPanel('${owner}');"${_dis}>${t('diplo_peace')}</button>`;
             } else {
-                actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doDeclareWar('${owner}');"${_dis}>\u{1F525} Dichiara Guerra</button>`;
-                actHtml += `<button class="btn-action btn-attack${_atkDisCls}" onclick="UI.doAttack('${code}');"${_atkDisabled}>\u2694\uFE0F Attacco Rapido${_costLabel}${_fatigueLabel}</button>`;
+                actHtml += `<button class="btn-action btn-attack${_disCls}" onclick="UI.doDeclareWar('${owner}');"${_dis}>${t('diplo_declare_war')}</button>`;
+                actHtml += `<button class="btn-action btn-attack${_atkDisCls}" onclick="UI.doAttack('${code}');"${_atkDisabled}>${t('panel_quick_attack')}${_costLabel}${_fatigueLabel}</button>`;
                 if (_atkNum >= 2 && _atkCost) {
-                    actHtml += `<div style="font-size:0.6rem;color:#ff9100;text-align:center;margin:-4px 0 4px;opacity:0.8;">⚡ ${_atkCost.attackNum}° attacco questo turno — truppe affaticate</div>`;
+                    actHtml += `<div style="font-size:0.6rem;color:#ff9100;text-align:center;margin:-4px 0 4px;opacity:0.8;">⚡ ${_atkCost.attackNum}° ${t('btl_attack_cost')}</div>`;
                 }
             }
 
-            actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Diplomazia</div>`;
+            actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">${t('panel_diplomacy')}</div>`;
 
             if (!isAlly && !atWar) {
-                actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.doAllyFromPanel('${owner}');"${_dis}>\u{1F91D} Proponi Alleanza (🥇10 💰30)</button>`;
-                actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doNonAggression('${owner}');"${_dis}>\u{1F4DD} Patto Non-Aggressione (🥈5 💰15)</button>`;
+                actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.doAllyFromPanel('${owner}');"${_dis}>${t('diplo_ally')} (🥇10 💰30)</button>`;
+                /* Non-aggression pact: disable if relation is already high (>30) or can't afford */
+                const _napRel = GameEngine.getRelation(state.player, owner);
+                const _napPn = state.nations[state.player];
+                const _napCanAfford = (_napPn.res.silver || 0) >= 5 && (_napPn.res.money || 0) >= 15;
+                const _napTooFriendly = _napRel > 30;
+                const _napDisabled = (notMyTurn || !_napCanAfford || _napTooFriendly) ? ' disabled' : '';
+                const _napDisCls = (notMyTurn || !_napCanAfford || _napTooFriendly) ? ' act-disabled' : '';
+                actHtml += `<button class="btn-action btn-move${_napDisCls}" onclick="UI.doNonAggression('${owner}');"${_napDisabled}>${t('diplo_non_aggression')} (🥈5 💰15)</button>`;
+                if (_napTooFriendly) {
+                    actHtml += `<div style="font-size:0.58rem;color:var(--text-muted);text-align:center;margin:-4px 0 4px;">✅ ${t('pact_already_friendly') || 'Relazioni già buone'}</div>`;
+                } else if (!_napCanAfford) {
+                    actHtml += `<div style="font-size:0.58rem;color:#ffa726;text-align:center;margin:-4px 0 4px;">💰 ${t('insufficient_res') || 'Risorse insufficienti'}</div>`;
+                }
             }
             if (isAlly) {
-                actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${owner}');"${_dis}>\u{1F494} Rompi Alleanza</button>`;
+                actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${owner}');"${_dis}>${t('diplo_break_ally')}</button>`;
             }
 
-            actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Economia</div>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doTradeResources('${owner}');"${_dis}>\u{1F4B1} Scambia Risorse</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSanction('${owner}');"${_dis}>\u{1F6AB} Imponi Sanzioni</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doEmbargo('${owner}');"${_dis}>\u26D4 Embargo Commerciale</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doDemandTribute('${owner}');"${_dis}>\u{1F4B0} Richiedi Tributo</button>`;
+            actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">${t('panel_economy')}</div>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doTradeResources('${owner}');"${_dis}>${t('diplo_trade')}</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSanction('${owner}');"${_dis}>${t('diplo_sanction')}</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doEmbargo('${owner}');"${_dis}>${t('diplo_embargo')}</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doDemandTribute('${owner}');"${_dis}>${t('diplo_tribute')}</button>`;
 
             /* Spy / Intel */
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Intelligence</div>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSpyMission('${owner}');"${_dis}>\u{1F575}\uFE0F Spionaggio (30💰 2🥇)</button>`;
+            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSpyMission('${owner}');"${_dis}>${t('diplo_spy')} (30💰 2🥇)</button>`;
         }
 
         els['panel-actions'].innerHTML = actHtml;
         parseEmoji(els['left-panel']);
     }
+
     function doAttack(targetTerritory) {
         const state = GameEngine.getState();
         if (!state || state.phase !== 'player') return;
@@ -1115,7 +1278,7 @@ const UI = (() => {
 
         const result = GameEngine.attack(state.player, targetTerritory);
         if (!result) {
-            addEventToLog({ turn: state.turn, type:'game', msg:'❌ Non puoi attaccare questo territorio' });
+            addEventToLog({ turn: state.turn, type:'game', msg:`❌ ${t('evt_cannot_attack')}` });
             return;
         }
 
@@ -1144,13 +1307,13 @@ const UI = (() => {
                 setTimeout(() => {
                     Animations.spawnConquerFX(colCode);
                     const colName = typeof getNation !== 'undefined' ? (getNation(colCode)?.name || colCode.toUpperCase()) : colCode.toUpperCase();
-                    Animations.spawnText(colCode, siege.survived ? `🏳️ Ceduto` : `💀 Collasso`, '#ff6e40', true);
+                    Animations.spawnText(colCode, siege.survived ? t('revolt_mid_yielded') : t('revolt_mid_collapse'), '#ff6e40', true);
                     MapRenderer.colourAllTerritories();
                 }, 900 + i * 400);
             });
             if (siege.survived && siege.retreatedTo) {
                 setTimeout(() => {
-                    Animations.spawnText(siege.retreatedTo, '🛡️ Ritirata!', '#ffd740', true);
+                    Animations.spawnText(siege.retreatedTo, t('revolt_mid_retreat'), '#ffd740', true);
                 }, 900 + siege.releasedColonies.length * 400 + 300);
             }
         }
@@ -1169,11 +1332,15 @@ const UI = (() => {
                 midRevolts.forEach(r => {
                     Animations.spawnRevoltFX(r.territory);
                     addEventToLog({ turn: state.turn, type: 'battle',
-                        msg: `🔥 <strong>RIVOLTA!</strong> ${state.nations[r.to]?.flag||''} ${state.nations[r.to]?.name||r.territory} si ribella — guarnigione troppo debole!`
+                        msg: `🔥 <strong>${t('evt_revolt')}</strong> ${state.nations[r.to]?.flag||''} ${state.nations[r.to]?.name||r.territory} ${t('evt_revolt_rebel')}`
                     });
                 });
                 /* ── REVOLT ALERT MODAL: interrupt the player with a warning ── */
                 _showMidTurnRevoltAlert(midRevolts);
+
+                /* Notify components of revolts */
+                midRevolts.forEach(r => _emitBus('revolt:happened', r));
+                _emitBus('state:changed');
             }
         }
 
@@ -1181,6 +1348,15 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         showTerritoryPanel(targetTerritory);
+
+        /* Notify components */
+        _emitBus('battle:resolved', result);
+        _emitBus('resources:changed');
+        _emitBus('army:changed');
+        if (result.conquered) {
+            _emitBus('territory:conquered', { territory: targetTerritory, attacker: state.player, defender: owner });
+        }
+        _emitBus('state:changed');
     }
 
     /**
@@ -1208,11 +1384,10 @@ const UI = (() => {
             <div style="text-align:center;margin-bottom:12px;">
                 <div style="font-size:2rem;margin-bottom:6px;">⚠️🔥</div>
                 <div style="font-size:0.85rem;color:#ff6e40;font-weight:700;">
-                    ${lostCount === 1 ? 'UN TERRITORIO SI È RIBELLATO!' : `${lostCount} TERRITORI SI SONO RIBELLATI!`}
+                    ${lostCount === 1 ? t('revolt_mid_one') : t('revolt_mid_many',{n:lostCount})}
                 </div>
                 <div style="font-size:0.72rem;color:#ffab91;margin-top:6px;line-height:1.4;">
-                    Le tue truppe sono troppo sparse — le guarnigioni non riescono a mantenere il controllo.
-                    Ogni conquista indebolisce le difese delle colonie esistenti!
+                    ${t('revolt_mid_desc')}
                 </div>
             </div>`;
 
@@ -1224,7 +1399,7 @@ const UI = (() => {
                         background:rgba(255,23,68,0.12);border-radius:6px;border-left:3px solid #ff1744;">
                 <span style="font-size:1.1rem;">${n?.flag||'🏴'}</span>
                 <span style="font-weight:600;font-size:0.8rem;color:#ff8a80;">${n?.name||r.territory.toUpperCase()}</span>
-                <span style="margin-left:auto;font-size:0.65rem;color:#ff5252;">PERSO</span>
+                <span style="margin-left:auto;font-size:0.65rem;color:#ff5252;">${t('revolt_mid_lost')}</span>
             </div>`;
         });
         html += `</div>`;
@@ -1233,10 +1408,10 @@ const UI = (() => {
         if (attackNum >= 2) {
             html += `<div style="padding:8px 12px;background:rgba(255,152,0,0.12);border-radius:6px;
                         border-left:3px solid #ff9100;margin-bottom:10px;font-size:0.72rem;color:#ffd740;line-height:1.4;">
-                <strong>⚡ FATICA BELLICA (${attackNum}° attacco)</strong><br>
-                Le tue truppe sono stanche. Prossimo attacco:
+                <strong>${t('fatigue_title',{n:attackNum})}</strong><br>
+                ${t('fatigue_desc')}
                 ${nextCost.money > 0 ? ` 💰${nextCost.money}` : ''}${nextCost.infantry > 0 ? ` 🪖${nextCost.infantry}` : ''}
-                | Penalità potenza: <strong style="color:#ff6e40;">-${Math.round(nextCost.fatigue*100)}%</strong>
+                | ${t('fatigue_penalty')}: <strong style="color:#ff6e40;">-${Math.round(nextCost.fatigue*100)}%</strong>
             </div>`;
         }
 
@@ -1259,18 +1434,17 @@ const UI = (() => {
         display.innerHTML = `
             <div style="text-align:center">
                 <div style="font-size:1.3rem;font-weight:800;color:#ff6e40;margin-bottom:8px">
-                    🚫 ATTACCO IMPOSSIBILE
+                    ${t('reach_impossible')}
                 </div>
                 <div style="margin:8px 0;font-size:0.85rem;color:#e0e0e0">
-                    Obiettivo: ${defFlag} <b>${defName}</b>
+                    ${t('reach_target')}: ${defFlag} <b>${defName}</b>
                 </div>
                 <div style="margin:10px 0;padding:10px;background:rgba(255,110,64,0.12);border-radius:8px;
                     border-left:3px solid #ff6e40;font-size:0.8rem;color:#ffd740;line-height:1.4;text-align:left">
                     ${reason}
                 </div>
                 <div style="margin-top:10px;font-size:0.7rem;color:#90a4ae;text-align:left">
-                    💡 <b>Suggerimento:</b> Costruisci unità navali (🚢 Flotta, 🐟 Sottomarino) per trasporto via mare,
-                    o unità aeree (✈️ Caccia, 🛩️ Bombardiere, 🤖 Drone) e missili (🚀) per attacchi a lunga distanza.
+                    ${t('reach_tip_title')} ${t('reach_tip_body')}
                 </div>
             </div>`;
         parseEmoji(display);
@@ -1294,16 +1468,16 @@ const UI = (() => {
         if (colonies.length === 0) {
             html += `<div style="text-align:center;padding:20px;color:var(--text-dim);font-size:0.85rem;">
                 <div style="font-size:2rem;margin-bottom:8px;">🗺️</div>
-                Non possiedi ancora territori conquistati.<br>Attacca altre nazioni per espandere il tuo impero!
+                ${t('col_no_colonies')}
             </div>`;
         } else {
             /* Summary bar */
             const withUnrest = colonies.filter(c => c.unrest > 0).length;
             const critical   = colonies.filter(c => c.unrest >= 70).length;
             html += `<div class="colony-summary">`;
-            html += `<span>🌍 ${colonies.length} colonie</span>`;
-            if (withUnrest > 0) html += `<span style="color:#ff9100;">⚠️ ${withUnrest} instabili</span>`;
-            if (critical > 0)   html += `<span style="color:#ff1744;">🔴 ${critical} critiche</span>`;
+            html += `<span>🌍 ${colonies.length} ${t('col_colonies')}</span>`;
+            if (withUnrest > 0) html += `<span style="color:#ff9100;">⚠️ ${withUnrest} ${t('col_unstable')}</span>`;
+            if (critical > 0)   html += `<span style="color:#ff1744;">🔴 ${critical} ${t('col_critical')}</span>`;
             html += `</div>`;
 
             /* "Seda Tutte" button — only if any territory has unrest ≥ 40 */
@@ -1316,24 +1490,24 @@ const UI = (() => {
                 html += `<div style="margin-bottom:12px;text-align:center;">
                     <button class="revolt-btn-suppress" style="width:100%;padding:8px 12px;font-size:0.85rem;" ${canAll ? '' : 'disabled'}
                         onclick="UI.doSuppressAllFromColonies()">
-                        🛡️ SEDA TUTTE LE RIVOLTE (${alertList.length})
+                        🛡️ ${t('col_suppress_revolts')} (${alertList.length})
                     </button>
-                    <div class="revolt-cost" style="margin-top:4px;">Costo totale: 💰${totalCostMoney} + 🪖${totalCostInf}</div>
+                    <div class="revolt-cost" style="margin-top:4px;">${t('col_total_cost')}: 💰${totalCostMoney} + 🪖${totalCostInf}</div>
                 </div>`;
             }
 
             colonies.forEach(c => {
                 const pct = Math.round(c.unrest);
                 const garrison = GameEngine.getGarrison(c.territory);
-                const garStr = garrison.total > 0 ? `🪖${garrison.total}` : '<span style="color:#ff6e40">Nessuna</span>';
+                const garStr = garrison.total > 0 ? `🪖${garrison.total}` : `<span style="color:#ff6e40">${t('col_none')}</span>`;
 
                 let statusClass = 'colony-stable';
-                let statusLabel = '✅ Stabile';
+                let statusLabel = t('col_stable');
                 let statusColor = '#00e676';
-                if (pct >= 80)      { statusClass = 'colony-critical'; statusLabel = '🔴 CRITICO';     statusColor = '#ff1744'; }
-                else if (pct >= 60) { statusClass = 'colony-high';     statusLabel = '🟠 Alto';        statusColor = '#ff9100'; }
-                else if (pct >= 40) { statusClass = 'colony-warning';  statusLabel = '🟡 Attenzione';  statusColor = '#ffd740'; }
-                else if (pct > 0)   { statusClass = 'colony-low';      statusLabel = '🟢 Basso';       statusColor = '#69f0ae'; }
+                if (pct >= 80)      { statusClass = 'colony-critical'; statusLabel = t('col_status_critical');  statusColor = '#ff1744'; }
+                else if (pct >= 60) { statusClass = 'colony-high';     statusLabel = t('col_status_high');      statusColor = '#ff9100'; }
+                else if (pct >= 40) { statusClass = 'colony-warning';  statusLabel = t('col_status_warning');   statusColor = '#ffd740'; }
+                else if (pct > 0)   { statusClass = 'colony-low';      statusLabel = t('col_status_low');       statusColor = '#69f0ae'; }
 
                 const playerN = state.nations[state.player];
                 const canSuppress = pct > 0 && (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
@@ -1341,12 +1515,12 @@ const UI = (() => {
                 html += `<div class="colony-row ${statusClass}" id="colony-row-${c.territory}">`;
                 html += `  <div class="colony-info">`;
                 html += `    <div class="colony-name">${c.flag} ${c.name}</div>`;
-                html += `    <div class="colony-meta">Guarnigione: ${garStr}</div>`;
+                html += `    <div class="colony-meta">${t('col_garrison')}: ${garStr}</div>`;
                 if (pct > 0) {
                     html += `    <div class="revolt-unrest-bar"><div class="revolt-unrest-fill" style="width:${pct}%;background:${statusColor}"></div></div>`;
                     html += `    <div style="display:flex;justify-content:space-between;align-items:center">`;
                     html += `      <span class="revolt-unrest-label" style="color:${statusColor}">${statusLabel} — ${pct}%</span>`;
-                    html += `      <span class="revolt-gain">+${c.gain}/turno</span>`;
+                    html += `      <span class="revolt-gain">+${c.gain}${t('col_per_turn')}</span>`;
                     html += `    </div>`;
                 } else {
                     html += `    <div class="colony-stable-label">${statusLabel}</div>`;
@@ -1354,7 +1528,7 @@ const UI = (() => {
                 html += `  </div>`;
                 html += `  <div class="colony-actions">`;
                 if (pct > 0) {
-                    html += `<button class="revolt-btn-suppress" ${canSuppress ? '' : 'disabled'} onclick="UI.doSuppressFromColonies('${c.territory}');">🛡️ SEDA</button>`;
+                    html += `<button class="revolt-btn-suppress" ${canSuppress ? '' : 'disabled'} onclick="UI.doSuppressFromColonies('${c.territory}');">${t('col_suppress')}</button>`;
                     html += `<div class="revolt-cost">💰15 + 🪖2</div>`;
                 }
                 html += `    <button class="colony-btn-view" onclick="UI.showTerritoryPanel('${c.territory}'); UI.hideColonies();">🔍</button>`;
@@ -1382,6 +1556,8 @@ const UI = (() => {
         MapRenderer.colourAllTerritories();
         const sel = MapRenderer.getSelected && MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
+        _emitBus('unrest:changed', { territory: tCode });
+        _emitBus('resources:changed');
     }
 
     function doSuppressAllFromColonies() {
@@ -1401,7 +1577,10 @@ const UI = (() => {
         const sel = MapRenderer.getSelected && MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
         if (suppressed > 0) {
-            addEventToLog({ turn: state.turn, type: 'game', msg: `🛡️ Sedate ${suppressed} rivolte dalle colonie` });
+            addEventToLog({ turn: state.turn, type: 'game', msg: `🛡️ ${t('evt_all_revolts_done')} (${suppressed})` });
+            _emitBus('unrest:changed');
+            _emitBus('resources:changed');
+            _emitBus('army:changed');
         }
     }
 
@@ -1424,8 +1603,8 @@ const UI = (() => {
         if (!display) return;
 
         let html = `<div style="font-size:0.75rem;color:#ffab91;margin-bottom:10px;">
-            ⚠️ I seguenti territori conquistati mostrano segni di <strong>instabilità</strong>.<br>
-            Se il malcontento raggiunge il 100%, scoppierà una rivolta!
+            ⚠️ ${t('revolt_warning')}<br>
+            ${t('revolt_threshold')}
         </div>`;
 
         /* "Seda Tutte" button */
@@ -1436,32 +1615,32 @@ const UI = (() => {
         html += `<div style="margin-bottom:12px;text-align:center;">
             <button class="revolt-btn-suppress" style="width:100%;padding:8px 12px;font-size:0.85rem;" ${canSuppressAll ? '' : 'disabled'}
                 onclick="UI.doSuppressAllUnrest()">
-                🛡️ SEDA TUTTE (${alertList.length})
+                🛡️ ${t('revolt_suppress_all')} (${alertList.length})
             </button>
-            <div class="revolt-cost" style="margin-top:4px;">Costo totale: 💰${totalCostMoney} + 🪖${totalCostInf}</div>
+            <div class="revolt-cost" style="margin-top:4px;">${t('col_total_cost')}: 💰${totalCostMoney} + 🪖${totalCostInf}</div>
         </div>`;
 
-        alertList.forEach(t => {
-            const pct = Math.round(t.unrest);
+        alertList.forEach(item => {
+            const pct = Math.round(item.unrest);
             const barColor = pct >= 80 ? '#ff1744' : pct >= 60 ? '#ff9100' : '#ffd740';
-            const urgency = pct >= 80 ? '🔴 CRITICO' : pct >= 60 ? '🟠 ALTO' : '🟡 ATTENZIONE';
+            const urgency = pct >= 80 ? t('col_status_critical') : pct >= 60 ? t('col_status_high') : t('col_status_warning');
             const canSuppress = (playerN.res.money >= 15 && (playerN.army.infantry || 0) >= 2);
 
-            html += `<div class="revolt-territory" id="revolt-row-${t.territory}">
+            html += `<div class="revolt-territory" id="revolt-row-${item.territory}">
                 <div class="revolt-info">
-                    <div class="revolt-name">${t.flag} ${t.name}</div>
+                    <div class="revolt-name">${item.flag} ${item.name}</div>
                     <div class="revolt-unrest-bar">
                         <div class="revolt-unrest-fill" style="width:${pct}%;background:${barColor}"></div>
                     </div>
                     <div style="display:flex;justify-content:space-between;align-items:center">
                         <span class="revolt-unrest-label" style="color:${barColor}">${urgency} — ${pct}%</span>
-                        <span class="revolt-gain">+${t.gain}/turno</span>
+                        <span class="revolt-gain">+${item.gain}${t('col_per_turn')}</span>
                     </div>
                 </div>
                 <div style="text-align:center">
                     <button class="revolt-btn-suppress" ${canSuppress ? '' : 'disabled'}
-                        onclick="UI.doSuppressUnrest('${t.territory}')">
-                        🛡️ SEDA
+                        onclick="UI.doSuppressUnrest('${item.territory}')">
+                        ${t('col_suppress')}
                     </button>
                     <div class="revolt-cost">💰15 + 🪖2</div>
                 </div>
@@ -1485,6 +1664,11 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
+
+        /* Notify components */
+        _emitBus('unrest:changed', { territory: tCode });
+        _emitBus('resources:changed');
+        _emitBus('army:changed');
         /* Refresh left panel if the territory (or its owner) is selected */
         const sel = MapRenderer.getSelected && MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
@@ -1493,7 +1677,7 @@ const UI = (() => {
         const remaining = (GameEngine.getUnrestList(state.player) || []).filter(t => t.unrest >= 40);
         if (remaining.length === 0) {
             hide('revolt-alert-popup');
-            addEventToLog({ turn: state.turn, type: 'game', msg: '✅ Tutte le rivolte sono state sedate!' });
+            addEventToLog({ turn: state.turn, type: 'game', msg: `✅ ${t('evt_all_revolts_done')}` });
         }
     }
 
@@ -1519,9 +1703,14 @@ const UI = (() => {
         const remaining = (GameEngine.getUnrestList(state.player) || []).filter(t => t.unrest >= 40);
         if (remaining.length === 0) {
             hide('revolt-alert-popup');
-            addEventToLog({ turn: state.turn, type: 'game', msg: `✅ Tutte le rivolte sono state sedate! (${suppressed} territori)` });
+            addEventToLog({ turn: state.turn, type: 'game', msg: `✅ ${t('evt_all_revolts_done')} (${suppressed})` });
         } else if (failed > 0) {
-            addEventToLog({ turn: state.turn, type: 'game', msg: `⚠️ Sedate ${suppressed} rivolte, risorse insufficienti per le restanti ${remaining.length}` });
+            addEventToLog({ turn: state.turn, type: 'game', msg: t('suppress_partial',{done:suppressed,left:remaining.length}) });
+        }
+        if (suppressed > 0) {
+            _emitBus('unrest:changed');
+            _emitBus('resources:changed');
+            _emitBus('army:changed');
         }
     }
 
@@ -1598,9 +1787,9 @@ const UI = (() => {
         /* Result banner */
         html += `<div class="battle-result ${result.success ? 'win' : 'lose'}">`;
         if (result.success) {
-            html += result.conquered ? '✅ VITTORIA — Territorio conquistato!' : '✅ VITTORIA';
+            html += result.conquered ? t('btl_victory_conq') : t('btl_victory');
         } else {
-            html += '❌ SCONFITTA — Ritirata!';
+            html += t('btl_defeat');
         }
         html += `</div>`;
 
@@ -1610,7 +1799,7 @@ const UI = (() => {
 
         if (result.conquered && hasLoot) {
             html += `<div class="btl-loot">`;
-            html += `<div class="btl-loot-title">📦 Bottino di guerra</div>`;
+            html += `<div class="btl-loot-title">${t('btl_loot')}</div>`;
             html += `<div class="btl-loot-items">`;
             Object.entries(loot).forEach(([r, v]) => {
                 if (v > 0) {
@@ -1627,10 +1816,10 @@ const UI = (() => {
             const ac = result.attackCost;
             html += `<div style="margin-top:6px;padding:5px 10px;background:rgba(255,152,0,0.10);border-radius:6px;
                         font-size:0.65rem;color:#ffd740;text-align:center;border:1px solid rgba(255,152,0,0.2);">`;
-            html += `⚡ ${ac.attackNum}° attacco`;
-            if (ac.money > 0 || ac.infantry > 0) html += ` — Costo: 💰${ac.money}`;
+            html += `⚡ ${ac.attackNum}° ${t('btl_attack_cost')}`;
+            if (ac.money > 0 || ac.infantry > 0) html += ` — ${t('cost_word')}: 💰${ac.money}`;
             if (ac.infantry > 0) html += ` 🪖${ac.infantry}`;
-            if (result.fatiguePct > 0) html += ` | Fatica: <strong style="color:#ff6e40;">-${result.fatiguePct}%</strong> potenza`;
+            if (result.fatiguePct > 0) html += ` | ${t('btl_fatigue')}: <strong style="color:#ff6e40;">-${result.fatiguePct}%</strong>`;
             html += `</div>`;
         }
 
@@ -1646,9 +1835,16 @@ const UI = (() => {
         if (!state) return;
         GameEngine.addSanction(state.player, targetCode);
         const tn = state.nations[targetCode];
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🚫 <span class="evt-action">Sanzioni su</span> ${fmtNation(tn)}` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🚫 <span class="evt-action">${t('evt_sanctions')}</span> ${fmtNation(tn)}` });
         updateHUD();
         hide('diplomacy-popup');
+
+        /* Visual feedback */
+        _showActionToast('🚫', t('toast_sanctions'),
+            `${tn.flag} ${tn.name} — ${t('toast_sanctions_sub')}`, 'warn');
+
+        /* Notify components */
+        _emitBus('diplomacy:changed');
     }
 
     /* ════════════════ PRODUCTION ════════════════ */
@@ -1660,7 +1856,7 @@ const UI = (() => {
 
         /* Current army summary */
         let html = '<div class="prod-army-summary">';
-        html += '<h4 style="color:var(--accent);font-family:var(--font-title);font-size:0.8rem;margin-bottom:8px;">🪖 ESERCITO ATTUALE</h4>';
+        html += `<h4 style="color:var(--accent);font-family:var(--font-title);font-size:0.8rem;margin-bottom:8px;">${t('prod_current_army')}</h4>`;
         html += '<div class="prod-army-grid">';
         Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
             const count = n.army[key] || 0;
@@ -1671,18 +1867,21 @@ const UI = (() => {
         const totalAtk = GameEngine.calcMilitary(state.player, 'atk');
         const totalDef = GameEngine.calcMilitary(state.player, 'def');
         html += `</div>`;
-        html += `<div style="font-size:0.7rem;color:var(--text-dim);margin-top:6px;">Potenza: ⚔️${totalAtk} ATK | 🛡️${totalDef} DEF</div>`;
+        html += `<div style="font-size:0.7rem;color:var(--text-dim);margin-top:6px;">${t('prod_power')}: ⚔️${totalAtk} ATK | 🛡️${totalDef} DEF</div>`;
         html += '</div>';
 
-        /* Available resources */
-        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;padding:8px;background:var(--bg-panel-alt);border-radius:4px;font-family:var(--font-mono);font-size:0.75rem;">';
+        /* Available resources — styled like army summary for uniformity */
+        html += '<div class="prod-army-summary" style="margin:10px 0;">';
+        html += `<h4 style="color:var(--accent);font-family:var(--font-title);font-size:0.8rem;margin-bottom:8px;">${t('prod_resources') || '📦 Risorse Disponibili'}</h4>`;
+        html += '<div class="prod-army-grid">';
         ['money','oil','steel','rareEarth','uranium','food'].forEach(key => {
-            html += `<span>${RESOURCES[key].icon}${n.res[key]||0}</span>`;
+            const val = n.res[key] || 0;
+            html += `<span class="prod-army-item">${RESOURCES[key].icon} ${val}</span>`;
         });
-        html += '</div>';
+        html += '</div></div>';
 
         /* Build options */
-        html += '<h4 style="color:var(--accent);font-family:var(--font-title);font-size:0.8rem;margin-bottom:8px;">🏭 COSTRUISCI</h4>';
+        html += `<h4 style="color:var(--accent);font-family:var(--font-title);font-size:0.8rem;margin-bottom:8px;">${t('prod_build')}</h4>`;
         html += '<div class="prod-grid">';
         Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
             const canBuild = GameEngine.canBuild(state.player, key);
@@ -1693,7 +1892,7 @@ const UI = (() => {
             let lockReason = '';
             if (!canBuild) {
                 if (ut.nuke && !n.techs.includes('nuclear_program')) {
-                    lockReason = `<div style="font-size:0.55rem;color:#ff6e40;margin-top:3px">🔒 Richiede: ☢️ Programma Nucleare</div>`;
+                    lockReason = `<div style="font-size:0.55rem;color:#ff6e40;margin-top:3px">${t('prod_requires')}: ☢️ ${t('tech_nuclear_program')}</div>`;
                 } else {
                     const missing = Object.entries(ut.cost).filter(([r, v]) => (n.res[r] || 0) < v);
                     if (missing.length > 0) {
@@ -1711,9 +1910,9 @@ const UI = (() => {
             html += `<div class="prod-name">${ut.name}</div>`;
             html += `<div style="font-size:0.75rem;color:var(--gold);">${current > 0 ? `×${current}` : ''}</div>`;
             html += `<div class="prod-cost">${costStr}</div>`;
-            html += `<div style="font-size:0.6rem;color:var(--text-dim)">⚔️${ut.atk} 🛡️${ut.def} | Raggio:${ut.rng}</div>`;
-            if (ut.consumable) html += `<div style="font-size:0.55rem;color:var(--accent3)">⚡ Consumabile</div>`;
-            if (ut.nuke) html += `<div style="font-size:0.55rem;color:#ff00ff">☢️ Nucleare</div>`;
+            html += `<div style="font-size:0.6rem;color:var(--text-dim)">⚔️${ut.atk} 🛡️${ut.def} | ${t('prod_range')}:${ut.rng}</div>`;
+            if (ut.consumable) html += `<div style="font-size:0.55rem;color:var(--accent3)">${t('prod_consumable')}</div>`;
+            if (ut.nuke) html += `<div style="font-size:0.55rem;color:#ff00ff">${t('prod_nuclear')}</div>`;
             html += lockReason;
             html += `</div>`;
         });
@@ -1728,6 +1927,11 @@ const UI = (() => {
         showProduction(); // refresh
         updateHUD();
         updateMilitaryBar();
+
+        /* Notify components */
+        _emitBus('production:built', { unitType, nationCode: state.player });
+        _emitBus('resources:changed');
+        _emitBus('army:changed');
     }
 
     /* ════════════════ TECH TREE ════════════════ */
@@ -1741,9 +1945,9 @@ const UI = (() => {
 
         /* Group into tiers based on prerequisites depth */
         const tiers = [
-            { label: 'Base', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length === 0) },
-            { label: 'Avanzate', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length === 1) },
-            { label: 'Élite', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length >= 2) }
+            { label: t('tech_tier_base') || 'Base', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length === 0) },
+            { label: t('tech_tier_adv') || 'Advanced', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length === 1) },
+            { label: t('tech_tier_elite') || 'Élite', techs: TECHNOLOGIES.filter(t => (t.prereq||[]).length >= 2) }
         ].filter(tier => tier.techs.length > 0);
 
         tiers.forEach(tier => {
@@ -1788,7 +1992,7 @@ const UI = (() => {
                 html +=       `<span class="tech-name">${tech.name}</span>`;
                 html +=       statusIcon;
                 html +=     `</div>`;
-                html +=     `<div class="tech-cost">${researched ? 'Ricercata' : costStr}</div>`;
+                html +=     `<div class="tech-cost">${researched ? t('tech_researched') : costStr}</div>`;
                 html +=     `<div class="tech-desc">${tech.desc}</div>`;
                 if (tech.tip) html += `<div class="tech-tip">${tech.tip}</div>`;
                 html +=     lockReason;
@@ -1802,9 +2006,14 @@ const UI = (() => {
     }
 
     function doResearch(techId) {
-        GameEngine.research(GameEngine.getState().player, techId);
+        const _state = GameEngine.getState();
+        GameEngine.research(_state.player, techId);
         showTechTree(); // refresh
         updateHUD();
+
+        /* Notify components */
+        _emitBus('tech:researched', { techId, nationCode: _state.player });
+        _emitBus('resources:changed');
     }
 
     /* ════════════════ DIPLOMACY ════════════════ */
@@ -1829,7 +2038,7 @@ const UI = (() => {
         const pAtk = GameEngine.calcMilitary(state.player, 'atk');
         html += `<div class="diplo-player-summary">`;
         html += `<span style="font-size:2rem">${pn.flag}</span>`;
-        html += `<div><strong>${pn.name}</strong><br><span style="font-size:0.7rem;color:var(--text-dim);">\ud83c\udf0d${pTerr} territori | \u2694\ufe0f${pAtk} potenza | \ud83e\udd1d${allies.length} alleati | \ud83d\udd25${wars.length} guerre</span></div>`;
+        html += `<div><strong>${pn.name}</strong><br><span style="font-size:0.7rem;color:var(--text-dim);">${t('diplo_summary',{terr:pTerr,atk:pAtk,allies:allies.length,wars:wars.length})}</span></div>`;
         html += `</div>`;
 
         function renderSection(title, icon, color, list) {
@@ -1866,9 +2075,9 @@ const UI = (() => {
 
             /* Status badge */
             if (atWar) {
-                c += `<div class="diplo-badge diplo-badge-war">\u2694\ufe0f GUERRA</div>`;
+                c += `<div class="diplo-badge diplo-badge-war">\u2694\ufe0f ${t('panel_at_war')}</div>`;
             } else if (ally) {
-                c += `<div class="diplo-badge diplo-badge-ally">\ud83e\udd1d ALLEATO</div>`;
+                c += `<div class="diplo-badge diplo-badge-ally">\ud83e\udd1d ${t('panel_allied')}</div>`;
             } else {
                 c += `<div class="diplo-badge diplo-badge-neutral" style="color:${relColor}">${rel > 0 ? '\ud83d\ude0a' : rel < -20 ? '\ud83d\ude20' : '\ud83d\ude10'} ${rel}</div>`;
             }
@@ -1880,26 +2089,26 @@ const UI = (() => {
             /* Action buttons */
             c += `<div class="diplo-card-actions">`;
             if (atWar) {
-                c += `<button class="diplo-btn peace" onclick="UI.doPeace('${code}')">\ud83d\udd4a\ufe0f Negozia Pace</button>`;
+                c += `<button class="diplo-btn peace" onclick="UI.doPeace('${code}')">${t('diplo_peace')}</button>`;
             } else if (ally) {
-                c += `<button class="diplo-btn betray" onclick="UI.doBreakAlliance('${code}')">\ud83d\udc94 Rompi Alleanza</button>`;
+                c += `<button class="diplo-btn betray" onclick="UI.doBreakAlliance('${code}')">${t('diplo_break_ally')}</button>`;
             } else {
-                c += `<button class="diplo-btn ally" onclick="UI.doAlly('${code}')">\ud83e\udd1d Alleanza (\ud83e\udd4710 \ud83d\udcb030)</button>`;
-                c += `<button class="diplo-btn war" onclick="UI.doDeclareWar('${code}')">\ud83d\udd25 Dichiara Guerra</button>`;
+                c += `<button class="diplo-btn ally" onclick="UI.doAlly('${code}')">${t('diplo_ally')} (\ud83e\udd4710 \ud83d\udcb030)</button>`;
+                c += `<button class="diplo-btn war" onclick="UI.doDeclareWar('${code}')">${t('diplo_declare_war')}</button>`;
             }
-            c += `<button class="diplo-btn sanction" onclick="UI.doSanction('${code}')">\ud83d\udeab Sanzioni</button>`;
-            c += `<button class="diplo-btn trade" onclick="UI.doTradeResources('${code}')">\ud83d\udcb1 Scambio</button>`;
-            c += `<button class="diplo-btn tribute" onclick="UI.doDemandTribute('${code}')">\ud83d\udcb0 Tributo</button>`;
-            c += `<button class="diplo-btn spy" onclick="UI.doSpyMission('${code}')">\ud83d\udd75\ufe0f Spia</button>`;
+            c += `<button class="diplo-btn sanction" onclick="UI.doSanction('${code}')">${t('diplo_sanction')}</button>`;
+            c += `<button class="diplo-btn trade" onclick="UI.doTradeResources('${code}')">${t('diplo_trade')}</button>`;
+            c += `<button class="diplo-btn tribute" onclick="UI.doDemandTribute('${code}')">${t('diplo_tribute')}</button>`;
+            c += `<button class="diplo-btn spy" onclick="UI.doSpyMission('${code}')">${t('diplo_spy')}</button>`;
             c += `</div>`;
 
             c += `</div>`;
             return c;
         }
 
-        html += renderSection('IN GUERRA', '\ud83d\udd25', '#ff1744', wars);
-        html += renderSection('ALLEATI', '\ud83e\udd1d', '#00e676', allies);
-        html += renderSection('ALTRE NAZIONI', '\ud83c\udf0d', '#42a5f5', others);
+        html += renderSection(t('diplo_section_war') || 'AT WAR', '\ud83d\udd25', '#ff1744', wars);
+        html += renderSection(t('diplo_section_allies') || 'ALLIES', '\ud83e\udd1d', '#00e676', allies);
+        html += renderSection(t('diplo_section_others') || 'OTHER NATIONS', '\ud83c\udf0d', '#42a5f5', others);
 
         els['diplomacy-display'].innerHTML = html;
         parseEmoji(els['diplomacy-popup']);
@@ -1916,21 +2125,35 @@ const UI = (() => {
         /* Alliance costs: 🥇10 gold + 💰30 as diplomatic gift */
         const goldCost = 10, moneyCost = 30;
         if ((pn.res.gold || 0) < goldCost || (pn.res.money || 0) < moneyCost) {
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ Risorse insufficienti per alleanza (serve 🥇${goldCost} + 💰${moneyCost})` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${t('insufficient_res')} (🥇${goldCost} + 💰${moneyCost})` });
             hide('diplomacy-popup');
+            _showActionToast('❌', t('toast_ally_fail'),
+                `${t('toast_ally_no_res')} — 🥇${goldCost} + 💰${moneyCost}`, 'danger');
             return;
         }
         if (rel < -10) {
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(state.nations[code])} <span class="evt-action">rifiuta alleanza (${rel})</span>` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(state.nations[code])} <span class="evt-action">${t('toast_ally_refused')}</span> (${rel})` });
             hide('diplomacy-popup');
+            const _rn = state.nations[code];
+            _showActionToast('❌', t('toast_ally_refused'),
+                `${_rn.flag} ${_rn.name} ${t('toast_ally_no_accept')} (${t('relation_word')}: ${rel})`, 'danger');
             return;
         }
         pn.res.gold -= goldCost;
         pn.res.money -= moneyCost;
         GameEngine.makeAlliance(state.player, code);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🤝 Alleanza con ${fmtNation(state.nations[code])} (🥇${goldCost} + 💰${moneyCost})` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🤝 ${t('evt_ally')} ${fmtNation(state.nations[code])} (🥇${goldCost} + 💰${moneyCost})` });
         hide('diplomacy-popup');
         updateHUD();
+
+        /* Visual feedback */
+        const _an = state.nations[code];
+        _showActionToast('🤝', t('toast_ally_done'),
+            `${_an.flag} ${_an.name} ${t('toast_ally_sub')} — 🥇${goldCost} + 💰${moneyCost}`, 'success');
+
+        /* Notify components */
+        _emitBus('diplomacy:changed');
+        _emitBus('resources:changed');
     }
 
     /* ══ NEW DIPLOMATIC ACTIONS ══ */
@@ -1938,7 +2161,7 @@ const UI = (() => {
         const state = GameEngine.getState();
         if (!state) return;
         if (GameEngine.isAtWar(state.player, targetCode)) {
-            addEventToLog({ turn: state.turn, type:'game', msg:'⚠️ Siete già in guerra!' });
+            addEventToLog({ turn: state.turn, type:'game', msg:`⚠️ ${t('evt_already_at_war')}` });
             return;
         }
         /* Break alliance first if exists */
@@ -1947,21 +2170,45 @@ const UI = (() => {
         }
         GameEngine.ensureWar(state.player, targetCode);
         const tn = state.nations[targetCode];
-        addEventToLog({ turn: state.turn, type:'battle', msg:`🔥 <span class="evt-action">Guerra dichiarata a</span> ${fmtNation(tn)}` });
+        addEventToLog({ turn: state.turn, type:'battle', msg:`🔥 <span class="evt-action">${t('evt_war')}</span> ${fmtNation(tn)}` });
         MapRenderer.colourAllTerritories();
         updateHUD();
         /* Refresh any open panel */
         const sel = MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
         hide('diplomacy-popup');
+
+        /* Visual feedback */
+        _showActionToast('🔥', t('toast_war'),
+            `${tn.flag} ${tn.name} — ${t('toast_war_sub')}`, 'danger', 3200);
+
+        /* Notify components */
+        _emitBus('diplomacy:changed');
+        _emitBus('state:changed');
     }
 
     function doBreakAlliance(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
+        const _bn = state.nations[targetCode];
         GameEngine.breakAlliance(state.player, targetCode);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💔 <span class="evt-action">Alleanza rotta con</span> ${fmtNation(state.nations[targetCode])}` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💔 <span class="evt-action">${t('evt_break_ally')}</span> ${fmtNation(_bn)}` });
         hide('diplomacy-popup');
+
+        /* Visual feedback */
+        _showActionToast('💔', t('toast_break_ally'),
+            `${_bn.flag} ${_bn.name} ${t('toast_break_ally_sub')}`, 'warn');
+
+        /* Refresh toolbar, map and sidebar after breaking alliance */
+        updateHUD();
+        updateMilitaryBar();
+        MapRenderer.colourAllTerritories();
+        const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (sel) showTerritoryPanel(sel);
+
+        /* Notify components */
+        _emitBus('diplomacy:changed');
+        _emitBus('state:changed');
     }
 
     function doNonAggression(targetCode) {
@@ -1971,8 +2218,10 @@ const UI = (() => {
         /* Non-aggression pact costs: 🥈5 silver + 💰15 */
         const silverCost = 5, moneyCost = 15;
         if ((pn.res.silver || 0) < silverCost || (pn.res.money || 0) < moneyCost) {
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ Risorse insufficienti per patto (serve 🥈${silverCost} + 💰${moneyCost})` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${t('insufficient_res')} (🥈${silverCost} + 💰${moneyCost})` });
             hide('diplomacy-popup');
+            _showActionToast('❌', t('toast_pact_fail'),
+                `${t('toast_ally_no_res')} — 🥈${silverCost} + 💰${moneyCost}`, 'danger');
             return;
         }
         pn.res.silver -= silverCost;
@@ -1980,8 +2229,22 @@ const UI = (() => {
         /* Simulate non-aggression pact as +15 relation boost */
         GameEngine.adjustRelation(state.player, targetCode, 15);
         GameEngine.adjustRelation(targetCode, state.player, 15);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">Patto con</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(🥈${silverCost} + 💰${moneyCost})</span>` });
+        const _nn = state.nations[targetCode];
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">${t('evt_pact')}</span> ${fmtNation(_nn)} <span class="evt-action">(🥈${silverCost} + 💰${moneyCost})</span>` });
         hide('diplomacy-popup');
+
+        /* Visual feedback */
+        _showActionToast('📝', t('toast_pact'),
+            `${_nn.flag} ${_nn.name} — ${t('toast_pact_sub')} (🥈${silverCost} + 💰${moneyCost})`, 'info');
+
+        /* Refresh toolbar and sidebar after pact */
+        updateHUD();
+        const sel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (sel) showTerritoryPanel(sel);
+
+        /* Notify components */
+        _emitBus('diplomacy:changed');
+        _emitBus('resources:changed');
     }
 
     function doEmbargo(targetCode) {
@@ -1994,9 +2257,17 @@ const UI = (() => {
             n.res.money = Math.max(0, n.res.money - 20);
             n.res.oil = Math.max(0, n.res.oil - 10);
         }
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`⛔ <span class="evt-action">Embargo su</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(-20💰 -10🛢️)</span>` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`⛔ <span class="evt-action">${t('evt_embargo')}</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(-20💰 -10🛢️)</span>` });
         updateHUD();
         hide('diplomacy-popup');
+
+        /* Visual feedback */
+        const _en = state.nations[targetCode];
+        _showActionToast('⛔', t('toast_embargo'),
+            `${_en.flag} ${_en.name} ${t('toast_embargo_sub')}`, 'danger');
+
+        /* Notify components */
+        _emitBus('diplomacy:changed');
     }
 
     /* Track refused trades per nation per turn: { "turn:nation:idx": true } */
@@ -2013,7 +2284,7 @@ const UI = (() => {
         hide('diplomacy-popup');
         show('trade-popup');
         let html = `<div style="text-align:center;margin-bottom:12px;"><span style="font-size:2rem">${pn.flag}</span> ↔️ <span style="font-size:2rem">${tn.flag}</span></div>`;
-        html += `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:12px;text-align:center;">Scambia risorse con ${tn.name}. Il successo dipende dalla relazione.</div>`;
+        html += `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:12px;text-align:center;">${t('trade_desc') || 'Trade resources.'} ${tn.name}.</div>`;
         html += '<div class="trade-grid">';
 
         const tradeOptions = [
@@ -2028,14 +2299,14 @@ const UI = (() => {
             { give: 'diamonds', giveAmt: 5, get: 'money', getAmt: 80, label: '💎5 → 💰80' },
         ];
 
-        tradeOptions.forEach((t, i) => {
-            const canAfford = (pn.res[t.give] || 0) >= t.giveAmt && (tn.res[t.get] || 0) >= t.getAmt;
+        tradeOptions.forEach((opt, i) => {
+            const canAfford = (pn.res[opt.give] || 0) >= opt.giveAmt && (tn.res[opt.get] || 0) >= opt.getAmt;
             const refusalKey = `${state.turn}:${targetCode}:${i}`;
             const refused = !!_tradeRefusals[refusalKey];
             const canTrade = canAfford && !refused;
-            const refusedLabel = refused ? ' <span style="font-size:0.6rem;color:#ff5252;">🚫 rifiutato</span>' : '';
+            const refusedLabel = refused ? ` <span style="font-size:0.6rem;color:#ff5252;">${t('trade_refused_label')}</span>` : '';
             html += `<div class="trade-option ${canTrade ? '' : 'disabled'}" onclick="${canTrade ? `UI.executeTrade('${targetCode}',${i})` : ''}">`;
-            html += `<span>${t.label}${refusedLabel}</span>`;
+            html += `<span>${opt.label}${refusedLabel}</span>`;
             html += `</div>`;
         });
 
@@ -2059,7 +2330,7 @@ const UI = (() => {
     function executeTrade(targetCode, optionIdx) {
         const state = GameEngine.getState();
         if (!state) return;
-        const t = TRADE_OPTIONS[optionIdx];
+        const opt = TRADE_OPTIONS[optionIdx];
         const pn = state.nations[state.player];
         const tn = state.nations[targetCode];
         const rel = GameEngine.getRelation(state.player, targetCode);
@@ -2069,27 +2340,31 @@ const UI = (() => {
         if (Math.random() > acceptChance) {
             /* Mark this trade as refused for this turn — no retries */
             _tradeRefusals[`${state.turn}:${targetCode}:${optionIdx}`] = true;
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">rifiuta scambio</span>` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">${t('evt_trade_refused')}</span>` });
             /* Show inline refusal feedback, keep modal open */
-            _showTradeFeedback(targetCode, false, `${tn.flag} ${tn.name} rifiuta lo scambio! (non riprovabile questo turno)`);
+            _showTradeFeedback(targetCode, false, `${tn.flag} ${t('trade_refused_msg',{name:tn.name})}`);
             return;
         }
 
-        pn.res[t.give] -= t.giveAmt;
-        pn.res[t.get] = (pn.res[t.get] || 0) + t.getAmt;
-        tn.res[t.get] -= t.getAmt;
-        tn.res[t.give] = (tn.res[t.give] || 0) + t.giveAmt;
+        pn.res[opt.give] -= opt.giveAmt;
+        pn.res[opt.get] = (pn.res[opt.get] || 0) + opt.getAmt;
+        tn.res[opt.get] -= opt.getAmt;
+        tn.res[opt.give] = (tn.res[opt.give] || 0) + opt.giveAmt;
         GameEngine.adjustRelation(state.player, targetCode, 5);
         GameEngine.adjustRelation(targetCode, state.player, 5);
 
         const ri = RESOURCES || {};
-        const giveIcon = ri[t.give]?.icon || t.give;
-        const getIcon  = ri[t.get]?.icon || t.get;
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💱 <span class="evt-action">Scambio con</span> ${fmtNation(tn)}: ${giveIcon}${t.giveAmt} → ${getIcon}${t.getAmt} <span class="evt-action">(+5 rel.)</span>` });
+        const giveIcon = ri[opt.give]?.icon || opt.give;
+        const getIcon  = ri[opt.get]?.icon || opt.get;
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💱 <span class="evt-action">${t('evt_trade_with')}</span> ${fmtNation(tn)}: ${giveIcon}${opt.giveAmt} → ${getIcon}${opt.getAmt} <span class="evt-action">(+5 ${t('relation_word')})</span>` });
 
         /* Show inline success feedback, refresh modal to update affordability */
-        _showTradeFeedback(targetCode, true, `Scambio riuscito! ${giveIcon}${t.giveAmt} → ${getIcon}${t.getAmt}`);
+        _showTradeFeedback(targetCode, true, `${t('trade_success')} ${giveIcon}${opt.giveAmt} → ${getIcon}${opt.getAmt}`);
         updateHUD();
+
+        /* Notify components */
+        _emitBus('resources:changed');
+        _emitBus('diplomacy:changed');
     }
 
     /** Show trade feedback inline in the trade popup, then refresh the trade grid */
@@ -2138,13 +2413,21 @@ const UI = (() => {
             pn.res.money += tribute;
             tn.res.money = Math.max(0, tn.res.money - tribute);
             GameEngine.adjustRelation(targetCode, state.player, -20);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💰 ${fmtNation(tn)} <span class="evt-action">paga ${tribute} fondi (-20)</span>` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💰 ${fmtNation(tn)} <span class="evt-action">${t('evt_tribute_pay', {n: tribute})} (-20)</span>` });
+            _showActionToast('💰', t('toast_tribute_ok'),
+                `${tn.flag} ${tn.name} ${t('toast_tribute_pay')} 💰${tribute} — ${t('toast_tribute_rel')} −20`, 'gold');
         } else {
             GameEngine.adjustRelation(targetCode, state.player, -15);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">rifiuta tributo (-15)</span>` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">${t('evt_tribute_refuse')} (-15)</span>` });
+            _showActionToast('✋', t('toast_tribute_fail'),
+                `${tn.flag} ${tn.name} ${t('toast_tribute_refuse')} — ${t('toast_tribute_rel')} −15`, 'danger');
         }
         updateHUD();
         hide('diplomacy-popup');
+
+        /* Notify components */
+        _emitBus('resources:changed');
+        _emitBus('diplomacy:changed');
     }
 
     function doSpyMission(targetCode) {
@@ -2155,7 +2438,7 @@ const UI = (() => {
 
         /* Cost: 30 money + 2 gold */
         if (pn.res.money < 30 || (pn.res.gold || 0) < 2) {
-            addEventToLog({ turn: state.turn, type:'game', msg:'❌ Risorse insufficienti per spionaggio (costo: 30💰 + 2🥇)' });
+            addEventToLog({ turn: state.turn, type:'game', msg:`❌ ${t('spy_insufficient')}` });
             return;
         }
         pn.res.money -= 30;
@@ -2170,7 +2453,7 @@ const UI = (() => {
 
         if (Math.random() < chance) {
             /* SUCCESS — show intel popup */
-            spyTitle.textContent = '🕵️ MISSIONE RIUSCITA';
+            spyTitle.textContent = t('spy_success');
             spyTitle.style.color = 'var(--accent, #00e5ff)';
 
             const totalUnits = Object.values(tn.army).reduce((a,b) => a+b, 0);
@@ -2198,8 +2481,8 @@ const UI = (() => {
             /* Techs */
             let techHtml = '';
             tn.techs.forEach(tid => {
-                const t = TECHNOLOGIES.find(x => x.id === tid);
-                if (t) techHtml += `<span class="spy-tech">${t.icon} ${t.name}</span> `;
+                const _t = TECHNOLOGIES.find(x => x.id === tid);
+                if (_t) techHtml += `<span class="spy-tech">${_t.icon} ${_t.name}</span> `;
             });
 
             /* Alliances & wars */
@@ -2208,51 +2491,54 @@ const UI = (() => {
                 .map(a => a.a === targetCode ? a.b : a.a);
             const wars = state.wars.filter(w => w.attacker === targetCode || w.defender === targetCode)
                 .map(w => w.attacker === targetCode ? w.defender : w.attacker);
-            if (allies.length) diploHtml += `<div>🤝 Alleati: ${allies.map(c => state.nations[c]?.name || c).join(', ')}</div>`;
-            if (wars.length) diploHtml += `<div>⚔️ In guerra con: ${wars.map(c => state.nations[c]?.name || c).join(', ')}</div>`;
+            if (allies.length) diploHtml += `<div>${t('spy_allies')}: ${allies.map(c => state.nations[c]?.name || c).join(', ')}</div>`;
+            if (wars.length) diploHtml += `<div>${t('spy_at_war_with')}: ${wars.map(c => state.nations[c]?.name || c).join(', ')}</div>`;
 
             spyDisplay.innerHTML = `
                 <div class="spy-header">
                     <div class="spy-flag" style="background:${tn.color||'#607d8b'};width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">${tn.flag||'🏳️'}</div>
                     <div>
                         <div class="spy-nation-name" style="font-size:1.2rem;font-weight:700;color:#fff;">${tn.name || targetCode.toUpperCase()}</div>
-                        <div style="font-size:0.85rem;color:#90a4ae;">🌍 ${terrCount} territori · ⚔${atkPow} ATK · 🛡${defPow} DEF · 🪖${totalUnits} unità</div>
+                        <div style="font-size:0.85rem;color:#90a4ae;">🌍 ${terrCount} ${t('go_territories')} · ⚔${atkPow} ATK · 🛡${defPow} DEF · 🪖${totalUnits}</div>
                     </div>
                 </div>
                 <div class="spy-section">
-                    <h4>📦 Risorse</h4>
-                    <div class="spy-grid">${resHtml || '<em>Nessuna risorsa rilevante</em>'}</div>
+                    <h4>${t('spy_resources')}</h4>
+                    <div class="spy-grid">${resHtml || `<em>${t('spy_no_resource')}</em>`}</div>
                 </div>
                 <div class="spy-section">
-                    <h4>🪖 Esercito</h4>
-                    <div class="spy-grid">${armyHtml || '<em>Nessuna unità</em>'}</div>
+                    <h4>${t('spy_army')}</h4>
+                    <div class="spy-grid">${armyHtml || `<em>${t('spy_no_units')}</em>`}</div>
                 </div>
-                ${techHtml ? `<div class="spy-section"><h4>🔬 Tecnologie</h4><div>${techHtml}</div></div>` : ''}
-                ${diploHtml ? `<div class="spy-section"><h4>🌐 Diplomazia</h4>${diploHtml}</div>` : ''}
+                ${techHtml ? `<div class="spy-section"><h4>${t('spy_techs')}</h4><div>${techHtml}</div></div>` : ''}
+                ${diploHtml ? `<div class="spy-section"><h4>${t('spy_diplomacy')}</h4>${diploHtml}</div>` : ''}
             `;
 
-            addEventToLog({ turn: state.turn, type:'tech', msg:`🕵️ <span class="evt-action">Intel ottenuta su</span> ${fmtNation(tn)}` });
+            addEventToLog({ turn: state.turn, type:'tech', msg:`🕵️ <span class="evt-action">${t('evt_spy_intel')}</span> ${fmtNation(tn)}` });
             show('spy-popup');
             parseEmoji(els['spy-popup-display']);
         } else {
             /* FAILURE — captured */
-            spyTitle.textContent = '🕵️ MISSIONE FALLITA';
+            spyTitle.textContent = t('spy_failure');
             spyTitle.style.color = 'var(--red, #ff1744)';
             spyDisplay.innerHTML = `
                 <div style="text-align:center;padding:20px;">
                     <div style="font-size:3rem;margin-bottom:12px;">🚨</div>
-                    <div style="font-size:1.1rem;color:#ff1744;font-weight:600;">Agente catturato!</div>
-                    <div style="margin-top:8px;color:#90a4ae;">La tua spia è stata intercettata in <strong>${tn.name}</strong>.</div>
-                    <div style="margin-top:4px;color:#ff9800;">📉 Relazioni deteriorate (−25)</div>
+                    <div style="font-size:1.1rem;color:#ff1744;font-weight:600;">${t('spy_captured')}</div>
+                    <div style="margin-top:8px;color:#90a4ae;">${t('spy_intercepted')} <strong>${tn.name}</strong>.</div>
+                    <div style="margin-top:4px;color:#ff9800;">${t('spy_relations_down')} (−25)</div>
                 </div>
             `;
             GameEngine.adjustRelation(targetCode, state.player, -25);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ <span class="evt-action">Spia catturata in</span> ${fmtNation(tn)} <span class="evt-action">(-25)</span>` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ <span class="evt-action">${t('evt_spy_captured')}</span> ${fmtNation(tn)} <span class="evt-action">(-25)</span>` });
             show('spy-popup');
             parseEmoji(els['spy-popup-display']);
         }
         updateHUD();
         hide('diplomacy-popup');
+
+        /* Notify components */
+        _emitBus('resources:changed');
     }
 
     function doNukeStrike(targetTerritory) {
@@ -2268,7 +2554,7 @@ const UI = (() => {
 
         const result = GameEngine.nukeStrike(state.player, targetTerritory);
         if (!result) {
-            addEventToLog({ turn: state.turn, type:'game', msg:'❌ Attacco nucleare impossibile' });
+            addEventToLog({ turn: state.turn, type:'game', msg:`❌ ${t('evt_nuke_impossible')}` });
             return;
         }
         Animations.spawnNukeFX(state.player, targetTerritory, atkInfo, defInfo);
@@ -2283,7 +2569,7 @@ const UI = (() => {
                     midRevolts.forEach(r => {
                         Animations.spawnRevoltFX(r.territory);
                         addEventToLog({ turn: state.turn, type: 'battle',
-                            msg: `🔥 <strong>RIVOLTA!</strong> ${state.nations[r.to]?.flag||''} ${state.nations[r.to]?.name||r.territory} si ribella — guarnigione troppo debole!`
+                            msg: `🔥 <strong>${t('evt_revolt')}</strong> ${state.nations[r.to]?.flag||''} ${state.nations[r.to]?.name||r.territory} ${t('evt_revolt_rebel')}`
                         });
                     });
                 }, 800);
@@ -2294,6 +2580,15 @@ const UI = (() => {
         updateMilitaryBar();
         const sel = MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
+
+        /* Notify components */
+        _emitBus('nuke:launched', { attacker: state.player, target: targetTerritory, result });
+        _emitBus('resources:changed');
+        _emitBus('army:changed');
+        if (result.conquered) {
+            _emitBus('territory:conquered', { territory: targetTerritory, attacker: state.player });
+        }
+        _emitBus('state:changed');
     }
 
     function doPeaceFromPanel(ownerCode) {
@@ -2344,14 +2639,14 @@ const UI = (() => {
 
         /* ── War situation summary ── */
         html += `<div class="peace-info-grid">`;
-        html += `<div class="peace-info-item"><span class="peace-info-label">⏱️ Durata guerra</span><span class="peace-info-val">${deal.warInfo.turns} turni</span></div>`;
-        html += `<div class="peace-info-item"><span class="peace-info-label">⚔️ Rapporto forze</span><span class="peace-info-val">${deal.warInfo.powerRatio > 1 ? '🔴 Nemico più forte' : deal.warInfo.powerRatio < 0.7 ? '🟢 Tu sei più forte' : '🟡 Equilibrato'}</span></div>`;
-        html += `<div class="peace-info-item"><span class="peace-info-label">🏳️ Aggressore</span><span class="peace-info-val">${deal.warInfo.requesterIsAggressor ? 'Tu (penalità)' : en.name}</span></div>`;
-        html += `<div class="peace-info-item"><span class="peace-info-label">😤 Stanchezza</span><span class="peace-info-val">${deal.warInfo.weariness}%</span></div>`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">${t('peace_war_duration')}</span><span class="peace-info-val">${deal.warInfo.turns} ${t('turns_word')}</span></div>`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">${t('peace_power_ratio')}</span><span class="peace-info-val">${deal.warInfo.powerRatio > 1 ? t('peace_enemy_stronger') : deal.warInfo.powerRatio < 0.7 ? t('peace_you_stronger') : t('peace_balanced')}</span></div>`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">${t('peace_aggressor')}</span><span class="peace-info-val">${deal.warInfo.requesterIsAggressor ? t('peace_you_aggressor') : en.name}</span></div>`;
+        html += `<div class="peace-info-item"><span class="peace-info-label">${t('peace_weariness')}</span><span class="peace-info-val">${deal.warInfo.weariness}%</span></div>`;
         html += `</div>`;
 
         /* ── Enemy demands ── */
-        html += `<div class="peace-demands-header">📜 ${en.name} chiede:</div>`;
+        html += `<div class="peace-demands-header">📜 ${en.name} ${t('peace_demands')}</div>`;
         html += `<div class="peace-demands-list">`;
 
         let canAfford = true;
@@ -2362,29 +2657,29 @@ const UI = (() => {
             html += `<div class="peace-demand-row ${affordable ? '' : 'peace-demand-lacking'}">`;
             html += `<span class="peace-demand-res">${d.icon} ${d.name}</span>`;
             html += `<span class="peace-demand-amt">${d.amount}</span>`;
-            html += `<span class="peace-demand-have" style="color:${affordable ? 'var(--text-dim)' : '#ff1744'};">(hai: ${playerHas})</span>`;
+            html += `<span class="peace-demand-have" style="color:${affordable ? 'var(--text-dim)' : '#ff1744'};">(${t('peace_you_have')}: ${playerHas})</span>`;
             html += `</div>`;
         });
         html += `</div>`;
 
         /* ── Warning if can't afford ── */
         if (!canAfford) {
-            html += `<div class="peace-warning">⚠️ Non hai abbastanza risorse per soddisfare tutte le richieste!</div>`;
+            html += `<div class="peace-warning">⚠️ ${t('peace_insufficient')}</div>`;
         }
 
         /* ── Action buttons ── */
         html += `<div class="peace-actions">`;
         html += `<button class="peace-btn peace-btn-accept ${canAfford ? '' : 'disabled'}" ${canAfford ? '' : 'disabled'} onclick="UI.acceptPeace('${enemyCode}');">`;
-        html += `✅ Accetta e firma la pace</button>`;
+        html += `${t('peace_accept')}</button>`;
         html += `<button class="peace-btn peace-btn-reject" onclick="UI.rejectPeace('${enemyCode}');">`;
-        html += `❌ Rifiuta — continua la guerra</button>`;
+        html += `${t('peace_reject')}</button>`;
         html += `</div>`;
 
         /* ── Flavour text ── */
-        const flavour = deal.mood === 'generous' ? `${en.name} è disposta a condizioni vantaggiose. La guerra li ha indeboliti.`
-                       : deal.mood === 'fair' ? `Le condizioni riflettono un equilibrio di potere. Un accordo ragionevole.`
-                       : deal.mood === 'harsh' ? `${en.name} si sente in posizione di forza e pretende un prezzo alto.`
-                       : `${en.name} vuole umiliarti. Queste condizioni sono quasi un'estorsione.`;
+        const flavour = deal.mood === 'generous' ? `${en.name} ${t('peace_flavour_generous')}`
+                       : deal.mood === 'fair' ? t('peace_flavour_fair')
+                       : deal.mood === 'harsh' ? `${en.name} ${t('peace_flavour_harsh')}`
+                       : `${en.name} ${t('peace_flavour_punitive')}`;
         html += `<div class="peace-flavour">💬 "${flavour}"</div>`;
 
         display.innerHTML = html;
@@ -2401,7 +2696,9 @@ const UI = (() => {
 
         const paid = GameEngine.applyPeaceDemands(state.player, enemyCode, deal.demands);
         if (!paid) {
-            addEventToLog({ turn: state.turn, type: 'diplomacy', msg: '❌ Risorse insufficienti per pagare le condizioni di pace!' });
+            addEventToLog({ turn: state.turn, type: 'diplomacy', msg: `❌ ${t('peace_insufficient')}` });
+            _showActionToast('❌', t('toast_peace_fail'),
+                t('toast_peace_no_res'), 'danger');
             return;
         }
 
@@ -2411,7 +2708,11 @@ const UI = (() => {
         const costStr = deal.demands.map(d => `${d.icon}${d.amount}`).join(' ');
         const en = state.nations[enemyCode];
         addEventToLog({ turn: state.turn, type: 'diplomacy',
-            msg: `🕊️ Pace con ${fmtNation(en)} — Costo: ${costStr}` });
+            msg: `🕊️ ${t('evt_peace_with')} ${fmtNation(en)} — ${t('cost_word')}: ${costStr}` });
+
+        /* Visual feedback */
+        _showActionToast('🕊️', t('toast_peace_done'),
+            `${en.flag} ${en.name} — ${t('toast_peace_cost')}: ${costStr}`, 'success', 3200);
 
         hide('peace-popup');
         updateHUD();
@@ -2419,6 +2720,11 @@ const UI = (() => {
         MapRenderer.colourAllTerritories();
         const sel = MapRenderer.getSelected && MapRenderer.getSelected();
         if (sel) showTerritoryPanel(sel);
+
+        /* Notify components */
+        _emitBus('diplomacy:changed');
+        _emitBus('resources:changed');
+        _emitBus('state:changed');
     }
 
     function rejectPeace(enemyCode) {
@@ -2426,8 +2732,12 @@ const UI = (() => {
         const en = state?.nations[enemyCode];
         GameEngine.adjustRelation(enemyCode, state.player, -10);
         addEventToLog({ turn: state.turn, type: 'diplomacy',
-            msg: `❌ Pace rifiutata con ${fmtNation(en)} — La guerra continua! (-10 relazione)` });
+            msg: `❌ ${t('evt_peace_rejected')} ${fmtNation(en)} — ${t('evt_peace_war_on')} (-10 ${t('relation_word')})` });
         hide('peace-popup');
+
+        /* Visual feedback */
+        _showActionToast('⚔️', t('toast_peace_rejected'),
+            `${en?.flag||''} ${en?.name||''} — ${t('toast_peace_war_on')} (−10 ${t('relation_word')})`, 'warn');
     }
 
     /* ════════════════ ECONOMY OVERVIEW ════════════════ */
@@ -2442,7 +2752,7 @@ const UI = (() => {
         let html = '';
 
         /* Current reserves */
-        html += '<div class="econ-section"><h4>💰 RISERVE ATTUALI</h4><div class="econ-grid">';
+        html += `<div class="econ-section"><h4>${t('econ_reserves')}</h4><div class="econ-grid">`;
         Object.entries(RESOURCES).forEach(([key, r]) => {
             const val = n.res[key] || 0;
             if (val > 0 || (income[key] || 0) > 0) {
@@ -2452,21 +2762,21 @@ const UI = (() => {
         html += '</div></div>';
 
         /* Per-turn income */
-        html += '<div class="econ-section"><h4>📈 ENTRATE PER TURNO</h4>';
-        html += `<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:8px;">Dai tuoi ${terrCount} territori. Territori conquistati producono il 70% delle risorse originali.</div>`;
+        html += `<div class="econ-section"><h4>${t('econ_per_turn')}</h4>`;
+        html += `<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:8px;">${t('econ_per_turn_desc', {n: terrCount})}</div>`;
         html += '<div class="econ-grid">';
         Object.entries(RESOURCES).forEach(([key, r]) => {
             const inc = income[key] || 0;
             if (inc > 0) {
-                html += `<div class="econ-item"><span class="econ-icon">${r.icon}</span><span class="econ-name">${r.name}</span><span class="econ-val econ-pos">+${inc}/turno</span></div>`;
+                html += `<div class="econ-item"><span class="econ-icon">${r.icon}</span><span class="econ-name">${r.name}</span><span class="econ-val econ-pos">+${inc}${t('col_per_turn')}</span></div>`;
             }
         });
         html += '</div></div>';
 
         /* Sanctions impact */
         if (n.sanctions.length > 0) {
-            html += '<div class="econ-section"><h4>⚠️ SANZIONI SUBITE</h4>';
-            html += `<div style="font-size:0.75rem;color:var(--accent3)">${n.sanctions.length} nazioni ti sanzionano (-${n.sanctions.length * 5}% produzione)</div>`;
+            html += `<div class="econ-section"><h4>${t('econ_sanctions_title')}</h4>`;
+            html += `<div style="font-size:0.75rem;color:var(--accent3)">${t('econ_sanctions_desc', {n: n.sanctions.length, p: n.sanctions.length * 5})}</div>`;
             html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">';
             n.sanctions.forEach(sc => {
                 const sn = state.nations[sc];
@@ -2476,7 +2786,7 @@ const UI = (() => {
         }
 
         /* Strategic assets controlled */
-        html += '<div class="econ-section"><h4>⚓ ASSET STRATEGICI</h4><div class="econ-grid">';
+        html += `<div class="econ-section"><h4>${t('econ_assets_title')}</h4><div class="econ-grid">`;
         let anyAsset = false;
         Object.entries(STRATEGIC_ASSETS).forEach(([id, asset]) => {
             const owned = asset.holders.some(h => state.territories[h] === state.player);
@@ -2486,33 +2796,44 @@ const UI = (() => {
                 anyAsset = true;
             }
         });
-        if (!anyAsset) html += '<div style="color:var(--text-dim);font-size:0.75rem;">Nessun asset controllato</div>';
+        if (!anyAsset) html += `<div style="color:var(--text-dim);font-size:0.75rem;">${t('econ_no_assets')}</div>`;
         html += '</div></div>';
 
         /* Army overview */
-        html += '<div class="econ-section"><h4>🪖 FORZE ARMATE</h4><div class="econ-grid">';
+        html += `<div class="econ-section"><h4>${t('econ_army_title')}</h4><div class="econ-grid">`;
         Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
             const count = n.army[key] || 0;
             if (count > 0) {
-                const upkeep = Math.round(Object.values(ut.cost).reduce((a,b) => a+b, 0) * 0.02);
-                html += `<div class="econ-item"><span class="econ-icon">${ut.icon}</span><span class="econ-name">${ut.name} ×${count}</span><span class="econ-val">⚔️${ut.atk*count} 🛡️${ut.def*count}</span></div>`;
+                html += `<div class="econ-item" style="display:flex;align-items:center;gap:var(--sp-2);">`;
+                html += `<span class="econ-icon" style="font-size:1.3rem;width:28px;text-align:center;flex-shrink:0;">${ut.icon}</span>`;
+                html += `<span class="econ-name" style="flex:1;min-width:0;">${ut.name} <span style="color:var(--gold);font-weight:700;">×${count}</span></span>`;
+                html += `<span style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:0.72rem;flex-shrink:0;">`;
+                html += `<span style="color:var(--red);" title="ATK">⚔️${ut.atk*count}</span>`;
+                html += `<span style="color:var(--accent);" title="DEF">🛡️${ut.def*count}</span>`;
+                html += `</span>`;
+                html += `</div>`;
             }
         });
         const totalAtk = GameEngine.calcMilitary(state.player, 'atk');
         const totalDef = GameEngine.calcMilitary(state.player, 'def');
-        html += `</div><div style="margin-top:6px;font-size:0.8rem;font-family:var(--font-mono);color:var(--gold);">Potenza Totale: ⚔️${totalAtk} ATK | 🛡️${totalDef} DEF</div></div>`;
+        html += `</div>`;
+        html += `<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px;padding:8px 12px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);border-radius:6px;font-family:var(--font-mono);font-size:0.8rem;">`;
+        html += `<span style="color:var(--red);font-weight:700;">⚔️ ${totalAtk} ATK</span>`;
+        html += `<span style="color:var(--border);font-size:0.6rem;">│</span>`;
+        html += `<span style="color:var(--accent);font-weight:700;">🛡️ ${totalDef} DEF</span>`;
+        html += `</div></div>`;
 
         /* Technologies */
-        html += '<div class="econ-section"><h4>🔬 TECNOLOGIE RICERCATE</h4>';
+        html += `<div class="econ-section"><h4>${t('econ_techs_title')}</h4>`;
         if (n.techs.length > 0) {
             html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
             n.techs.forEach(tid => {
-                const t = TECHNOLOGIES.find(tt => tt.id === tid);
-                if (t) html += `<span style="font-size:0.7rem;background:rgba(0,230,118,0.1);padding:2px 8px;border-radius:3px;color:var(--green);">${t.icon} ${t.name}</span>`;
+                const _t = TECHNOLOGIES.find(tt => tt.id === tid);
+                if (_t) html += `<span style="font-size:0.7rem;background:rgba(0,230,118,0.1);padding:2px 8px;border-radius:3px;color:var(--green);">${_t.icon} ${_t.name}</span>`;
             });
             html += '</div>';
         } else {
-            html += '<div style="color:var(--text-dim);font-size:0.75rem;">Nessuna tecnologia ricercata</div>';
+            html += `<div style="color:var(--text-dim);font-size:0.75rem;">${t('econ_no_techs')}</div>`;
         }
         html += '</div>';
 
@@ -2544,7 +2865,7 @@ const UI = (() => {
         GameEngine.endPlayerTurn();
 
         /* Log AI turn start */
-        addEventToLog({ turn: state.turn, type:'game', msg:'🤖 <strong>TURNO AI — T' + state.turn + '</strong>' });
+        addEventToLog({ turn: state.turn, type:'game', msg:`<strong>${t('ai_turn_label',{n:state.turn})}</strong>` });
 
         /* Disable end-turn button during AI */
         const btnEnd = els['btn-end-turn'];
@@ -2567,6 +2888,7 @@ const UI = (() => {
         MapRenderer.resizeFx();
         for (const act of majorActions) {
             logAIAction(act, state);
+            _emitBus('ai:action', { action: act, state });
 
             if (act.type === 'attack' && act.result) {
                 const _aN = state.nations[act.result.attacker];
@@ -2585,11 +2907,11 @@ const UI = (() => {
                     for (let ci = 0; ci < siege.releasedColonies.length; ci++) {
                         const colCode = siege.releasedColonies[ci];
                         Animations.spawnConquerFX(colCode);
-                        Animations.spawnText(colCode, siege.survived ? '🏳️ Ceduto' : '💀', '#ff6e40', true);
+                        Animations.spawnText(colCode, siege.survived ? t('revolt_mid_yielded') : '💀', '#ff6e40', true);
                     }
                     MapRenderer.colourAllTerritories();
                     if (siege.survived && siege.retreatedTo) {
-                        Animations.spawnText(siege.retreatedTo, '🛡️ Ritirata!', '#ffd740', true);
+                        Animations.spawnText(siege.retreatedTo, t('revolt_mid_retreat'), '#ffd740', true);
                     }
                 }
                 await dly(autoPlayMode ? 900 : 500);
@@ -2638,10 +2960,14 @@ const UI = (() => {
         if (revoltCount > 0) summary += ` | 🔥${revoltCount} rivolte`;
         addEventToLog({ turn: state.turn, type:'game', msg: summary });
 
+        /* Emit turn:end for components (AI done, before victory check) */
+        _emitBus('turn:end', { turn: state.turn });
+
         /* Check victory */
         const victor = GameEngine.checkVictory();
         if (victor) {
             showGameOver(victor);
+            _emitBus('victory:achieved', { victor, type: state.victoryType });
             aiTurnBusy = false;
             autoPlayStop = true;
             return;
@@ -2653,8 +2979,11 @@ const UI = (() => {
             if (playerTerr === 0) {
                 playerDead = true;
                 addEventToLog({ turn: state.turn, type:'nuke',
-                    msg: `💀 <strong>${state.nations[state.player]?.flag||''} ${state.nations[state.player]?.name||'Tu'} È STATO ELIMINATO!</strong> Modalità spettatore attiva.`
+                    msg: `<strong>${t('player_eliminated',{flag:state.nations[state.player]?.flag||'',name:state.nations[state.player]?.name||'You'})}</strong>`
                 });
+                _emitBus('player:dead');
+                /* Hide footer (military bar) and clear HUD resources for defeated player */
+                _hideDefeatedUI();
                 if (!autoPlayMode) startAutoPlay();
                 else updateAutoPlayBanner();
             }
@@ -2665,6 +2994,12 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
+
+        /* Notify components of new turn */
+        _emitBus('turn:start', { turn: state.turn });
+        _emitBus('resources:changed');
+        _emitBus('army:changed');
+        _emitBus('state:changed');
 
         /* Refresh the left sidebar if it was open — buttons go from disabled to active */
         if (!autoPlayMode && !playerDead) {
@@ -2695,12 +3030,29 @@ const UI = (() => {
         }
     }
 
+    /** Hide military bar (footer) and HUD resources when player is defeated */
+    function _hideDefeatedUI() {
+        /* Hide bottom panel (military bar) */
+        const bp = els['bottom-panel'];
+        if (bp) bp.classList.add('hidden');
+        /* Clear and shrink HUD resources — no army, no resources to show */
+        if (els['hud-resources']) {
+            els['hud-resources'].innerHTML = `<span style="font-size:0.72rem;color:var(--text-dim);font-style:italic;padding:4px 8px;">💀 ${t('hud_defeated') || 'Sconfitto'}</span>`;
+        }
+        /* Hide production / tech / diplomacy / colonies HUD buttons */
+        ['btn-economy','btn-production','btn-tech-tree','btn-diplomacy','btn-colonies'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.style.display = 'none';
+        });
+    }
+
     /* ═══ AUTOPLAY: works both when alive and when dead ═══ */
     function startAutoPlay() {
         autoPlayMode = true;
         autoPlayStop = false;
         Animations.setSpeed(1.8);
         showAutoPlayBanner();
+        _emitBus('autoplay:start');
 
         /* Hide end-turn and autoplay buttons */
         const btnEnd = els['btn-end-turn'];
@@ -2716,6 +3068,7 @@ const UI = (() => {
         autoPlayMode = false;
         autoPlayStop = true;
         Animations.setSpeed(1);
+        _emitBus('autoplay:stop');
 
         /* If player is still alive, restore controls */
         if (!playerDead) {
@@ -2757,9 +3110,9 @@ const UI = (() => {
             /* Just refresh the year text */
             if (existingLabel) {
                 if (needsDead) {
-                    existingLabel.innerHTML = `<span style="opacity:0.85">💀</span> <strong>ELIMINATO</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Modalità spettatore · Anno ${year}`;
+                    existingLabel.innerHTML = `<span style="opacity:0.85">💀</span> <strong>${t('auto_eliminated')}</strong> <span style="opacity:0.5;margin:0 6px;">│</span> ${t('auto_spectator_mode')} · ${t('auto_year')} ${year}`;
                 } else {
-                    existingLabel.innerHTML = `⏩ <strong>AUTO-PLAY</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Anno ${year}`;
+                    existingLabel.innerHTML = `⏩ <strong>AUTO-PLAY</strong> <span style="opacity:0.5;margin:0 6px;">│</span> ${t('auto_year')} ${year}`;
                 }
             }
             return;
@@ -2771,18 +3124,18 @@ const UI = (() => {
         if (playerDead) {
             banner.classList.add('banner-dead');
             banner.innerHTML = `
-                <span class="spectator-label"><span style="opacity:0.85">💀</span> <strong>ELIMINATO</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Modalità spettatore · Anno ${year}</span>
+                <span class="spectator-label"><span style="opacity:0.85">💀</span> <strong>${t('auto_eliminated')}</strong> <span style="opacity:0.5;margin:0 6px;">│</span> ${t('auto_spectator_mode')} · ${t('auto_year')} ${year}</span>
                 <div class="spectator-btns">
-                    <button id="btn-auto-toggle" class="btn-sm">⏸ PAUSA</button>
-                    <button id="btn-auto-restart" class="btn-sm btn-stop">🔄 RICOMINCIA</button>
+                    <button id="btn-auto-toggle" class="btn-sm">${t('auto_pause')}</button>
+                    <button id="btn-auto-restart" class="btn-sm btn-stop">${t('btn_restart')}</button>
                 </div>`;
             document.getElementById('btn-auto-toggle').addEventListener('click', () => {
                 autoPlayStop = !autoPlayStop;
                 const btn = document.getElementById('btn-auto-toggle');
                 if (autoPlayStop) {
-                    btn.textContent = '▶ RIPRENDI';
+                    btn.textContent = t('auto_resume');
                 } else {
-                    btn.textContent = '⏸ PAUSA';
+                    btn.textContent = t('auto_pause');
                     endTurn();
                 }
             });
@@ -2790,9 +3143,9 @@ const UI = (() => {
         } else {
             banner.classList.add('banner-auto');
             banner.innerHTML = `
-                <span class="spectator-label">⏩ <strong>AUTO-PLAY</strong> <span style="opacity:0.5;margin:0 6px;">│</span> Anno ${year}</span>
+                <span class="spectator-label">⏩ <strong>AUTO-PLAY</strong> <span style="opacity:0.5;margin:0 6px;">│</span> ${t('auto_year')} ${year}</span>
                 <div class="spectator-btns">
-                    <button id="btn-auto-stop" class="btn-sm">⏹ TORNA A GIOCARE</button>
+                    <button id="btn-auto-stop" class="btn-sm">${t('auto_return')}</button>
                 </div>`;
             document.getElementById('btn-auto-stop').addEventListener('click', () => {
                 stopAutoPlay();
@@ -2835,35 +3188,35 @@ const UI = (() => {
                 const ok = action.result?.success;
                 const icon = ok ? '✅' : '❌';
                 const res = ok
-                    ? `<span class="evt-result win">VITTORIA</span>`
-                    : `<span class="evt-result lose">SCONFITTA</span>`;
+                    ? `<span class="evt-result win">${t('evt_ai_win')}</span>`
+                    : `<span class="evt-result lose">${t('evt_ai_lose')}</span>`;
                 msg = `${icon} ${me} → ${tgt(action.target)} ${res}`;
                 if (action.result?.conquered) msg += ' 🏴';
                 type = 'battle';
                 break;
             }
             case 'war_declare': {
-                msg = `🔥 ${me} <span class="evt-action">dichiara guerra a</span> ${tgt(action.target)}`;
+                msg = `🔥 ${me} <span class="evt-action">${t('evt_ai_declares_war')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'alliance': {
-                msg = `🤝 ${me} <span class="evt-action">alleanza con</span> ${tgt(action.target)}`;
+                msg = `🤝 ${me} <span class="evt-action">${t('evt_ai_alliance')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'peace': {
-                msg = `🕊️ ${me} <span class="evt-action">pace con</span> ${tgt(action.target)}`;
+                msg = `🕊️ ${me} <span class="evt-action">${t('evt_ai_peace')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'nuke': {
-                msg = `☢️ ${me} <span class="evt-action">nucleare su</span> ${tgt(action.target)}`;
+                msg = `☢️ ${me} <span class="evt-action">${t('evt_ai_nuke')}</span> ${tgt(action.target)}`;
                 type = 'nuke';
                 break;
             }
             case 'sanction': {
-                msg = `🚫 ${me} <span class="evt-action">sanziona</span> ${tgt(action.target)}`;
+                msg = `🚫 ${me} <span class="evt-action">${t('evt_ai_sanction')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
@@ -2875,23 +3228,23 @@ const UI = (() => {
             }
             case 'research': {
                 const tech = TECHNOLOGIES.find(t => t.id === action.tech);
-                msg = `🔬 ${me} <span class="evt-action">ricerca</span> ${tech?.icon || ''} ${tech?.name || action.tech}`;
+                msg = `🔬 ${me} <span class="evt-action">${t('evt_ai_research')}</span> ${tech?.icon || ''} ${tech?.name || action.tech}`;
                 type = 'tech';
                 break;
             }
             case 'betray': {
-                msg = `💔 ${me} <span class="evt-action">tradisce</span> ${tgt(action.target)}`;
+                msg = `💔 ${me} <span class="evt-action">${t('evt_ai_betray')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
             }
             case 'revolt': {
                 const fromN = state.nations[action.from];
-                msg = `🔥 ${me} <span class="evt-action">RIVOLTA!</span> Territorio strappato a ${fromN ? fmtNation(fromN) : tgt(action.from)}`;
+                msg = `🔥 ${me} <span class="evt-action">${t('evt_ai_revolt')}</span> ${t('evt_ai_revolt_taken')} ${fromN ? fmtNation(fromN) : tgt(action.from)}`;
                 type = 'battle';
                 break;
             }
             case 'suppress_unrest': {
-                msg = `🛡️ ${me} <span class="evt-action">seda rivolta in</span> ${tgt(action.target)}`;
+                msg = `🛡️ ${me} <span class="evt-action">${t('evt_ai_suppress')}</span> ${tgt(action.target)}`;
                 type = 'game';
                 break;
             }
@@ -2909,7 +3262,7 @@ const UI = (() => {
             const remaining = GameEngine.getTerritoryCount ? GameEngine.getTerritoryCount(defender) : -1;
             if (remaining === 0) {
                 addEventToLog({ turn: state.turn, type:'battle',
-                    msg: `💀 ${fmtNation(dN)} <span class="evt-action">è stata eliminata!</span>`
+                    msg: `💀 ${fmtNation(dN)} <span class="evt-action">${t('evt_ai_eliminated')}</span>`
                 });
             }
         }
@@ -2925,17 +3278,17 @@ const UI = (() => {
                     return cn?.name || c.toUpperCase();
                 }).join(', ');
                 addEventToLog({ turn: state.turn, type:'battle',
-                    msg: `🏳️ ${fmtNation(defN)} <span class="evt-action">cede ${siege.releasedColonies.length} colonie:</span> ${colNames}`
+                    msg: `🏳️ ${fmtNation(defN)} <span class="evt-action">${t('evt_ai_cedes',{n:siege.releasedColonies.length})}</span> ${colNames}`
                 });
             }
             if (siege.survived && siege.retreatedTo) {
                 const retName = typeof getNation !== 'undefined' ? getNation(siege.retreatedTo)?.name : siege.retreatedTo.toUpperCase();
                 addEventToLog({ turn: state.turn, type:'battle',
-                    msg: `🛡️ ${fmtNation(defN)} <span class="evt-action">sopravvive! Si ritira a</span> ${retName || siege.retreatedTo.toUpperCase()}`
+                    msg: `🛡️ ${fmtNation(defN)} <span class="evt-action">${t('evt_ai_survives')}</span> ${retName || siege.retreatedTo.toUpperCase()}`
                 });
             } else if (!siege.survived) {
                 addEventToLog({ turn: state.turn, type:'battle',
-                    msg: `💀 ${fmtNation(defN)} <span class="evt-action">COLLASSO TOTALE!</span> ${fmtNation(atkN)} conquista tutto`
+                    msg: `💀 ${fmtNation(defN)} <span class="evt-action">${t('evt_ai_collapse')}</span> ${fmtNation(atkN)} ${t('evt_ai_conquers_all')}`
                 });
             }
         }
@@ -3152,54 +3505,54 @@ const UI = (() => {
 
         /* Victory type labels */
         const VICTORY_LABELS = {
-            military:  { icon: '⚔️', label: 'VITTORIA MILITARE',   desc: 'Dominazione territoriale (≥85% territori)' },
-            economic:  { icon: '💰', label: 'VITTORIA ECONOMICA',  desc: 'Supremazia economica (≥50K fondi + ≥30% territori)' },
-            strategic: { icon: '🎯', label: 'VITTORIA STRATEGICA', desc: 'Controllo di tutti gli asset strategici' }
+            military:  { icon: '⚔️', label: t('vic_military'),   desc: t('vic_military_desc') },
+            economic:  { icon: '💰', label: t('vic_economic'),  desc: t('vic_economic_desc') },
+            strategic: { icon: '🎯', label: t('vic_strategic'), desc: t('vic_strategic_desc') }
         };
         const vt = VICTORY_LABELS[state.victoryType] || VICTORY_LABELS.military;
 
         if (isPlayer) {
-            els['gameover-title'].textContent = '🏆 HAI VINTO!';
+            els['gameover-title'].textContent = t('go_you_won');
             els['gameover-title'].style.color = 'var(--gold)';
-            els['gameover-text'].textContent = `${n.flag} ${n.name} domina il mondo!`;
+            els['gameover-text'].textContent = `${n.flag} ${n.name} ${t('go_dominates')}`;
         } else if (playerDead) {
-            els['gameover-title'].textContent = `🏆 ${n.flag} ${n.name} HA VINTO!`;
+            els['gameover-title'].textContent = `🏆 ${n.flag} ${n.name} ${t('go_won')}`;
             els['gameover-title'].style.color = 'var(--accent)';
-            els['gameover-text'].textContent = `${n.flag} ${n.name} ha conquistato il dominio globale al turno ${state.turn}.`;
+            els['gameover-text'].textContent = `${n.flag} ${n.name} ${t('go_conquered_turn')} ${state.turn}.`;
         } else {
-            els['gameover-title'].textContent = '💀 HAI PERSO!';
+            els['gameover-title'].textContent = t('go_you_lost');
             els['gameover-title'].style.color = 'var(--red)';
-            els['gameover-text'].textContent = `${n.flag} ${n.name} ha conquistato il dominio globale.`;
+            els['gameover-text'].textContent = `${n.flag} ${n.name} ${t('go_conquered')}`;
         }
 
         const victorTerr = GameEngine.getTerritoryCount(victor);
         const totalTerr = SVG_IDS.length;
         els['gameover-stats'].innerHTML = `
             <div class="go-stat" style="grid-column:1/-1;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:8px;">
-                <div class="label">${vt.icon} Tipo di Vittoria</div>
+                <div class="label">${vt.icon} ${t('go_victory_type')}</div>
                 <div class="val" style="font-size:1rem;color:var(--gold);">${vt.label}</div>
                 <div style="font-size:0.65rem;color:#90a4ae;margin-top:2px;">${vt.desc}</div>
             </div>
-            <div class="go-stat"><div class="label">Vincitore</div><div class="val">${n.flag} ${n.name}</div></div>
-            <div class="go-stat"><div class="label">Turni</div><div class="val">${state.turn}</div></div>
-            <div class="go-stat"><div class="label">Territori</div><div class="val">${victorTerr}/${totalTerr}</div></div>
-            <div class="go-stat"><div class="label">Fondi</div><div class="val">💰${n.res.money}</div></div>
+            <div class="go-stat"><div class="label">${t('go_winner')}</div><div class="val">${n.flag} ${n.name}</div></div>
+            <div class="go-stat"><div class="label">${t('go_turns')}</div><div class="val">${state.turn}</div></div>
+            <div class="go-stat"><div class="label">${t('go_territories')}</div><div class="val">${victorTerr}/${totalTerr}</div></div>
+            <div class="go-stat"><div class="label">${t('go_funds')}</div><div class="val">💰${n.res.money}</div></div>
         `;
         parseEmoji(els['gameover-popup']);
 
         /* Build the persistent victory banner text */
         const bannerTitle = isPlayer
-            ? `🏆 ${n.flag} ${n.name} — ${vt.label} al turno ${state.turn}!`
+            ? `🏆 ${n.flag} ${n.name} — ${vt.label} ${t('hud_turn').toLowerCase()} ${state.turn}!`
             : playerDead
-                ? `🏆 ${n.flag} ${n.name} ha vinto — ${vt.label}`
-                : `💀 ${n.flag} ${n.name} ha vinto — ${vt.label}`;
+                ? `🏆 ${n.flag} ${n.name} ${t('go_won')} — ${vt.label}`
+                : `💀 ${n.flag} ${n.name} ${t('go_won')} — ${vt.label}`;
 
         const banner = document.getElementById('victory-banner');
         if (banner) {
             banner.innerHTML = `
                 <span class="victory-banner-text">${bannerTitle}</span>
-                <button class="btn-sm btn-details-sm" id="btn-banner-details">📊 Dettagli</button>
-                <button class="btn-sm btn-restart-sm" id="btn-banner-restart">🔄 Ricomincia</button>
+                <button class="btn-sm btn-details-sm" id="btn-banner-details">📊</button>
+                <button class="btn-sm btn-restart-sm" id="btn-banner-restart">${t('btn_restart')}</button>
             `;
             /* Wire banner buttons */
             document.getElementById('btn-banner-restart').addEventListener('click', () => location.reload());
@@ -3234,7 +3587,7 @@ const UI = (() => {
 
         const notice = document.createElement('div');
         notice.className = 'turn-notice';
-        notice.innerHTML = '🎯 È il tuo turno!';
+        notice.innerHTML = t('your_turn');
         container.prepend(notice);
         parseEmojiIfNeeded(notice);
 

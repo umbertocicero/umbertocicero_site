@@ -1,17 +1,27 @@
-Refacoring UI per creare componenti.
+RAGIONA COME ESPERTO UX UI:
+eliminare la sezione forze militari dalla toolbar per i miei stati essendo gia presenti nel footer.
 
-Logica a eventi che aggiornano i componenti.
+in panoramica economica, la sezione forze armate  non è equilibrata, spade numeri e scudi non solo ben allieati.
 
-l'elenco con le nazioni e i territori conquistati si aggiornano a secondo deli eventi di conquista.
+In produzione unita, le risorse devono avere una grafica simile all' esercito attuale per uniformità.
 
-le risorse e l'esercito si aggiornano in base agli attacchi fatti e subiti appenaa vengono come evento.
+ui componente modale vittoria, la scritta chiudi presenta erronemente qualche pixel in basso, verso il border botton, azzera il padding bottom del pulsante, o il margin-bottom.
+il clihudi deve uessere ul pulsante centrale come gli altri modali.
 
-labels ui su foglio separato.
+--
+RAGIONA COME ESPERTO DI GIOCHI:
+Rivedere la logica di conquista delle altre nazioni, quali sono gli obbiettivi, come si espandono, devono essere molto furbe, da esperte di giochi.
 
-Multilingua in base all lingua del browser e possibilita di switch tramite impostazioni da aggiungere su toolbar.
+cliccando su rompi alleanza allora bisogna aggiornare toolbar.
 
-Salva scelte settings su local storage.
+Cliccando su patto di non aggressione far comparire il modale informativo se gli eventi sono collassati. e disabilita il pulsante per una seconda richiesta se non è più possibile farla, se non ha senso poche. non si capisce bene il funzionamento, sistemalo come un esperto di giochi e di ux.
 
-Se si perde eliminare footer con l'esercito rimanente e le risorse rimanenti dalla toolbar in alto.
+--
+RAGIONA COME ESPERTO DI GEOPOLITICA e programmatore senior:
+Il Giappone non è attaccabile via terra.
+Sicuro che il controllo di Panama sia un asset strategico USA? sistema da esperto di geopolitica.
+l'italia deve produrre molto più cibo.
 
-Se si perde, quando si apre una sidebar di una nazione non c'è scritto aspetta il tuo turno, ma spariscono i pulsanti e le lable che non servono più o non sono applicabili.
+
+
+

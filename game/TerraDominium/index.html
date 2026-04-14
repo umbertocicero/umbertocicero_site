@@ -24,21 +24,21 @@
         <div class="intro-bg-canvas" id="intro-bg"></div>
         <div class="intro-content">
             <h1 class="game-title">GEO<span>DOMINION</span></h1>
-            <p class="game-subtitle">GLOBAL STRATEGIC WARFARE</p>
+            <p class="game-subtitle" data-i18n="intro_subtitle">GLOBAL STRATEGIC WARFARE</p>
             <div class="intro-buttons">
-                <button id="btn-new-game" class="btn-main">⚔️ NUOVA PARTITA</button>
-                <button id="btn-how-to" class="btn-secondary">📖 COME SI GIOCA</button>
+                <button id="btn-new-game" class="btn-main" data-i18n="intro_play">⚔️ NUOVA PARTITA</button>
+                <button id="btn-how-to" class="btn-secondary" data-i18n="intro_howto">📖 COME SI GIOCA</button>
             </div>
-            <p class="disclaimer">Simulazione ludica — non rappresenta istruzioni operative reali.</p>
+            <p class="disclaimer" data-i18n="intro_disclaimer">Simulazione ludica — non rappresenta istruzioni operative reali.</p>
         </div>
     </div>
 
     <!-- ═══════════════════ NATION SELECT ═══════════════════ -->
     <div id="nation-select-screen" class="hidden">
         <div class="nation-select-header">
-            <button id="btn-back-to-intro" class="btn-back">← INDIETRO</button>
-            <h2>SCEGLI LA TUA NAZIONE</h2>
-            <p>Seleziona una nazione per iniziare la conquista globale</p>
+            <button id="btn-back-to-intro" class="btn-back" data-i18n="select_back">← INDIETRO</button>
+            <h2 data-i18n="select_title">SCEGLI LA TUA NAZIONE</h2>
+            <p data-i18n="select_subtitle">Seleziona una nazione per iniziare la conquista globale</p>
         </div>
         <div id="nation-grid" class="nation-grid"></div>
         <div id="nation-preview" class="nation-preview hidden">
@@ -47,47 +47,47 @@
                 <h3 id="preview-name"></h3>
             </div>
             <div class="preview-stats" id="preview-stats"></div>
-            <button id="btn-start-game" class="btn-main">🚀 INIZIA CONQUISTA</button>
+            <button id="btn-start-game" class="btn-main" data-i18n="select_start">🚀 INIZIA CONQUISTA</button>
         </div>
     </div>
 
     <!-- ═══════════════════ TUTORIAL OVERLAY ═══════════════════ -->
     <div id="tutorial-overlay" class="hidden">
         <div class="tutorial-content">
-            <h2>📖 COME SI GIOCA</h2>
+            <h2 data-i18n="tutorial_title">📖 COME SI GIOCA</h2>
             <div class="tutorial-steps">
                 <div class="tut-step">
                     <span class="tut-icon">🌍</span>
-                    <h4>1. Scegli la Nazione</h4>
-                    <p>50 nazioni giocabili, ognuna con 10 risorse: fondi, petrolio, gas, terre rare, oro, argento, diamanti, uranio, acciaio e cibo. Controlla asset strategici (Hormuz, Panama, Suez, Malacca…) per ottenere bonus produttivi ogni turno.</p>
+                    <h4 data-i18n="tut_step1_title">1. Scegli la Nazione</h4>
+                    <p data-i18n-html="tut_step1">50 nazioni giocabili, ognuna con 10 risorse…</p>
                 </div>
                 <div class="tut-step">
                     <span class="tut-icon">💰</span>
-                    <h4>2. Gestisci l'Economia</h4>
-                    <p>Le risorse si accumulano ogni turno in base ai territori controllati. I territori occupati producono solo il 70%. Investi in 12 tecnologie (droni, stealth, missili ipersonici, nucleare, cyberwarfare…) e costruisci 12 tipi di unità: fanteria, corazzati, artiglieria, caccia, bombardieri, droni, flotta navale, sottomarini, missili crociera, balistici, sistemi SAM e testate nucleari.</p>
+                    <h4 data-i18n="tut_step2_title">2. Gestisci l'Economia</h4>
+                    <p data-i18n-html="tut_step2">Le risorse si accumulano ogni turno…</p>
                 </div>
                 <div class="tut-step">
                     <span class="tut-icon">⚔️</span>
-                    <h4>3. Conquista Territori</h4>
-                    <p>Attacca nazioni nemiche: ogni unità ha ATK, DEF, velocità, raggio e costo. Il combattimento è probabilistico con bonus difensivi per le grandi potenze. Puoi anche inviare spie (🕵️) per scoprire risorse e forze nemiche, o imporre sanzioni economiche (−5% produzione per sanzione).</p>
+                    <h4 data-i18n="tut_step3_title">3. Conquista Territori</h4>
+                    <p data-i18n-html="tut_step3">Attacca nazioni nemiche…</p>
                 </div>
                 <div class="tut-step">
                     <span class="tut-icon">🤝</span>
-                    <h4>4. Diplomazia e Colonie</h4>
-                    <p>Stringi alleanze, negozia la pace pagando tributi, oppure sabota i nemici con il cyberwarfare. Gestisci le colonie conquistate: l'insoddisfazione (unrest) può crescere fino alla rivolta, facendo perdere il territorio. L'uso di armi nucleari causa sanzioni globali e devastazione.</p>
+                    <h4 data-i18n="tut_step4_title">4. Diplomazia e Colonie</h4>
+                    <p data-i18n-html="tut_step4">Stringi alleanze…</p>
                 </div>
                 <div class="tut-step">
                     <span class="tut-icon">🤖</span>
-                    <h4>5. L'AI Reagisce</h4>
-                    <p>Le nazioni IA hanno personalità diverse (superpotenza, difensiva, opportunista, instabile…). Si difendono, formano alleanze, ricercano tecnologie e contrattaccano. Puoi anche attivare l'autoplay e lasciar giocare l'IA al posto tuo.</p>
+                    <h4 data-i18n="tut_step5_title">5. L'AI Reagisce</h4>
+                    <p data-i18n-html="tut_step5">Le nazioni IA…</p>
                 </div>
                 <div class="tut-step">
                     <span class="tut-icon">🏆</span>
-                    <h4>6. Vinci in 3 Modi</h4>
-                    <p><strong>Vittoria Militare:</strong> conquista l'85% dei territori. <strong>Vittoria Economica:</strong> accumula 50.000 fondi controllando almeno il 30% della mappa. <strong>Vittoria Strategica:</strong> controlla tutti gli asset strategici globali. Attento all'economia: senza risorse, crolla tutto.</p>
+                    <h4 data-i18n="tut_step6_title">6. Vinci in 3 Modi</h4>
+                    <p data-i18n-html="tut_step6"><strong>Vittoria Militare:</strong>…</p>
                 </div>
             </div>
-            <button id="btn-close-tutorial" class="btn-main">CHIUDI</button>
+            <button id="btn-close-tutorial" class="btn-main" data-i18n="btn_close">CHIUDI</button>
         </div>
     </div>
 
@@ -106,14 +106,15 @@
             <div class="hud-resources" id="hud-resources"></div>
             <div class="hud-divider"></div>
             <div class="hud-actions">
-                <button id="btn-end-turn" class="btn-hud btn-hud-primary" title="Fine Turno">⏭️ TURNO</button>
-                <button id="btn-autoplay" class="btn-hud" title="Auto-play: l'IA gioca al posto tuo">⏩</button>
+                <button id="btn-end-turn" class="btn-hud btn-hud-primary" data-i18n="hud_end_turn" data-i18n-title="hud_end_turn_title" title="Fine Turno">⏭️ TURNO</button>
+                <button id="btn-autoplay" class="btn-hud" data-i18n-title="hud_autoplay_title" title="Auto-play: l'IA gioca al posto tuo">⏩</button>
                 <span class="hud-actions-sep"></span>
-                <button id="btn-economy" class="btn-hud" title="Panoramica Economica">📊</button>
-                <button id="btn-production" class="btn-hud" title="Produci Unità">🏭</button>
-                <button id="btn-tech-tree" class="btn-hud" title="Ricerca Tecnologica">🔬</button>
-                <button id="btn-diplomacy" class="btn-hud" title="Diplomazia">🤝</button>
-                <button id="btn-colonies" class="btn-hud" title="Gestione Colonie">🏛️</button>
+                <button id="btn-economy" class="btn-hud" data-i18n-title="hud_economy_title" title="Panoramica Economica">📊</button>
+                <button id="btn-production" class="btn-hud" data-i18n-title="hud_production_title" title="Produci Unità">🏭</button>
+                <button id="btn-tech-tree" class="btn-hud" data-i18n-title="hud_tech_title" title="Ricerca Tecnologica">🔬</button>
+                <button id="btn-diplomacy" class="btn-hud" data-i18n-title="hud_diplomacy_title" title="Diplomazia">🤝</button>
+                <button id="btn-colonies" class="btn-hud" data-i18n-title="hud_colonies_title" title="Gestione Colonie">🏛️</button>
+                <button id="btn-settings" class="btn-hud" data-i18n-title="hud_settings_title" title="Impostazioni">⚙️</button>
             </div>
         </div>
 
@@ -142,9 +143,9 @@
         <!-- RIGHT PANEL: Battle Log & Events -->
         <div id="right-panel" class="side-panel">
             <div class="panel-header">
-                <h3>📋 EVENTI</h3>
+                <h3 data-i18n="events_title">📋 EVENTI</h3>
                 <div style="display:flex;gap:4px;align-items:center;">
-                    <button class="panel-btn" id="btn-fullscreen-events" title="Schermo intero">⛶</button>
+                    <button class="panel-btn" id="btn-fullscreen-events" data-i18n-title="events_fullscreen" title="Schermo intero">⛶</button>
                     <button class="panel-close" id="btn-toggle-right">◀</button>
                 </div>
             </div>
@@ -155,7 +156,7 @@
         </div>
 
         <!-- Floating button to reopen event log when collapsed -->
-        <button id="btn-reopen-events" class="btn-reopen-events hidden" title="Mostra eventi">📋</button>
+        <button id="btn-reopen-events" class="btn-reopen-events hidden" data-i18n-title="events_show" title="Mostra eventi">📋</button>
 
         <!-- BOTTOM PANEL: Military quick bar -->
         <div id="bottom-panel">
@@ -167,7 +168,7 @@
             <div class="popup-content battle-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
                 <div id="battle-display"></div>
-                <button id="btn-close-battle" class="btn-main">CHIUDI</button>
+                <button id="btn-close-battle" class="btn-main" data-i18n="btn_close">CHIUDI</button>
             </div>
         </div>
 
@@ -175,9 +176,9 @@
         <div id="tech-popup" class="popup hidden">
             <div class="popup-content tech-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>🔬 ALBERO TECNOLOGICO</h3>
+                <h3 data-i18n="tech_title">🔬 ALBERO TECNOLOGICO</h3>
                 <div id="tech-tree-display"></div>
-                <button id="btn-close-tech" class="btn-main">CHIUDI</button>
+                <button id="btn-close-tech" class="btn-main" data-i18n="btn_close">CHIUDI</button>
             </div>
         </div>
 
@@ -185,9 +186,9 @@
         <div id="diplomacy-popup" class="popup hidden">
             <div class="popup-content diplomacy-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>🤝 DIPLOMAZIA</h3>
+                <h3 data-i18n="diplomacy_title">🤝 DIPLOMAZIA</h3>
                 <div id="diplomacy-display"></div>
-                <button id="btn-close-diplomacy" class="btn-main">CHIUDI</button>
+                <button id="btn-close-diplomacy" class="btn-main" data-i18n="btn_close">CHIUDI</button>
             </div>
         </div>
 
@@ -195,9 +196,9 @@
         <div id="production-popup" class="popup hidden">
             <div class="popup-content production-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>🏭 PRODUCI UNITÀ</h3>
+                <h3 data-i18n="production_title">🏭 PRODUCI UNITÀ</h3>
                 <div id="production-display"></div>
-                <button id="btn-close-production" class="btn-main">CHIUDI</button>
+                <button id="btn-close-production" class="btn-main" data-i18n="btn_close">CHIUDI</button>
             </div>
         </div>
 
@@ -205,9 +206,9 @@
         <div id="economy-popup" class="popup hidden">
             <div class="popup-content economy-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>📊 PANORAMICA ECONOMICA</h3>
+                <h3 data-i18n="economy_title">📊 PANORAMICA ECONOMICA</h3>
                 <div id="economy-display"></div>
-                <button id="btn-close-economy" class="btn-main">CHIUDI</button>
+                <button id="btn-close-economy" class="btn-main" data-i18n="btn_close">CHIUDI</button>
             </div>
         </div>
 
@@ -215,9 +216,9 @@
         <div id="trade-popup" class="popup hidden">
             <div class="popup-content trade-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>💱 SCAMBIA RISORSE</h3>
+                <h3 data-i18n="trade_title">💱 SCAMBIA RISORSE</h3>
                 <div class="trade-display"></div>
-                <button class="btn-main" onclick="document.getElementById('trade-popup').classList.add('hidden')">CHIUDI</button>
+                <button class="btn-main" data-i18n="btn_close" onclick="document.getElementById('trade-popup').classList.add('hidden')">CHIUDI</button>
             </div>
         </div>
 
@@ -225,7 +226,7 @@
         <div id="peace-popup" class="popup hidden">
             <div class="popup-content peace-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>🕊️ NEGOZIATO DI PACE</h3>
+                <h3 data-i18n="peace_title">🕊️ NEGOZIATO DI PACE</h3>
                 <div id="peace-display"></div>
             </div>
         </div>
@@ -234,9 +235,9 @@
         <div id="spy-popup" class="popup hidden">
             <div class="popup-content spy-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3 id="spy-popup-title">🕵️ INTELLIGENCE</h3>
+                <h3 id="spy-popup-title" data-i18n="spy_title">🕵️ INTELLIGENCE</h3>
                 <div id="spy-popup-display"></div>
-                <button id="btn-close-spy" class="btn-main">CHIUDI</button>
+                <button id="btn-close-spy" class="btn-main" data-i18n="btn_close">CHIUDI</button>
             </div>
         </div>
 
@@ -244,9 +245,9 @@
         <div id="colonies-popup" class="popup hidden">
             <div class="popup-content colonies-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>🏛️ GESTIONE COLONIE</h3>
+                <h3 data-i18n="colonies_title">🏛️ GESTIONE COLONIE</h3>
                 <div id="colonies-display"></div>
-                <button id="btn-close-colonies" class="btn-main">CHIUDI</button>
+                <button id="btn-close-colonies" class="btn-main" data-i18n="btn_close">CHIUDI</button>
             </div>
         </div>
 
@@ -254,9 +255,25 @@
         <div id="revolt-alert-popup" class="popup hidden">
             <div class="popup-content revolt-alert-content">
                 <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
-                <h3>🔥 ALLERTA RIVOLTA</h3>
+                <h3 data-i18n="revolt_title">🔥 ALLERTA RIVOLTA</h3>
                 <div id="revolt-alert-display"></div>
-                <button id="btn-close-revolt-alert" class="btn-main">CHIUDI</button>
+                <button id="btn-close-revolt-alert" class="btn-main" data-i18n="btn_close">CHIUDI</button>
+            </div>
+        </div>
+
+        <!-- SETTINGS POPUP -->
+        <div id="settings-popup" class="popup hidden">
+            <div class="popup-content settings-content" style="max-width:400px;">
+                <button class="popup-close-x" onclick="this.closest('.popup').classList.add('hidden')">&times;</button>
+                <h3 data-i18n="settings_title">⚙️ IMPOSTAZIONI</h3>
+                <div class="settings-group">
+                    <label class="settings-label" data-i18n="settings_language">Lingua</label>
+                    <div class="settings-lang-btns" id="settings-lang-btns">
+                        <button class="settings-lang-btn" data-lang="it" data-i18n-html="settings_lang_it"><img class="lang-flag" src="assets/emoji/1f1ee-1f1f9.svg" alt="IT"> Italiano</button>
+                        <button class="settings-lang-btn" data-lang="en" data-i18n-html="settings_lang_en"><img class="lang-flag" src="assets/emoji/1f1ec-1f1e7.svg" alt="GB"> English</button>
+                    </div>
+                </div>
+                <button class="btn-main" data-i18n="btn_close" onclick="document.getElementById('settings-popup').classList.add('hidden')">CHIUDI</button>
             </div>
         </div>
 
@@ -267,11 +284,14 @@
                 <p id="gameover-text"></p>
                 <div id="gameover-stats"></div>
                 <div class="go-buttons">
-                    <button id="btn-view-map" class="btn-main btn-view-map">🗺️ VEDI MAPPA</button>
-                    <button id="btn-restart" class="btn-main">🔄 RICOMINCIA</button>
+                    <button id="btn-view-map" class="btn-main btn-view-map" data-i18n="btn_view_map">🗺️ VEDI MAPPA</button>
+                    <button id="btn-restart" class="btn-main" data-i18n="btn_restart">🔄 RICOMINCIA</button>
                 </div>
             </div>
         </div>
+
+        <!-- ACTION TOAST (brief feedback overlay for diplomacy & actions) -->
+        <div id="action-toast" class="action-toast hidden"></div>
 
         <!-- VICTORY BANNER (persistent after closing modal) -->
         <div id="victory-banner" class="victory-banner hidden"></div>
@@ -279,11 +299,27 @@
 
     <!-- SCRIPTS (modular) -->
     <script src="js/data.js"></script>
+    <script src="js/i18n.js"></script>
     <script src="js/map-renderer.js"></script>
     <script src="js/game-engine.js"></script>
     <script src="js/ai.js"></script>
     <script src="js/animations.js"></script>
     <script src="js/devlog.js"></script>
+
+    <!-- Component System (EventBus → Base → Bridge → Components) -->
+    <script src="components/event-bus.js"></script>
+    <script src="components/gd-component.js"></script>
+    <script src="components/event-bridge.js"></script>
+    <script src="components/gd-resource-bar.js"></script>
+    <script src="components/gd-military-bar.js"></script>
+    <script src="components/gd-event-log.js"></script>
+    <script src="components/gd-nation-legend.js"></script>
+    <script src="components/gd-turn-indicator.js"></script>
+    <script src="components/gd-nation-badge.js"></script>
+    <script src="components/gd-garrison-card.js"></script>
+    <script src="components/gd-battle-result.js"></script>
+    <script src="components/index.js"></script>
+
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>
 </body>

@@ -26,6 +26,12 @@ const MapRenderer = (() => {
     let   _ctmCache     = null; // cached getScreenCTM result
     let   _crCache      = null; // cached container bounding rect
 
+    /* ── input-type tracking ── */
+    // Tracks the most recent pointer type so the touch handler can
+    // ignore synthetic touch sequences generated from mouse clicks
+    // on touch-enabled laptops.
+    let _lastPointerType = 'mouse';   // 'mouse' | 'touch' | 'pen'
+
     /* ── callbacks (set by UI) ── */
     let onTerritoryClick = null;
     let onTerritoryHover = null;
@@ -474,7 +480,36 @@ const MapRenderer = (() => {
     }
 
     /* ════════════════ MOUSE / TOUCH ════════════════ */
+
+    /* Walk up from el through ancestor <g id="…"> elements and return
+       the first id that belongs to idSet, or null. This handles SVG
+       territories that contain nested <g> sub-groups (e.g. Greenland).
+       Defined at module scope so both bindMouse() and bindTouch() can use it. */
+    function _resolveTerritory(el) {
+        if (!el) return null;
+        let cur = el.closest('[id]');
+        while (cur && svgEl.contains(cur)) {
+            if (idSet.has(cur.id)) return cur.id;
+            /* Move to next ancestor with an id */
+            const parent = cur.parentElement;
+            cur = parent ? parent.closest('[id]') : null;
+        }
+        return null;
+    }
+
     function bindMouse() {
+        /* Track whether mousedown→mouseup was a real drag (vs a simple click) */
+        let mouseDownPos  = null;   // {x,y} at mousedown
+        let didMouseDrag  = false;  // true once mouse moved beyond threshold
+        const DRAG_THRESHOLD = 5;   // px — movement below this counts as click, not drag
+
+        /* ── Pointer-type detection (works on ALL modern browsers) ──
+           pointerdown fires BEFORE touchstart/mousedown and tells us
+           exactly which device triggered the interaction.  */
+        container.addEventListener('pointerdown', e => {
+            _lastPointerType = e.pointerType || 'mouse'; // 'mouse' | 'touch' | 'pen'
+        }, { passive: true });
+
         container.addEventListener('wheel', e => {
             e.preventDefault();
             const rect = container.getBoundingClientRect();
@@ -487,6 +522,8 @@ const MapRenderer = (() => {
         container.addEventListener('mousedown', e => {
             if (e.button === 0) {
                 dragging = true;
+                didMouseDrag = false;
+                mouseDownPos = { x: e.clientX, y: e.clientY };
                 dragStart = { x: e.clientX - panX, y: e.clientY - panY };
                 container.style.cursor = 'grabbing';
             }
@@ -494,6 +531,13 @@ const MapRenderer = (() => {
 
         window.addEventListener('mousemove', e => {
             if (dragging) {
+                /* Only start actual panning after the mouse moves beyond threshold */
+                if (!didMouseDrag && mouseDownPos) {
+                    const dx = Math.abs(e.clientX - mouseDownPos.x);
+                    const dy = Math.abs(e.clientY - mouseDownPos.y);
+                    if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
+                    didMouseDrag = true;
+                }
                 panX = e.clientX - dragStart.x;
                 panY = e.clientY - dragStart.y;
                 applyTransform();
@@ -502,28 +546,22 @@ const MapRenderer = (() => {
 
         window.addEventListener('mouseup', () => {
             dragging = false;
+            mouseDownPos = null;
             if (container) container.style.cursor = 'grab';
         });
 
-        /* Walk up from el through ancestor <g id="…"> elements and return
-           the first id that belongs to idSet, or null. This handles SVG
-           territories that contain nested <g> sub-groups (e.g. Greenland). */
-        function _resolveTerritory(el) {
-            if (!el) return null;
-            let cur = el.closest('[id]');
-            while (cur && svgEl.contains(cur)) {
-                if (idSet.has(cur.id)) return cur.id;
-                /* Move to next ancestor with an id */
-                const parent = cur.parentElement;
-                cur = parent ? parent.closest('[id]') : null;
-            }
-            return null;
-        }
-
         /* Delegated click & hover on SVG paths */
         container.addEventListener('click', e => {
-            /* Skip synthetic click from touch — handled via onTap */
-            if (container._suppressNextClick) { container._suppressNextClick = false; return; }
+            /* On touch-enabled laptops the browser fires both touch events AND
+               mouse/click events for the same gesture.  When the pointer that
+               started this interaction was a finger (touch), the touchend
+               handler already processed the tap → skip the synthetic click.
+               When the pointer was a mouse, let the click through normally. */
+            if (_lastPointerType === 'touch' || _lastPointerType === 'pen') {
+                return;
+            }
+            /* If the user dragged the map, don't treat it as a territory click */
+            if (didMouseDrag) { didMouseDrag = false; return; }
             const finalCode = _resolveTerritory(e.target);
             if (finalCode) {
                 if (onTerritoryClick) onTerritoryClick(finalCode, e);
@@ -555,6 +593,11 @@ const MapRenderer = (() => {
         const TAP_THRESHOLD = 12;   // px
         const TAP_MAX_MS    = 300;  // max duration for a tap
 
+        /* Local dragging flag — separate from the module-level `dragging`
+           so that touch panning doesn't interfere with mouse handlers
+           (critical on touch-enabled laptops that fire BOTH event families). */
+        let touchDragging = false;
+
         /** Check if a touch target is inside a scrollable overlay (e.g. map-legend) */
         function _isScrollableChild(el) {
             return el && el.closest('.map-legend');
@@ -563,13 +606,13 @@ const MapRenderer = (() => {
         container.addEventListener('touchstart', e => {
             if (_isScrollableChild(e.target)) return; // let legend scroll
             if (e.touches.length === 1) {
-                dragging = true;
+                touchDragging = true;
                 didDrag  = false;
                 dragStart = { x: e.touches[0].clientX - panX, y: e.touches[0].clientY - panY };
                 tapStartPos  = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                 tapStartTime = Date.now();
             } else if (e.touches.length === 2) {
-                dragging = false;
+                touchDragging = false;
                 didDrag  = true;
                 lastDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX,
                                       e.touches[1].clientY - e.touches[0].clientY);
@@ -584,7 +627,7 @@ const MapRenderer = (() => {
         container.addEventListener('touchmove', e => {
             if (_isScrollableChild(e.target)) return; // let legend scroll natively
             e.preventDefault();
-            if (e.touches.length === 1 && dragging) {
+            if (e.touches.length === 1 && touchDragging) {
                 const dx = e.touches[0].clientX - (tapStartPos ? tapStartPos.x : 0);
                 const dy = e.touches[0].clientY - (tapStartPos ? tapStartPos.y : 0);
                 if (Math.abs(dx) > TAP_THRESHOLD || Math.abs(dy) > TAP_THRESHOLD) didDrag = true;
@@ -605,18 +648,21 @@ const MapRenderer = (() => {
         }, { passive: false });
 
         container.addEventListener('touchend', e => {
-            dragging = false;
+            touchDragging = false;
             /* Detect tap (short, no drag) */
             if (!didDrag && tapStartPos && (Date.now() - tapStartTime) < TAP_MAX_MS && e.changedTouches.length > 0) {
                 const touch = e.changedTouches[0];
                 const el = document.elementFromPoint(touch.clientX, touch.clientY);
                 if (el) {
                     const finalCode = _resolveTerritory(el);
-                    if (finalCode && onTerritoryTap) {
-                        onTerritoryTap(finalCode, { clientX: touch.clientX, clientY: touch.clientY });
-                        /* Suppress the synthetic click that would follow */
-                        container._suppressNextClick = true;
-                        setTimeout(() => { container._suppressNextClick = false; }, 400);
+                    if (finalCode) {
+                        /* On touch devices, a tap opens the sidebar directly
+                           (same as a desktop click) via onTerritoryClick.
+                           The synthetic click event that follows will be
+                           ignored because _lastPointerType === 'touch'. */
+                        if (onTerritoryClick) {
+                            onTerritoryClick(finalCode, { clientX: touch.clientX, clientY: touch.clientY });
+                        }
                     }
                 }
             }

@@ -5,6 +5,11 @@
    ═══════════════════════════════════════════════════════ */
 
 const Animations = (() => {
+    /** i18n shorthand — safe fallback if I18n not loaded yet */
+    function t(key, params) {
+        return (typeof I18n !== 'undefined') ? I18n.t(key, params) : key;
+    }
+
     let particles  = [];
     let missiles   = [];
     let explosions = [];
@@ -515,7 +520,7 @@ const Animations = (() => {
                     (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6 - 2,
                     30 + Math.random() * 20, impactCode));
             }
-            const lbl = success ? 'CONQUISTATO!' : 'RESPINTO';
+            const lbl = success ? t('anim_conquered') : t('anim_repelled');
             textPopups.push(new BigLabel(x, y - 15, lbl, ec, 15, 90, impactCode));
         }, fromCode, toCode, success, trailLbl, cat));
 
@@ -568,7 +573,7 @@ const Animations = (() => {
         /* Attack label with unit type icon — anchored to midpoint between territories */
         const midX = (from.x + to.x) / 2, midY = (from.y + to.y) / 2 - 25;
         textPopups.push(new BigLabel(midX, midY, trailLbl, '#ffd740', 14, 110, toCode));
-        textPopups.push(new BigLabel(from.x, from.y - 12, `${atkUnit.icon} ${atkName} ATTACCA`, missileColor, 12, 80, fromCode));
+        textPopups.push(new BigLabel(from.x, from.y - 12, `${atkUnit.icon} ${atkName} ${t('anim_attacks')}`, missileColor, 12, 80, fromCode));
 
         ensureRunning();
     }
@@ -590,7 +595,7 @@ const Animations = (() => {
                     (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10 - 3,
                     50 + Math.random() * 30, ic));
             }
-            textPopups.push(new BigLabel(x, y - 20, 'ATTACCO NUCLEARE!', '#ff00ff', 18, 120, ic));
+            textPopups.push(new BigLabel(x, y - 20, t('anim_nuke_strike'), '#ff00ff', 18, 120, ic));
         }, fromCode, toCode, true, label, 'missile'));
 
         const midX = (from.x + to.x) / 2, midY = (from.y + to.y) / 2 - 30;
@@ -632,7 +637,7 @@ const Animations = (() => {
             particles.push(new Particle(pos.x, pos.y, colors[i % colors.length],
                 Math.cos(ang) * spd, Math.sin(ang) * spd - 1.5, 35 + Math.random() * 15, code));
         }
-        textPopups.push(new BigLabel(pos.x, pos.y - 15, '🔥 RIVOLTA!', '#ff6e40', 14, 80, code));
+        textPopups.push(new BigLabel(pos.x, pos.y - 15, t('anim_revolt'), '#ff6e40', 14, 80, code));
         ensureRunning();
     }
 

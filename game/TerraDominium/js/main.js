@@ -124,8 +124,6 @@
         /* Init UI */
         UI.init();
 
-        console.log('GeoDominion v2 — Ready');
-
         /* DevLog disabled in production — enable manually via DevLog.enable() in console */
         // if (typeof DevLog !== 'undefined') {
         //     DevLog.enable();
