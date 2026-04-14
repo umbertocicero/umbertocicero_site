@@ -2,6 +2,10 @@ Refacoring UI per creare componenti.
 
 Logica a eventi che aggiornano i componenti.
 
+l'elenco con le nazioni e i territori conquistati si aggiornano a secondo deli eventi di conquista.
+
+le risorse e l'esercito si aggiornano in base agli attacchi fatti e subiti appenaa vengono come evento.
+
 labels ui su foglio separato.
 
 Multilingua in base all lingua del browser e possibilita di switch tramite impostazioni da aggiungere su toolbar.

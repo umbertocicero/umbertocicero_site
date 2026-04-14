@@ -147,12 +147,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     z-index: 999;
     display: flex; flex-direction: column;
     padding: 30px 40px;
+    overflow-x: hidden;
     overflow-y: auto;
     scrollbar-width: thin; scrollbar-color: var(--accent) transparent;
 }
-#nation-select-screen::-webkit-scrollbar { width: 4px; height: 3px; }
+#nation-select-screen::-webkit-scrollbar { width: 5px; }
 #nation-select-screen::-webkit-scrollbar-track { background: transparent; }
-#nation-select-screen::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+#nation-select-screen::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 .nation-select-header { text-align: center; margin-bottom: 24px; position: relative; }
 .nation-select-header h2 { font-family: var(--font-title); font-size: 2rem; color: var(--accent); letter-spacing: 4px; }
 .nation-select-header p { color: var(--text-dim); }
@@ -166,18 +167,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .btn-back:hover { color: var(--accent); border-color: var(--accent); }
 .nation-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
-    max-width: 1200px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--sp-3);
+    max-width: 1100px;
+    width: 100%;
     margin: 0 auto;
-    flex: 1;
-    overflow-y: auto;
-    padding-bottom: 180px;
-    scrollbar-width: thin; scrollbar-color: var(--accent) transparent;
+    padding-bottom: 20px;
+    /* No inner scroll — parent #nation-select-screen scrolls vertically */
+    overflow: visible;
 }
-.nation-grid::-webkit-scrollbar { width: 4px; }
-.nation-grid::-webkit-scrollbar-track { background: transparent; }
-.nation-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
 .nation-card {
     background: var(--bg-panel);
     border: 1px solid var(--border);
@@ -420,30 +418,45 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 #left-panel { left: 0; border-left: none; border-radius: 0 10px 10px 0; }
 #right-panel { right: 0; border-right: none; border-radius: 10px 0 0 10px; width: 265px; }
 .panel-header {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; flex-direction: column;
     padding: var(--sp-3) var(--sp-4);
+    padding-right: 40px; /* room for close button */
     border-bottom: 1px solid var(--border);
     background: rgba(0,229,255,0.02);
     flex-shrink: 0;
-    gap: var(--sp-2);
+    gap: var(--sp-1);
     min-height: 48px;
+    position: relative;
 }
 .panel-header h3 {
     font-family: var(--font-title); font-size: var(--fs-base); color: var(--accent);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    flex: 1; min-width: 0;
+    line-height: 1.3;
 }
 .panel-owner {
     font-size: var(--fs-sm); color: var(--text-dim);
     display: flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap;
 }
 .panel-close {
+    position: absolute; top: var(--sp-3); right: var(--sp-3);
     background: none; border: 1px solid transparent; color: var(--text-dim); cursor: pointer;
     font-size: var(--fs-lg); padding: 2px 6px; border-radius: 4px;
     transition: all 0.15s;
     flex-shrink: 0;
+    z-index: 1;
 }
 .panel-close:hover { color: var(--accent); background: var(--bg-panel-alt); border-color: var(--border); }
+/* Right panel header stays horizontal (short fixed title) */
+#right-panel > .panel-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: var(--sp-4);
+    gap: var(--sp-2);
+}
+#right-panel > .panel-header .panel-close {
+    position: static;
+}
 .panel-section { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-subtle); }
 .panel-section h4 {
     font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase;
@@ -1561,7 +1574,7 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     #nation-select-screen { padding: 16px 12px; }
     .nation-select-header h2 { font-size: 1.3rem; }
     .btn-back { position: static; margin-bottom: 10px; font-size: 0.75rem; padding: 6px 12px; }
-    .nation-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+    .nation-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: var(--sp-2); padding-bottom: 12px; }
     .nation-card { padding: 10px 6px; }
     .nation-card .flag { font-size: 1.6rem; }
     .nation-card .name { font-size: 0.6rem; }
