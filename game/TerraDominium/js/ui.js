@@ -3138,8 +3138,8 @@ const UI = (() => {
         const btnEnd = els['btn-end-turn'];
         if (btnEnd) { btnEnd.disabled = true; btnEnd.style.opacity = '0.4'; }
 
-        /* Collect all AI actions */
-        const allActions = await AI.processAllAI(() => {});
+        /* Collect all AI actions (in autoplay, include the player too) */
+        const allActions = await AI.processAllAI(() => {}, autoPlayMode);
 
         /* Separate important actions from minor ones */
         const majorTypes = new Set(['attack','war_declare','nuke','alliance','betray','peace','revolt']);
@@ -3256,8 +3256,8 @@ const UI = (() => {
             }
         }
 
-        /* New turn */
-        GameEngine.startNewTurn();
+        /* New turn (skip player resource collection if autoplay — AI already did it) */
+        GameEngine.startNewTurn(autoPlayMode);
         updateHUD();
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();

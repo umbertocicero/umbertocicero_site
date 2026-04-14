@@ -1120,13 +1120,13 @@ const GameEngine = (() => {
         state.phase = 'ai';
     }
 
-    function startNewTurn() {
+    function startNewTurn(skipPlayerCollect) {
         state.turn++;
         state.phase = 'player';
         /* Reset per-turn attack counters */
         state._attacksThisTurn = {};
-        /* Collect resources for player */
-        collectResources(state.player);
+        /* Collect resources for player (skip if AI already handled it in autoplay) */
+        if (!skipPlayerCollect) collectResources(state.player);
 
         /* ── Dynamic global stability ──
            Wars drag it down, peace slowly restores it.

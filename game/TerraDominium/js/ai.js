@@ -25,12 +25,17 @@ const AI = (() => {
     let turnActions = [];
 
     /* ════════════════ MAIN: PROCESS ALL AI ════════════════ */
-    async function processAllAI(onActionCallback) {
+    async function processAllAI(onActionCallback, includePlayer) {
         turnActions = [];
         const state = GameEngine.getState();
         if (!state || state.gameOver) return turnActions;
 
         const aiNations = GameEngine.getAINations();
+
+        /* In autoplay mode, the player is also controlled by the AI */
+        if (includePlayer && state.player && state.nations[state.player]?.alive) {
+            aiNations.push(state.player);
+        }
 
         /* Shuffle to avoid order bias */
         shuffle(aiNations);
