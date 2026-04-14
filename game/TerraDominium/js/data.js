@@ -36,16 +36,26 @@ const RESOURCES = {
 };
 
 const STRATEGIC_ASSETS = {
-    hormuz:        { name:'Stretto di Hormuz',       icon:'⚓', bonus:{oil:30},                holders:['ir','om'] },
-    panama:        { name:'Canale di Panama',         icon:'🚢', bonus:{money:50},              holders:['pa'] },
-    suez:          { name:'Canale di Suez',           icon:'🚢', bonus:{money:40,oil:10},       holders:['eg'] },
-    malacca:       { name:'Stretto di Malacca',       icon:'⚓', bonus:{money:35},              holders:['my','id'] },
-    bosphorus:     { name:'Bosforo',                  icon:'⚓', bonus:{money:20},              holders:['tr'] },
-    gibraltar:     { name:'Stretto di Gibilterra',    icon:'⚓', bonus:{money:15},              holders:['es','gb'] },
-    babelmandeb:   { name:'Bab el-Mandeb',            icon:'⚓', bonus:{money:20,oil:5},        holders:['dj','ye'] },
-    capegood:      { name:'Capo di Buona Speranza',   icon:'⚓', bonus:{money:15},              holders:['za'] },
-    taiwan_strait: { name:'Stretto di Taiwan',        icon:'⚓', bonus:{rareEarth:10},          holders:['tw'] },
-    arctic_route:  { name:'Rotta Artica',             icon:'❄️', bonus:{money:20,gas:10},       holders:['no','ru','ca'] }
+    /* ── Chokepoints marittimi (stretti e canali) ── */
+    hormuz:        { name:'Stretto di Hormuz',         icon:'⚓', bonus:{oil:30},                holders:['ir','om'] },
+    panama:        { name:'Canale di Panama',           icon:'🚢', bonus:{money:50},              holders:['pa'] },  /* transferred to Panama in 1999 */
+    suez:          { name:'Canale di Suez',             icon:'🚢', bonus:{money:40,oil:10},       holders:['eg'] },
+    malacca:       { name:'Stretto di Malacca',         icon:'⚓', bonus:{money:35},              holders:['my','id'] },
+    singapore:     { name:'Stretto di Singapore',       icon:'⚓', bonus:{money:30},              holders:['sg'] },  /* busiest port on Earth, 130k+ ships/yr */
+    bosphorus:     { name:'Bosforo',                    icon:'⚓', bonus:{money:20},              holders:['tr'] },
+    gibraltar:     { name:'Stretto di Gibilterra',      icon:'⚓', bonus:{money:15},              holders:['es','gb'] },
+    babelmandeb:   { name:'Bab el-Mandeb',              icon:'⚓', bonus:{money:20,oil:5},        holders:['dj','ye'] },
+    english_ch:    { name:'Canale della Manica',        icon:'⚓', bonus:{money:20},              holders:['gb','fr'] },  /* ~500 ships/day, one of busiest in the world */
+    danish_straits:{ name:'Stretti Danesi',             icon:'⚓', bonus:{money:15},              holders:['dk'] },  /* Øresund+Great Belt: only access to Baltic Sea */
+    mozambique_ch: { name:'Canale del Mozambico',       icon:'⚓', bonus:{money:10,oil:5},        holders:['mz','mg'] },  /* alt route for supertankers bypassing Suez */
+    /* ── Rotte strategiche ── */
+    taiwan_strait: { name:'Stretto di Taiwan',          icon:'⚓', bonus:{rareEarth:10},          holders:['tw'] },
+    arctic_route:  { name:'Rotta Artica',               icon:'❄️', bonus:{money:20,gas:10},       holders:['no','ru','ca'] },
+    capegood:      { name:'Capo di Buona Speranza',     icon:'⚓', bonus:{money:15},              holders:['za'] },
+    /* ── Risorse contese ── */
+    south_china:   { name:'Mar Cinese Meridionale',     icon:'🛢️', bonus:{oil:15,gas:10},        holders:['ph','vn'] },  /* Spratly: $3.4T trade/yr, oil/gas reserves */
+    /* ── Basi militari strategiche ── */
+    djibouti_base: { name:'Base di Gibuti',             icon:'🏴', bonus:{money:15},              holders:['dj'] }   /* US, CN, FR, JP, IT military bases coexist here */
 };
 
 const UNIT_TYPES = {
@@ -95,17 +105,17 @@ const NATIONS = {
         res:{money:600,oil:80,gas:70,rareEarth:10,gold:15,silver:10,diamonds:0,uranium:20,steel:60,food:90},
         prod:{money:65,oil:12,gas:10,steel:8,food:12},
         army:{infantry:45,tank:22,fighter:18,bomber:8,drone:14,navy:16,submarine:10,sam:12,cruiseMissile:8,ballisticMissile:4},
-        assets:['panama'],neighbors:['ca','mx','cu','gb','ru','jp','kr'],power:95},
+        assets:[],neighbors:['ca','mx','cu','gb','ru'],power:95},
     ru:{name:'Russia',flag:'🇷🇺',color:'#b71c1c',profile:'superpower',
         res:{money:300,oil:90,gas:100,rareEarth:15,gold:20,silver:5,diamonds:20,uranium:25,steel:50,food:50},
         prod:{money:35,oil:15,gas:18,steel:7,food:6},
         army:{infantry:55,tank:28,fighter:18,bomber:10,drone:8,navy:12,submarine:14,sam:18,cruiseMissile:12,ballisticMissile:8},
-        assets:['arctic_route'],neighbors:['us','cn','ua','kz','fi','no','jp','tr','ge','pl','by','ee','lv','lt','mn','az'],power:90},
+        assets:['arctic_route'],neighbors:['us','cn','ua','kz','fi','no','tr','ge','pl','by','ee','lv','lt','mn','az'],power:90},
     cn:{name:'Cina',flag:'🇨🇳',color:'#ff1a1a',profile:'superpower',
         res:{money:500,oil:30,gas:20,rareEarth:80,gold:10,silver:5,diamonds:0,uranium:10,steel:80,food:70},
         prod:{money:60,oil:5,gas:3,rareEarth:15,steel:15,food:10},
         army:{infantry:60,tank:24,fighter:16,bomber:6,drone:18,navy:14,submarine:10,sam:14,cruiseMissile:10,ballisticMissile:6},
-        assets:['taiwan_strait'],neighbors:['ru','in','jp','kr','kp','mn','kz','pk','mm','vn','la','np','bt','af','tj','kg'],power:92},
+        assets:['taiwan_strait'],neighbors:['ru','in','kr','kp','mn','kz','pk','mm','vn','la','np','bt','af','tj','kg'],power:92},
     in:{name:'India',flag:'🇮🇳',color:'#ff9100',profile:'regional',
         res:{money:250,oil:10,gas:10,rareEarth:20,gold:5,silver:3,diamonds:10,uranium:8,steel:40,food:80},
         prod:{money:30,oil:2,gas:2,rareEarth:4,steel:6,food:14},
@@ -115,12 +125,12 @@ const NATIONS = {
         res:{money:300,oil:20,gas:15,rareEarth:2,gold:3,silver:2,diamonds:0,uranium:3,steel:20,food:30},
         prod:{money:35,oil:3,gas:2,steel:3,food:4},
         army:{infantry:18,tank:8,fighter:10,bomber:4,drone:6,navy:12,submarine:8,sam:6,cruiseMissile:4},
-        assets:['gibraltar'],neighbors:['fr','us','ie','no'],power:68},
+        assets:['gibraltar','english_ch'],neighbors:['fr','us','ie','no'],power:68},
     fr:{name:'Francia',flag:'🇫🇷',color:'#304ffe',profile:'regional',
         res:{money:280,oil:5,gas:5,rareEarth:3,gold:5,silver:2,diamonds:0,uranium:10,steel:25,food:45},
         prod:{money:32,oil:1,gas:1,uranium:2,steel:4,food:7},
         army:{infantry:20,tank:10,fighter:10,bomber:4,drone:6,navy:10,submarine:6,sam:6,cruiseMissile:4,ballisticMissile:2},
-        neighbors:['gb','de','es','it','be','ch'],power:66},
+        assets:['english_ch'],neighbors:['gb','de','es','it','be','ch'],power:66},
     de:{name:'Germania',flag:'🇩🇪',color:'#546e7a',profile:'defensive',
         res:{money:350,oil:2,gas:5,rareEarth:1,gold:3,silver:2,diamonds:0,uranium:1,steel:40,food:40},
         prod:{money:40,steel:8,food:5},
@@ -130,11 +140,11 @@ const NATIONS = {
         res:{money:380,oil:1,gas:2,rareEarth:5,gold:3,silver:5,diamonds:0,uranium:1,steel:30,food:25},
         prod:{money:42,steel:5,food:3},
         army:{infantry:14,tank:8,fighter:12,bomber:2,drone:10,navy:14,submarine:8,sam:12,cruiseMissile:3},
-        neighbors:['cn','kr','ru','us'],power:62},
+        neighbors:[],power:62},  /* island: reachable only by sea/air/missile */
     br:{name:'Brasile',flag:'🇧🇷',color:'#43a047',profile:'regional',
-        res:{money:200,oil:20,gas:5,rareEarth:15,gold:10,silver:3,diamonds:8,uranium:5,steel:30,food:70},
-        prod:{money:22,oil:3,rareEarth:3,food:12},
-        army:{infantry:25,tank:8,fighter:6,bomber:2,drone:4,navy:6,submarine:3,sam:4,cruiseMissile:1},
+        res:{money:220,oil:30,gas:8,rareEarth:18,gold:12,silver:3,diamonds:10,uranium:8,steel:35,food:75},
+        prod:{money:25,oil:5,rareEarth:4,steel:4,food:14},  /* pre-salt offshore, #1 niobium, Carajás iron, 6th uranium reserves */
+        army:{infantry:25,tank:8,fighter:6,bomber:2,drone:5,navy:8,submarine:5,sam:5,cruiseMissile:1},
         neighbors:['ar','co','ve','pe','uy','py','bo','gy','sr','gf'],power:55},
     sa:{name:'Arabia Saudita',flag:'🇸🇦',color:'#00c853',profile:'regional',
         res:{money:400,oil:150,gas:50,rareEarth:2,gold:5,silver:3,diamonds:0,uranium:1,steel:10,food:10},
@@ -152,20 +162,20 @@ const NATIONS = {
         army:{infantry:18,tank:10,fighter:14,bomber:4,drone:16,navy:5,submarine:3,sam:16,cruiseMissile:6},
         neighbors:['eg','jo','sy','lb','ps'],power:65},
     tr:{name:'Turchia',flag:'🇹🇷',color:'#ef6c00',profile:'regional',
-        res:{money:180,oil:5,gas:3,rareEarth:8,gold:8,silver:5,diamonds:0,uranium:3,steel:25,food:35},
-        prod:{money:22,steel:4,food:5},
-        army:{infantry:25,tank:12,fighter:10,bomber:2,drone:14,navy:8,submarine:4,sam:8,cruiseMissile:4},
-        assets:['bosphorus'],neighbors:['ru','ge','ir','iq','sy','gr','bg'],power:58},
+        res:{money:200,oil:5,gas:5,rareEarth:20,gold:12,silver:6,diamonds:0,uranium:3,steel:28,food:38},
+        prod:{money:25,rareEarth:4,steel:5,food:6},  /* 694M t rare earth deposit (Eskişehir), #1 European gold, #8 steel */
+        army:{infantry:25,tank:12,fighter:10,bomber:2,drone:16,navy:8,submarine:6,sam:8,cruiseMissile:5},
+        assets:['bosphorus'],neighbors:['ru','ge','ir','iq','sy','gr','bg'],power:60},
     eg:{name:'Egitto',flag:'🇪🇬',color:'#d4a259',profile:'opportunist',
-        res:{money:120,oil:15,gas:20,rareEarth:2,gold:5,silver:1,diamonds:0,uranium:2,steel:10,food:30},
-        prod:{money:15,oil:2,gas:3,food:5},
-        army:{infantry:25,tank:10,fighter:8,bomber:2,drone:4,navy:5,submarine:3,sam:6,cruiseMissile:2},
-        assets:['suez'],neighbors:['il','ly','sd','sa','ps'],power:50},
+        res:{money:130,oil:18,gas:30,rareEarth:2,gold:10,silver:1,diamonds:0,uranium:2,steel:12,food:35},
+        prod:{money:16,oil:3,gas:5,gold:2,food:6},  /* Zohr gas field, Sukari gold mine, Nile agriculture */
+        army:{infantry:25,tank:10,fighter:8,bomber:2,drone:6,navy:6,submarine:4,sam:8,cruiseMissile:2},
+        assets:['suez'],neighbors:['il','ly','sd','sa','ps'],power:52},
     kr:{name:'Corea del Sud',flag:'🇰🇷',color:'#3949ab',profile:'defensive',
-        res:{money:280,oil:0,gas:1,rareEarth:3,gold:2,silver:3,diamonds:0,uranium:1,steel:25,food:20},
-        prod:{money:32,steel:5,food:3},
-        army:{infantry:22,tank:10,fighter:10,bomber:2,drone:8,navy:8,submarine:6,sam:10,cruiseMissile:4},
-        neighbors:['cn','jp','kp'],power:52},
+        res:{money:300,oil:0,gas:1,rareEarth:5,gold:2,silver:3,diamonds:0,uranium:1,steel:30,food:22},
+        prod:{money:35,steel:6,food:3},  /* #6 steel producer, #1 shipbuilding, semiconductor powerhouse */
+        army:{infantry:22,tank:10,fighter:12,bomber:2,drone:10,navy:10,submarine:6,sam:12,cruiseMissile:5},
+        neighbors:['cn','kp'],power:55},  /* jp is island, connected via sea */
     kp:{name:'Corea del Nord',flag:'🇰🇵',color:'#ad1457',profile:'unstable',
         res:{money:30,oil:0,gas:0,rareEarth:10,gold:5,silver:2,diamonds:0,uranium:8,steel:10,food:5},
         prod:{money:3,rareEarth:2,uranium:2},
@@ -177,8 +187,8 @@ const NATIONS = {
         army:{infantry:12,tank:5,fighter:8,bomber:2,drone:6,navy:8,submarine:5,sam:6,cruiseMissile:2},
         neighbors:['id','nz','pg'],power:45},
     it:{name:'Italia',flag:'🇮🇹',color:'#66bb6a',profile:'defensive',
-        res:{money:220,oil:3,gas:5,rareEarth:1,gold:2,silver:1,diamonds:0,uranium:1,steel:20,food:35},
-        prod:{money:25,steel:3,food:5},
+        res:{money:240,oil:3,gas:8,rareEarth:1,gold:3,silver:2,diamonds:0,uranium:1,steel:22,food:60},
+        prod:{money:28,steel:4,food:9},  /* Po Valley breadbasket + Mediterranean agriculture */
         army:{infantry:16,tank:8,fighter:8,bomber:2,drone:4,navy:8,submarine:4,sam:6,cruiseMissile:2},
         neighbors:['fr','de','at','ch','si'],power:48},
     es:{name:'Spagna',flag:'🇪🇸',color:'#ff7043',profile:'neutral',
@@ -187,55 +197,55 @@ const NATIONS = {
         army:{infantry:14,tank:5,fighter:6,bomber:2,drone:4,navy:5,submarine:3,sam:4,cruiseMissile:1},
         assets:['gibraltar'],neighbors:['fr','pt','ma'],power:42},
     pl:{name:'Polonia',flag:'🇵🇱',color:'#ff6090',profile:'opportunist',
-        res:{money:120,oil:2,gas:3,rareEarth:1,gold:2,silver:5,diamonds:0,uranium:1,steel:18,food:30},
-        prod:{money:15,steel:3,food:4},
-        army:{infantry:18,tank:10,fighter:6,bomber:1,drone:4,navy:2,submarine:1,sam:6,cruiseMissile:2},
-        neighbors:['de','ru','ua','cz','sk','lt','by'],power:38},
+        res:{money:150,oil:2,gas:4,rareEarth:1,gold:3,silver:8,diamonds:0,uranium:1,steel:22,food:35},
+        prod:{money:18,steel:4,silver:2,food:5},  /* KGHM #2 EU silver/copper, coal, massive 2022+ rearmament */
+        army:{infantry:20,tank:14,fighter:8,bomber:1,drone:6,navy:3,submarine:1,sam:8,cruiseMissile:3},
+        neighbors:['de','ru','ua','cz','sk','lt','by'],power:42},
     ua:{name:'Ucraina',flag:'🇺🇦',color:'#ffd600',profile:'opportunist',
-        res:{money:60,oil:3,gas:8,rareEarth:5,gold:2,silver:1,diamonds:0,uranium:8,steel:15,food:50},
-        prod:{money:8,gas:1,food:8},
-        army:{infantry:28,tank:10,fighter:6,bomber:1,drone:12,navy:2,submarine:1,sam:8,cruiseMissile:2},
-        neighbors:['ru','pl','ro','hu','sk','md','by'],power:38},
+        res:{money:95,oil:5,gas:18,rareEarth:18,gold:3,silver:3,diamonds:0,uranium:10,steel:28,food:55},
+        prod:{money:12,gas:2,rareEarth:3,steel:5,food:9},  /* breadbasket of Europe + Kryvyi Rih iron/titanium + Shevchenkivske lithium */
+        army:{infantry:30,tank:12,fighter:8,bomber:1,drone:16,navy:2,submarine:1,sam:10,cruiseMissile:3},
+        neighbors:['ru','pl','ro','hu','sk','md','by'],power:44},
     pk:{name:'Pakistan',flag:'🇵🇰',color:'#26a69a',profile:'opportunist',
-        res:{money:70,oil:3,gas:15,rareEarth:5,gold:3,silver:1,diamonds:2,uranium:5,steel:10,food:35},
-        prod:{money:8,gas:2,food:5},
-        army:{infantry:30,tank:10,fighter:8,bomber:2,drone:6,navy:4,submarine:3,sam:6,ballisticMissile:4,cruiseMissile:3},
-        neighbors:['in','cn','af','ir'],power:45},
+        res:{money:90,oil:3,gas:18,rareEarth:6,gold:8,silver:2,diamonds:2,uranium:6,steel:12,food:40},
+        prod:{money:10,gas:3,steel:2,food:6},  /* Reko Diq copper-gold, Thar coal, 230M pop agriculture */
+        army:{infantry:30,tank:10,fighter:8,bomber:2,drone:8,navy:4,submarine:3,sam:6,ballisticMissile:4,cruiseMissile:3},
+        neighbors:['in','cn','af','ir'],power:46},
     id:{name:'Indonesia',flag:'🇮🇩',color:'#8d6e63',profile:'opportunist',
-        res:{money:100,oil:15,gas:20,rareEarth:5,gold:10,silver:3,diamonds:2,uranium:2,steel:10,food:50},
-        prod:{money:12,oil:2,gas:3,food:8},
-        army:{infantry:20,tank:5,fighter:5,bomber:1,drone:4,navy:6,submarine:3,sam:4},
-        assets:['malacca'],neighbors:['my','au','pg','ph','tl'],power:35},
+        res:{money:130,oil:18,gas:28,rareEarth:8,gold:12,silver:5,diamonds:2,uranium:2,steel:18,food:55},
+        prod:{money:16,oil:3,gas:4,steel:3,food:9},  /* #1 nickel, #2 tin, major palm oil exporter, G20 economy */
+        army:{infantry:22,tank:6,fighter:6,bomber:1,drone:5,navy:8,submarine:4,sam:5},
+        assets:['malacca'],neighbors:['my','au','pg','ph','tl'],power:38},
     ng:{name:'Nigeria',flag:'🇳🇬',color:'#00e676',profile:'opportunist',
-        res:{money:80,oil:40,gas:25,rareEarth:3,gold:3,silver:1,diamonds:1,uranium:2,steel:5,food:30},
-        prod:{money:10,oil:6,gas:4,food:5},
-        army:{infantry:16,tank:4,fighter:3,bomber:1,drone:2,navy:2,sam:2},
-        neighbors:['cm','td','ne','bj','gh'],power:25},
+        res:{money:110,oil:45,gas:30,rareEarth:3,gold:3,silver:1,diamonds:1,uranium:2,steel:8,food:40},
+        prod:{money:14,oil:8,gas:5,food:6},  /* largest African economy, #13 oil producer, 220M population */
+        army:{infantry:18,tank:5,fighter:4,bomber:1,drone:3,navy:3,sam:3},
+        neighbors:['cm','td','ne','bj','gh'],power:28},
     za:{name:'Sudafrica',flag:'🇿🇦',color:'#26a69a',profile:'neutral',
-        res:{money:100,oil:2,gas:3,rareEarth:5,gold:30,silver:8,diamonds:35,uranium:5,steel:15,food:20},
-        prod:{money:12,gold:5,diamonds:6,food:3},
+        res:{money:120,oil:2,gas:3,rareEarth:8,gold:35,silver:8,diamonds:40,uranium:6,steel:22,food:22},
+        prod:{money:14,gold:6,diamonds:7,steel:3,food:3},  /* #1 platinum/chrome/manganese, #2 gold, major coal */
         army:{infantry:14,tank:5,fighter:4,bomber:1,drone:3,navy:4,submarine:2,sam:3},
-        assets:['capegood'],neighbors:['mz','bw','zw','na','ls','sz'],power:35},
+        assets:['capegood'],neighbors:['mz','bw','zw','na','ls','sz'],power:36},
     ca:{name:'Canada',flag:'🇨🇦',color:'#ff4081',profile:'neutral',
         res:{money:250,oil:50,gas:30,rareEarth:5,gold:10,silver:5,diamonds:10,uranium:15,steel:20,food:40},
         prod:{money:28,oil:8,gas:5,uranium:3,food:6},
         army:{infantry:12,tank:5,fighter:6,bomber:2,drone:4,navy:5,submarine:3,sam:4,cruiseMissile:1},
         assets:['arctic_route'],neighbors:['us','gl'],power:42},
     mx:{name:'Messico',flag:'🇲🇽',color:'#aeea00',profile:'opportunist',
-        res:{money:120,oil:30,gas:10,rareEarth:2,gold:8,silver:20,diamonds:0,uranium:2,steel:15,food:35},
-        prod:{money:15,oil:5,silver:4,food:5},
-        army:{infantry:16,tank:4,fighter:4,drone:2,navy:3,submarine:1,sam:3},
-        neighbors:['us','gt','bz','cu'],power:30},
+        res:{money:150,oil:30,gas:12,rareEarth:2,gold:10,silver:25,diamonds:0,uranium:2,steel:18,food:38},
+        prod:{money:18,oil:5,silver:5,steel:3,food:6},  /* #1 silver, #12 oil, major automotive manufacturing */
+        army:{infantry:18,tank:4,fighter:4,drone:3,navy:4,submarine:1,sam:4},
+        neighbors:['us','gt','bz','cu'],power:32},
     ar:{name:'Argentina',flag:'🇦🇷',color:'#81d4fa',profile:'neutral',
-        res:{money:100,oil:10,gas:15,rareEarth:8,gold:5,silver:15,diamonds:0,uranium:5,steel:10,food:50},
-        prod:{money:12,gas:2,silver:3,food:8},
+        res:{money:110,oil:15,gas:25,rareEarth:12,gold:6,silver:18,diamonds:0,uranium:6,steel:12,food:55},
+        prod:{money:14,oil:2,gas:4,rareEarth:2,silver:3,food:9},  /* Vaca Muerta shale, lithium triangle, #3 soybean */
         army:{infantry:14,tank:4,fighter:4,drone:2,navy:4,submarine:2,sam:2},
         neighbors:['br','cl','uy','py','bo'],power:28},
     co:{name:'Colombia',flag:'🇨🇴',color:'#fbc02d',profile:'opportunist',
-        res:{money:80,oil:15,gas:8,rareEarth:2,gold:10,silver:5,diamonds:2,uranium:1,steel:5,food:30},
-        prod:{money:10,oil:2,gold:2,food:4},
-        army:{infantry:16,tank:3,fighter:3,drone:2,navy:3,submarine:1,sam:2},
-        neighbors:['br','ve','pe','ec','pa'],power:25},
+        res:{money:95,oil:18,gas:10,rareEarth:2,gold:12,silver:6,diamonds:5,uranium:1,steel:8,food:32},
+        prod:{money:12,oil:3,gold:2,steel:2,food:5},  /* #5 coal exporter, #1 emeralds, significant gold/oil */
+        army:{infantry:16,tank:3,fighter:3,drone:3,navy:3,submarine:1,sam:3},
+        neighbors:['br','ve','pe','ec','pa'],power:27},
     ve:{name:'Venezuela',flag:'🇻🇪',color:'#b8860b',profile:'unstable',
         res:{money:50,oil:120,gas:30,rareEarth:2,gold:5,silver:1,diamonds:3,uranium:1,steel:5,food:15},
         prod:{money:6,oil:18,gas:4},
@@ -252,10 +262,10 @@ const NATIONS = {
         army:{infantry:10,tank:5,fighter:5,drone:3,navy:4,submarine:4,sam:5},
         neighbors:['no','fi','dk'],power:36},
     dz:{name:'Algeria',flag:'🇩🇿',color:'#827717',profile:'opportunist',
-        res:{money:70,oil:30,gas:40,rareEarth:3,gold:3,silver:1,diamonds:0,uranium:2,steel:5,food:10},
-        prod:{money:8,oil:4,gas:6},
-        army:{infantry:18,tank:8,fighter:6,bomber:1,drone:4,navy:4,submarine:2,sam:4},
-        neighbors:['ly','tn','ma','ml','ne','mr','eh'],power:32},
+        res:{money:85,oil:35,gas:50,rareEarth:3,gold:3,silver:1,diamonds:0,uranium:2,steel:8,food:12},
+        prod:{money:10,oil:5,gas:8},  /* #10 global gas reserves, #3 African gas, major Hassi Messaoud oil */
+        army:{infantry:20,tank:10,fighter:8,bomber:2,drone:6,navy:5,submarine:3,sam:6},
+        neighbors:['ly','tn','ma','ml','ne','mr','eh'],power:35},
     ly:{name:'Libia',flag:'🇱🇾',color:'#78909c',profile:'unstable',
         res:{money:50,oil:50,gas:15,rareEarth:1,gold:2,silver:0,diamonds:0,uranium:1,steel:3,food:5},
         prod:{money:6,oil:8,gas:2},
@@ -292,35 +302,35 @@ const NATIONS = {
         army:{infantry:10,tank:4,fighter:4,drone:2,navy:4,submarine:2,sam:3},
         assets:['malacca'],neighbors:['id','th','bn','ph','sg'],power:28},
     pe:{name:'Perù',flag:'🇵🇪',color:'#ffa726',profile:'neutral',
-        res:{money:60,oil:3,gas:5,rareEarth:2,gold:10,silver:15,diamonds:0,uranium:1,steel:5,food:25},
-        prod:{money:8,gold:2,silver:3,food:4},
-        army:{infantry:12,tank:3,fighter:3,drone:1,navy:2,sam:2},
-        neighbors:['br','co','ec','bo','cl'],power:22},
+        res:{money:75,oil:3,gas:8,rareEarth:3,gold:15,silver:20,diamonds:0,uranium:2,steel:10,food:28},
+        prod:{money:10,gold:3,silver:4,steel:2,food:4},  /* #2 copper/#2 silver/#6 gold worldwide, major zinc */
+        army:{infantry:12,tank:3,fighter:3,drone:2,navy:3,sam:3},
+        neighbors:['br','co','ec','bo','cl'],power:24},
     cl:{name:'Cile',flag:'🇨🇱',color:'#9b2335',profile:'neutral',
-        res:{money:80,oil:2,gas:3,rareEarth:5,gold:5,silver:8,diamonds:0,uranium:1,steel:8,food:20},
-        prod:{money:10,silver:2,food:3},
+        res:{money:95,oil:2,gas:3,rareEarth:12,gold:6,silver:10,diamonds:0,uranium:1,steel:15,food:22},
+        prod:{money:12,rareEarth:3,silver:2,steel:2,food:3},  /* #1 copper, #2 lithium, significant molybdenum/iodine */
         army:{infantry:10,tank:4,fighter:4,drone:1,navy:3,submarine:2,sam:2},
-        neighbors:['ar','pe','bo'],power:22},
+        neighbors:['ar','pe','bo'],power:24},
     kz:{name:'Kazakistan',flag:'🇰🇿',color:'#00acc1',profile:'opportunist',
-        res:{money:60,oil:40,gas:20,rareEarth:10,gold:8,silver:3,diamonds:2,uranium:25,steel:10,food:15},
-        prod:{money:8,oil:6,gas:3,uranium:5},
-        army:{infantry:14,tank:6,fighter:4,drone:2,sam:4},
-        neighbors:['ru','cn','uz','tm','kg'],power:28},
+        res:{money:90,oil:50,gas:25,rareEarth:12,gold:10,silver:4,diamonds:2,uranium:30,steel:15,food:18},
+        prod:{money:12,oil:8,gas:4,uranium:6,steel:2},  /* #1 uranium, Kashagan/Tengiz oil, #2 chrome, GDP $220B */
+        army:{infantry:14,tank:6,fighter:4,drone:3,sam:5},
+        neighbors:['ru','cn','uz','tm','kg'],power:30},
     ph:{name:'Filippine',flag:'🇵🇭',color:'#7986cb',profile:'neutral',
         res:{money:80,oil:2,gas:3,rareEarth:3,gold:5,silver:2,diamonds:0,uranium:0,steel:5,food:30},
         prod:{money:10,food:5},
         army:{infantry:14,tank:2,fighter:3,drone:2,navy:3,sam:2},
-        neighbors:['my','id','tw','cn'],power:22},
+        assets:['south_china'],neighbors:['my','id','tw','cn'],power:22},
     tw:{name:'Taiwan',flag:'🇹🇼',color:'#00b0ff',profile:'defensive',
         res:{money:250,oil:0,gas:0,rareEarth:5,gold:1,silver:1,diamonds:0,uranium:0,steel:15,food:10},
         prod:{money:30,rareEarth:2,steel:4},
         army:{infantry:14,tank:6,fighter:10,drone:8,navy:8,submarine:4,sam:14,cruiseMissile:4},
-        assets:['taiwan_strait'],neighbors:['cn','jp','ph'],power:45},
+        assets:['taiwan_strait'],neighbors:[],power:45},  /* island: reachable only by sea/air/missile */
     vn:{name:'Vietnam',flag:'🇻🇳',color:'#e64a19',profile:'opportunist',
         res:{money:70,oil:8,gas:5,rareEarth:15,gold:3,silver:1,diamonds:0,uranium:1,steel:8,food:35},
         prod:{money:10,oil:1,rareEarth:3,food:5},
         army:{infantry:22,tank:6,fighter:5,drone:4,navy:4,submarine:4,sam:6},
-        neighbors:['cn','la','kh'],power:30},
+        assets:['south_china'],neighbors:['cn','la','kh'],power:30},
     mm:{name:'Myanmar',flag:'🇲🇲',color:'#a1887f',profile:'unstable',
         res:{money:20,oil:2,gas:5,rareEarth:15,gold:3,silver:1,diamonds:3,uranium:2,steel:3,food:20},
         prod:{money:3,rareEarth:3,food:3},
@@ -555,12 +565,17 @@ function getMinorNation(code) {
     const minorColor = `hsl(${h}, 45%, 55%)`;
     const info = MINOR_NAMES[code] || { name: code.toUpperCase(), flag: '🏳️' };
     const ovr = MINOR_OVERRIDES[code];
+    /* Derive strategic assets: check which STRATEGIC_ASSETS list this code as holder */
+    const derivedAssets = [];
+    Object.entries(STRATEGIC_ASSETS).forEach(([id, a]) => {
+        if (a.holders.includes(code)) derivedAssets.push(id);
+    });
     return {
         name: info.name, flag: info.flag, color: minorColor, profile:'minor',
         res:  ovr?.res  || {money:60,oil:2,gas:1,rareEarth:1,gold:1,silver:0,diamonds:0,uranium:0,steel:5,food:15},
         prod: ovr?.prod || {money:12,food:2,steel:1},
         army:{infantry:8,tank:2,drone:1,sam:1},
-        assets:[], neighbors:[], power:8
+        assets:derivedAssets, neighbors:[], power:8
     };
 }
 function getNation(code) { return NATIONS[code] || getMinorNation(code); }

@@ -184,6 +184,14 @@ const UI = (() => {
                 const lang = btn.getAttribute('data-lang');
                 if (typeof I18n !== 'undefined') {
                     I18n.setLang(lang);
+                    /* Propagate translated names into live game state */
+                    const st = GameEngine.getState && GameEngine.getState();
+                    if (st && st.nations) {
+                        Object.keys(st.nations).forEach(c => {
+                            const base = getNation(c);
+                            st.nations[c].name = base.name;
+                        });
+                    }
                     _refreshSettingsUI();
                     _lastLegendHtml = '';   // force legend re-render
                     /* Refresh any open dynamic content */
@@ -916,6 +924,25 @@ const UI = (() => {
                 actHtml += `<button class="btn-action btn-move" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doBreakAlliance('${code}');">${t('diplo_break_ally')}</button>`;
             } else {
                 actHtml += `<button class="btn-action btn-build" onclick="UI.doAlly('${code}');">${t('diplo_ally')} (🥇10 💰30)</button>`;
+                /* NAP button with proper disable logic */
+                const _ndNapRel = GameEngine.getRelation(state.player, code);
+                const _ndNapPn = state.nations[state.player];
+                const _ndNapCanAfford = (_ndNapPn.res.silver || 0) >= 5 && (_ndNapPn.res.money || 0) >= 15;
+                const _ndNapTooFriendly = _ndNapRel > 30;
+                const _ndNapAlreadyUsed = _isNapUsed(code);
+                const _ndNapBlocked = !_ndNapCanAfford || _ndNapTooFriendly || _ndNapAlreadyUsed;
+                const _ndNapDis = _ndNapBlocked ? ' disabled' : '';
+                const _ndNapCls = _ndNapBlocked ? ' act-disabled' : '';
+                actHtml += `<button class="btn-action btn-move${_ndNapCls}" onclick="UI.doNonAggression('${code}');"${_ndNapDis}>${t('diplo_non_aggression')} (🥈5 💰15)</button>`;
+                if (_ndNapAlreadyUsed) {
+                    actHtml += `<div style="font-size:0.55rem;color:var(--accent);text-align:center;margin:-4px 0 4px;">⏳ ${t('nap_used_hint') || 'Patto già stipulato questo turno'}</div>`;
+                } else if (_ndNapTooFriendly) {
+                    actHtml += `<div style="font-size:0.55rem;color:var(--text-muted);text-align:center;margin:-4px 0 4px;">✅ ${t('pact_already_friendly') || 'Relazioni già buone'} (${_ndNapRel})</div>`;
+                } else if (!_ndNapCanAfford) {
+                    actHtml += `<div style="font-size:0.55rem;color:#ffa726;text-align:center;margin:-4px 0 4px;">💰 ${t('insufficient_res') || 'Risorse insufficienti'}</div>`;
+                } else {
+                    actHtml += `<div style="font-size:0.52rem;color:var(--text-dim);text-align:center;margin:-4px 0 4px;opacity:0.7;">📊 ${_ndNapRel} → ${Math.min(100, _ndNapRel + 15)} (+15)</div>`;
+                }
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">${t('diplo_declare_war')}</button>`;
                 actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">${t('btn_attack')}${_ndCostLbl}${_ndFatLbl}</button>`;
             }
@@ -1029,23 +1056,18 @@ const UI = (() => {
         }
         els['panel-strategic'].innerHTML = assetHtml;
 
-        /* Military */
+        /* Military — for player's own territory, show compact summary only (full detail is in the footer military bar) */
         let milHtml = `<h4>${t('nd_military_title')}</h4>`;
         if (isMyTerritory) {
-            let totalUnits = 0;
-            Object.entries(n.army).forEach(([key, count]) => {
-                if (count > 0) {
-                    const ut = UNIT_TYPES[key];
-                    milHtml += `<div class="res-row"><span>${ut.icon} ${ut.name}</span><span class="val">${count} <span style="color:var(--text-dim);font-size:0.65rem;">(ATK:${ut.atk*count} DEF:${ut.def*count})</span></span></div>`;
-                    totalUnits += count;
-                }
-            });
-            if (totalUnits === 0) milHtml += `<div class="res-row"><span style="color:var(--text-dim)">${t('nd_no_units')}</span></div>`;
-            else {
-                const totalAtk = GameEngine.calcMilitary(state.player, 'atk');
-                const totalDef = GameEngine.calcMilitary(state.player, 'def');
-                milHtml += `<div class="res-row" style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;"><span style="font-weight:700;">${t('nd_total')}</span><span class="val">ATK:${totalAtk} DEF:${totalDef}</span></div>`;
-            }
+            const totalAtk = GameEngine.calcMilitary(state.player, 'atk');
+            const totalDef = GameEngine.calcMilitary(state.player, 'def');
+            const totalUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
+            milHtml += `<div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 10px;background:rgba(0,229,255,0.04);border-radius:6px;font-family:var(--font-mono);font-size:0.78rem;">`;
+            milHtml += `<span style="color:var(--red);font-weight:700;">⚔️ ${totalAtk}</span>`;
+            milHtml += `<span style="color:var(--accent);font-weight:700;">🛡️ ${totalDef}</span>`;
+            milHtml += `<span style="color:var(--gold);font-weight:700;">🪖 ${totalUnits}</span>`;
+            milHtml += `</div>`;
+            milHtml += `<div style="text-align:center;font-size:0.6rem;color:var(--text-muted);margin-top:4px;">📋 ${t('econ_army_title') || 'Dettaglio nella barra in basso'}</div>`;
         } else if (atWar || isAlly) {
             /* During war or alliance, show estimated power */
             const ePow = GameEngine.calcMilitary(owner, 'atk');
@@ -1225,18 +1247,26 @@ const UI = (() => {
 
             if (!isAlly && !atWar) {
                 actHtml += `<button class="btn-action btn-build${_disCls}" onclick="UI.doAllyFromPanel('${owner}');"${_dis}>${t('diplo_ally')} (🥇10 💰30)</button>`;
-                /* Non-aggression pact: disable if relation is already high (>30) or can't afford */
+                /* Non-aggression pact: disable if relation high, can't afford, or already used this turn */
                 const _napRel = GameEngine.getRelation(state.player, owner);
                 const _napPn = state.nations[state.player];
                 const _napCanAfford = (_napPn.res.silver || 0) >= 5 && (_napPn.res.money || 0) >= 15;
                 const _napTooFriendly = _napRel > 30;
-                const _napDisabled = (notMyTurn || !_napCanAfford || _napTooFriendly) ? ' disabled' : '';
-                const _napDisCls = (notMyTurn || !_napCanAfford || _napTooFriendly) ? ' act-disabled' : '';
+                const _napAlreadyUsed = _isNapUsed(owner);
+                const _napBlocked = notMyTurn || !_napCanAfford || _napTooFriendly || _napAlreadyUsed;
+                const _napDisabled = _napBlocked ? ' disabled' : '';
+                const _napDisCls = _napBlocked ? ' act-disabled' : '';
                 actHtml += `<button class="btn-action btn-move${_napDisCls}" onclick="UI.doNonAggression('${owner}');"${_napDisabled}>${t('diplo_non_aggression')} (🥈5 💰15)</button>`;
-                if (_napTooFriendly) {
-                    actHtml += `<div style="font-size:0.58rem;color:var(--text-muted);text-align:center;margin:-4px 0 4px;">✅ ${t('pact_already_friendly') || 'Relazioni già buone'}</div>`;
+                /* Status hint below the button */
+                if (_napAlreadyUsed) {
+                    actHtml += `<div style="font-size:0.58rem;color:var(--accent);text-align:center;margin:-4px 0 4px;">⏳ ${t('nap_used_hint') || 'Patto già stipulato questo turno'}</div>`;
+                } else if (_napTooFriendly) {
+                    actHtml += `<div style="font-size:0.58rem;color:var(--text-muted);text-align:center;margin:-4px 0 4px;">✅ ${t('pact_already_friendly') || 'Relazioni già buone'} (${_napRel})</div>`;
                 } else if (!_napCanAfford) {
                     actHtml += `<div style="font-size:0.58rem;color:#ffa726;text-align:center;margin:-4px 0 4px;">💰 ${t('insufficient_res') || 'Risorse insufficienti'}</div>`;
+                } else {
+                    /* Show what NAP does as a hint for clarity */
+                    actHtml += `<div style="font-size:0.55rem;color:var(--text-dim);text-align:center;margin:-4px 0 4px;opacity:0.7;">📊 ${t('nap_hint') || 'Relazione attuale'}: ${_napRel} → ${Math.min(100, _napRel + 15)} (+15)</div>`;
                 }
             }
             if (isAlly) {
@@ -1245,9 +1275,30 @@ const UI = (() => {
 
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">${t('panel_economy')}</div>`;
             actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doTradeResources('${owner}');"${_dis}>${t('diplo_trade')}</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doSanction('${owner}');"${_dis}>${t('diplo_sanction')}</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doEmbargo('${owner}');"${_dis}>${t('diplo_embargo')}</button>`;
-            actHtml += `<button class="btn-action btn-move${_disCls}" onclick="UI.doDemandTribute('${owner}');"${_dis}>${t('diplo_tribute')}</button>`;
+            /* Sanction: disable if already sanctioning */
+            const _sancActive = _alreadySanctioning(owner);
+            const _sancDis = (notMyTurn || _sancActive) ? ' disabled' : '';
+            const _sancCls = (notMyTurn || _sancActive) ? ' act-disabled' : '';
+            actHtml += `<button class="btn-action btn-move${_sancCls}" onclick="UI.doSanction('${owner}');"${_sancDis}>${t('diplo_sanction')}</button>`;
+            if (_sancActive) actHtml += `<div style="font-size:0.55rem;color:var(--accent);text-align:center;margin:-4px 0 4px;">✅ ${t('sanction_already')}</div>`;
+            /* Embargo: disable if already used this turn; cost 10💰 */
+            const _embUsed = _isEmbargoUsed(owner);
+            const _embAfford = (state.nations[state.player]?.res.money || 0) >= 10;
+            const _embBlocked = notMyTurn || _embUsed || !_embAfford;
+            const _embDis = _embBlocked ? ' disabled' : '';
+            const _embCls = _embBlocked ? ' act-disabled' : '';
+            actHtml += `<button class="btn-action btn-move${_embCls}" style="border-color:var(--accent3);color:var(--accent3)" onclick="UI.doEmbargo('${owner}');"${_embDis}>${t('diplo_embargo')} (10💰)</button>`;
+            if (_embUsed) actHtml += `<div style="font-size:0.55rem;color:var(--accent);text-align:center;margin:-4px 0 4px;">⏳ ${t('embargo_already')}</div>`;
+            else if (!_embAfford) actHtml += `<div style="font-size:0.55rem;color:#ffa726;text-align:center;margin:-4px 0 4px;">💰 ${t('insufficient_res')}</div>`;
+            /* Tribute: disable if ally or already used this turn */
+            const _tribUsed = _isTributeUsed(owner);
+            const _tribIsAlly = isAlly;
+            const _tribBlocked = notMyTurn || _tribUsed || _tribIsAlly;
+            const _tribDis = _tribBlocked ? ' disabled' : '';
+            const _tribCls = _tribBlocked ? ' act-disabled' : '';
+            actHtml += `<button class="btn-action btn-move${_tribCls}" onclick="UI.doDemandTribute('${owner}');"${_tribDis}>${t('diplo_tribute')}</button>`;
+            if (_tribIsAlly) actHtml += `<div style="font-size:0.55rem;color:var(--text-dim);text-align:center;margin:-4px 0 4px;">🤝 ${t('tribute_ally_block')}</div>`;
+            else if (_tribUsed) actHtml += `<div style="font-size:0.55rem;color:var(--accent);text-align:center;margin:-4px 0 4px;">⏳ ${t('tribute_already')}</div>`;
 
             /* Spy / Intel */
             actHtml += `<div style="font-size:0.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Intelligence</div>`;
@@ -1323,6 +1374,17 @@ const UI = (() => {
 
         /* Show battle popup */
         showBattleResult(result);
+
+        /* Check if defender was eliminated */
+        if (result.conquered) {
+            const defN = state.nations[owner];
+            const defRemaining = GameEngine.getTerritoryCount ? GameEngine.getTerritoryCount(owner) : -1;
+            if (defRemaining === 0 && defN) {
+                addEventToLog({ turn: state.turn, type:'battle',
+                    msg: `💀 ${fmtNation(defN)} <span class="evt-action">${t('evt_ai_eliminated')}</span>`
+                });
+            }
+        }
 
         /* ── Mid-turn unrest check: spreading thin triggers revolts ── */
         if (result.conquered) {
@@ -1833,11 +1895,19 @@ const UI = (() => {
     function doSanction(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
-        GameEngine.addSanction(state.player, targetCode);
+        /* Already sanctioning → no-op */
+        if (_alreadySanctioning(targetCode)) {
+            _showActionToast('🚫', t('sanction_already'), '', 'warn');
+            return;
+        }
+        GameEngine.addSanction(state.player, targetCode, true);
         const tn = state.nations[targetCode];
         addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🚫 <span class="evt-action">${t('evt_sanctions')}</span> ${fmtNation(tn)}` });
         updateHUD();
         hide('diplomacy-popup');
+        /* Refresh territory panel to update button states */
+        const _sancSel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (_sancSel) showTerritoryPanel(_sancSel);
 
         /* Visual feedback */
         _showActionToast('🚫', t('toast_sanctions'),
@@ -1870,13 +1940,18 @@ const UI = (() => {
         html += `<div style="font-size:0.7rem;color:var(--text-dim);margin-top:6px;">${t('prod_power')}: ⚔️${totalAtk} ATK | 🛡️${totalDef} DEF</div>`;
         html += '</div>';
 
-        /* Available resources — styled like army summary for uniformity */
+        /* Available resources — card-style items matching the army summary for visual uniformity */
         html += '<div class="prod-army-summary" style="margin:10px 0;">';
         html += `<h4 style="color:var(--accent);font-family:var(--font-title);font-size:0.8rem;margin-bottom:8px;">${t('prod_resources') || '📦 Risorse Disponibili'}</h4>`;
-        html += '<div class="prod-army-grid">';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;">';
         ['money','oil','steel','rareEarth','uranium','food'].forEach(key => {
             const val = n.res[key] || 0;
-            html += `<span class="prod-army-item">${RESOURCES[key].icon} ${val}</span>`;
+            const r = RESOURCES[key];
+            html += `<div style="display:flex;align-items:center;gap:6px;background:var(--bg-dark);padding:5px 10px;border-radius:5px;border:1px solid var(--border-subtle);">`;
+            html += `<span style="font-size:1rem;flex-shrink:0;">${r.icon}</span>`;
+            html += `<span style="font-size:0.68rem;color:var(--text-dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</span>`;
+            html += `<span style="font-family:var(--font-mono);font-size:0.82rem;color:var(--gold);font-weight:700;">${val}</span>`;
+            html += `</div>`;
         });
         html += '</div></div>';
 
@@ -2094,11 +2169,30 @@ const UI = (() => {
                 c += `<button class="diplo-btn betray" onclick="UI.doBreakAlliance('${code}')">${t('diplo_break_ally')}</button>`;
             } else {
                 c += `<button class="diplo-btn ally" onclick="UI.doAlly('${code}')">${t('diplo_ally')} (\ud83e\udd4710 \ud83d\udcb030)</button>`;
+                /* NAP button with disable logic */
+                const _dpNapTooFriendly = rel > 30;
+                const _dpNapUsed = _isNapUsed(code);
+                const _dpNapPn = state.nations[state.player];
+                const _dpNapAfford = (_dpNapPn.res.silver || 0) >= 5 && (_dpNapPn.res.money || 0) >= 15;
+                const _dpNapDis = (_dpNapTooFriendly || _dpNapUsed || !_dpNapAfford) ? ' disabled style="opacity:0.5"' : '';
+                c += `<button class="diplo-btn sanction" onclick="UI.doNonAggression('${code}');"${_dpNapDis}>${t('diplo_non_aggression')} (\ud83e\udd485 \ud83d\udcb015)</button>`;
                 c += `<button class="diplo-btn war" onclick="UI.doDeclareWar('${code}')">${t('diplo_declare_war')}</button>`;
             }
-            c += `<button class="diplo-btn sanction" onclick="UI.doSanction('${code}')">${t('diplo_sanction')}</button>`;
+            /* Sanction: disable if already active */
+            const _dpSancActive = _alreadySanctioning(code);
+            const _dpSancDis = _dpSancActive ? ' disabled style="opacity:0.5"' : '';
+            c += `<button class="diplo-btn sanction" onclick="UI.doSanction('${code}')"${_dpSancDis}>${t('diplo_sanction')}${_dpSancActive ? ' ✅' : ''}</button>`;
+            /* Embargo: disable if used this turn or can't afford */
+            const _dpEmbUsed = _isEmbargoUsed(code);
+            const _dpEmbAfford = (state.nations[state.player]?.res.money || 0) >= 10;
+            const _dpEmbDis = (_dpEmbUsed || !_dpEmbAfford) ? ' disabled style="opacity:0.5"' : '';
+            c += `<button class="diplo-btn sanction" style="border-color:#ff5252;color:#ff5252" onclick="UI.doEmbargo('${code}')"${_dpEmbDis}>${t('diplo_embargo')} (10💰)${_dpEmbUsed ? ' ⏳' : ''}</button>`;
             c += `<button class="diplo-btn trade" onclick="UI.doTradeResources('${code}')">${t('diplo_trade')}</button>`;
-            c += `<button class="diplo-btn tribute" onclick="UI.doDemandTribute('${code}')">${t('diplo_tribute')}</button>`;
+            /* Tribute: disable if ally or already used this turn */
+            const _dpTribUsed = _isTributeUsed(code);
+            const _dpTribAlly = ally;
+            const _dpTribDis = (_dpTribUsed || _dpTribAlly) ? ' disabled style="opacity:0.5"' : '';
+            c += `<button class="diplo-btn tribute" onclick="UI.doDemandTribute('${code}')"${_dpTribDis}>${t('diplo_tribute')}${_dpTribAlly ? ' 🤝' : ''}${_dpTribUsed ? ' ⏳' : ''}</button>`;
             c += `<button class="diplo-btn spy" onclick="UI.doSpyMission('${code}')">${t('diplo_spy')}</button>`;
             c += `</div>`;
 
@@ -2203,12 +2297,116 @@ const UI = (() => {
         updateHUD();
         updateMilitaryBar();
         MapRenderer.colourAllTerritories();
+
+        /* Refresh panel: if territory panel is open, refresh it;
+           also re-render nation detail if it was showing this nation
+           so the action buttons update (ally→neutral buttons) */
         const sel = MapRenderer.getSelected && MapRenderer.getSelected();
-        if (sel) showTerritoryPanel(sel);
+        if (sel) {
+            const selOwner = state.territories[sel];
+            if (selOwner === targetCode) {
+                showTerritoryPanel(sel);
+            } else {
+                showTerritoryPanel(sel);
+            }
+        }
+        /* If nation detail was open for this nation, re-render with new buttons */
+        const panelName = els['panel-territory-name'];
+        if (panelName && _bn && panelName.textContent.includes(_bn.name)) {
+            showNationDetail(targetCode);
+        }
 
         /* Notify components */
         _emitBus('diplomacy:changed');
         _emitBus('state:changed');
+    }
+
+    /* ── NAP per-nation-per-turn tracking ── */
+    const _napUsedMap = {};  // { 'turn:nationCode': true }
+    function _isNapUsed(targetCode) {
+        const state = GameEngine.getState();
+        if (!state) return false;
+        return !!_napUsedMap[state.turn + ':' + targetCode];
+    }
+    function _markNapUsed(targetCode) {
+        const state = GameEngine.getState();
+        if (!state) return;
+        _napUsedMap[state.turn + ':' + targetCode] = true;
+    }
+
+    /* ── Sanction / Embargo per-nation tracking ── */
+    function _alreadySanctioning(targetCode) {
+        const state = GameEngine.getState();
+        if (!state) return false;
+        const tn = state.nations[targetCode];
+        return tn && tn.sanctions.includes(state.player);
+    }
+    const _embargoUsedMap = {};  // { 'turn:nationCode': true }
+    function _isEmbargoUsed(targetCode) {
+        const state = GameEngine.getState();
+        if (!state) return false;
+        return !!_embargoUsedMap[state.turn + ':' + targetCode];
+    }
+    function _markEmbargoUsed(targetCode) {
+        const state = GameEngine.getState();
+        if (!state) return;
+        _embargoUsedMap[state.turn + ':' + targetCode] = true;
+    }
+    const _tributeUsedMap = {};  // { 'turn:nationCode': true }
+    function _isTributeUsed(targetCode) {
+        const state = GameEngine.getState();
+        if (!state) return false;
+        return !!_tributeUsedMap[state.turn + ':' + targetCode];
+    }
+    function _markTributeUsed(targetCode) {
+        const state = GameEngine.getState();
+        if (!state) return;
+        _tributeUsedMap[state.turn + ':' + targetCode] = true;
+    }
+
+    /** Check if the event panel is collapsed/hidden */
+    function _isEvtCollapsed() {
+        const panel = els['right-panel'];
+        return panel && panel.classList.contains('hidden');
+    }
+
+    /** Show an informative overlay about the NAP result (especially when events are collapsed) */
+    function _showNapInfoOverlay(nationName, nationFlag, relBefore, relAfter, silverCost, moneyCost) {
+        /* Remove any existing overlay */
+        const existing = document.getElementById('nap-info-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'nap-info-overlay';
+        overlay.className = 'nap-info-overlay';
+        overlay.innerHTML = `
+            <div class="nap-info-card">
+                <div class="nap-info-icon">📝</div>
+                <div class="nap-info-title">${t('toast_pact')}</div>
+                <div class="nap-info-nation">${nationFlag} ${nationName}</div>
+                <div class="nap-info-detail">
+                    <div class="nap-info-row">
+                        <span>${t('nap_info_relation') || 'Relazione'}</span>
+                        <span><span style="color:#ff9100">${relBefore}</span> → <span style="color:#00e676">${relAfter}</span> <span style="color:#69f0ae">(+15)</span></span>
+                    </div>
+                    <div class="nap-info-row">
+                        <span>${t('nap_info_cost') || 'Costo'}</span>
+                        <span>🥈${silverCost} + 💰${moneyCost}</span>
+                    </div>
+                </div>
+                <div class="nap-info-hint">${t('nap_info_hint') || 'Un patto di non aggressione migliora le relazioni diplomatiche, rendendo più facile formare alleanze in futuro e riducendo il rischio di guerra.'}</div>
+                <button class="nap-info-close" onclick="this.closest('.nap-info-overlay').remove()">OK</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        /* Auto-dismiss after 6 seconds */
+        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 6000);
+
+        /* Click outside to close */
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
     }
 
     function doNonAggression(targetCode) {
@@ -2217,6 +2415,22 @@ const UI = (() => {
         const pn = state.nations[state.player];
         /* Non-aggression pact costs: 🥈5 silver + 💰15 */
         const silverCost = 5, moneyCost = 15;
+
+        /* Already used this turn for this nation */
+        if (_isNapUsed(targetCode)) {
+            _showActionToast('⏳', t('nap_already_used') || 'PATTO GIÀ STIPULATO',
+                t('nap_already_used_sub') || 'Puoi stipulare un solo patto per nazione per turno', 'warn');
+            return;
+        }
+
+        /* Relation already high — NAP would be pointless */
+        const relBefore = GameEngine.getRelation(state.player, targetCode);
+        if (relBefore > 30) {
+            _showActionToast('✅', t('nap_already_friendly_toast') || 'RELAZIONI GIÀ BUONE',
+                t('nap_already_friendly_sub') || 'Le relazioni sono già positive, un patto non è necessario', 'info');
+            return;
+        }
+
         if ((pn.res.silver || 0) < silverCost || (pn.res.money || 0) < moneyCost) {
             addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${t('insufficient_res')} (🥈${silverCost} + 💰${moneyCost})` });
             hide('diplomacy-popup');
@@ -2226,16 +2440,28 @@ const UI = (() => {
         }
         pn.res.silver -= silverCost;
         pn.res.money -= moneyCost;
+
         /* Simulate non-aggression pact as +15 relation boost */
         GameEngine.adjustRelation(state.player, targetCode, 15);
         GameEngine.adjustRelation(targetCode, state.player, 15);
+        const relAfter = GameEngine.getRelation(state.player, targetCode);
+
+        /* Mark as used this turn for this nation */
+        _markNapUsed(targetCode);
+
         const _nn = state.nations[targetCode];
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">${t('evt_pact')}</span> ${fmtNation(_nn)} <span class="evt-action">(🥈${silverCost} + 💰${moneyCost})</span>` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">${t('evt_pact')}</span> ${fmtNation(_nn)} <span class="evt-action">(🥈${silverCost} + 💰${moneyCost})</span> — ${t('nap_info_relation') || 'Relazione'}: ${relBefore} → ${relAfter}` });
         hide('diplomacy-popup');
 
-        /* Visual feedback */
+        /* Visual feedback: always show toast */
         _showActionToast('📝', t('toast_pact'),
-            `${_nn.flag} ${_nn.name} — ${t('toast_pact_sub')} (🥈${silverCost} + 💰${moneyCost})`, 'info');
+            `${_nn.flag} ${_nn.name} — ${relBefore} → ${relAfter} (+15) · 🥈${silverCost} 💰${moneyCost}`, 'info', 3500);
+
+        /* If event log is collapsed, show the informative overlay so the player
+           clearly sees what happened (game-expert UX: never let actions go unnoticed) */
+        if (_isEvtCollapsed()) {
+            _showNapInfoOverlay(_nn.name, _nn.flag, relBefore, relAfter, silverCost, moneyCost);
+        }
 
         /* Refresh toolbar and sidebar after pact */
         updateHUD();
@@ -2250,16 +2476,33 @@ const UI = (() => {
     function doEmbargo(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
-        GameEngine.addSanction(state.player, targetCode);
+        const pn = state.nations[state.player];
+        /* Once per turn per nation */
+        if (_isEmbargoUsed(targetCode)) {
+            _showActionToast('⛔', t('embargo_already'), '', 'warn');
+            return;
+        }
+        /* Cost: 10💰 */
+        const embCost = 10;
+        if ((pn.res.money || 0) < embCost) {
+            _showActionToast('⛔', t('insufficient_res'), '', 'warn');
+            return;
+        }
+        pn.res.money -= embCost;
+        GameEngine.addSanction(state.player, targetCode, true);
         /* Embargo also reduces their production more */
         const n = state.nations[targetCode];
         if (n) {
             n.res.money = Math.max(0, n.res.money - 20);
             n.res.oil = Math.max(0, n.res.oil - 10);
         }
+        _markEmbargoUsed(targetCode);
         addEventToLog({ turn: state.turn, type:'diplomacy', msg:`⛔ <span class="evt-action">${t('evt_embargo')}</span> ${fmtNation(state.nations[targetCode])} <span class="evt-action">(-20💰 -10🛢️)</span>` });
         updateHUD();
         hide('diplomacy-popup');
+        /* Refresh territory panel to update button states */
+        const _embSel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (_embSel) showTerritoryPanel(_embSel);
 
         /* Visual feedback */
         const _en = state.nations[targetCode];
@@ -2398,11 +2641,23 @@ const UI = (() => {
     function doDemandTribute(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
+        /* Block: can't demand tribute from allies */
+        if (GameEngine.isAlly(state.player, targetCode)) {
+            _showActionToast('🤝', t('tribute_ally_block'), '', 'warn');
+            return;
+        }
+        /* Once per turn per nation */
+        if (_isTributeUsed(targetCode)) {
+            _showActionToast('⏳', t('tribute_already'), '', 'warn');
+            return;
+        }
         const pn = state.nations[state.player];
         const tn = state.nations[targetCode];
         const rel = GameEngine.getRelation(targetCode, state.player);
         const myPow = GameEngine.calcMilitary(state.player, 'atk');
         const theirPow = GameEngine.calcMilitary(targetCode, 'def');
+
+        _markTributeUsed(targetCode);
 
         /* Success based on power ratio and fear */
         const powerRatio = myPow / Math.max(1, theirPow);
@@ -2413,17 +2668,20 @@ const UI = (() => {
             pn.res.money += tribute;
             tn.res.money = Math.max(0, tn.res.money - tribute);
             GameEngine.adjustRelation(targetCode, state.player, -20);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💰 ${fmtNation(tn)} <span class="evt-action">${t('evt_tribute_pay', {n: tribute})} (-20)</span>` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💰 ${fmtNation(tn)} <span class="evt-action">${t('evt_tribute_pay', {n: tribute})} (😠 -20)</span>` });
             _showActionToast('💰', t('toast_tribute_ok'),
-                `${tn.flag} ${tn.name} ${t('toast_tribute_pay')} 💰${tribute} — ${t('toast_tribute_rel')} −20`, 'gold');
+                `${tn.flag} ${tn.name} ${t('toast_tribute_pay')} 💰${tribute} — 😠 ${t('toast_tribute_rel')} −20`, 'gold');
         } else {
             GameEngine.adjustRelation(targetCode, state.player, -15);
-            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">${t('evt_tribute_refuse')} (-15)</span>` });
+            addEventToLog({ turn: state.turn, type:'diplomacy', msg:`❌ ${fmtNation(tn)} <span class="evt-action">${t('evt_tribute_refuse')} (😠 -15)</span>` });
             _showActionToast('✋', t('toast_tribute_fail'),
-                `${tn.flag} ${tn.name} ${t('toast_tribute_refuse')} — ${t('toast_tribute_rel')} −15`, 'danger');
+                `${tn.flag} ${tn.name} ${t('toast_tribute_refuse')} — 😠 ${t('toast_tribute_rel')} −15`, 'danger');
         }
         updateHUD();
         hide('diplomacy-popup');
+        /* Refresh territory panel to update button states */
+        const _tribSel = MapRenderer.getSelected && MapRenderer.getSelected();
+        if (_tribSel) showTerritoryPanel(_tribSel);
 
         /* Notify components */
         _emitBus('resources:changed');
@@ -2562,6 +2820,14 @@ const UI = (() => {
 
         /* ── Mid-turn unrest check after nuke conquest ── */
         if (result.conquered) {
+            /* Check if defender was eliminated */
+            const _nukeDefN = state.nations[defOwner];
+            const _nukeDefRem = GameEngine.getTerritoryCount ? GameEngine.getTerritoryCount(defOwner) : -1;
+            if (_nukeDefRem === 0 && _nukeDefN) {
+                addEventToLog({ turn: state.turn, type:'battle',
+                    msg: `💀 ${fmtNation(_nukeDefN)} <span class="evt-action">${t('evt_ai_eliminated')}</span>`
+                });
+            }
             const midRevolts = GameEngine.checkMidTurnUnrest(state.player);
             if (midRevolts.length > 0) {
                 setTimeout(() => {
@@ -2805,22 +3071,23 @@ const UI = (() => {
             const count = n.army[key] || 0;
             if (count > 0) {
                 html += `<div class="econ-item" style="display:flex;align-items:center;gap:var(--sp-2);">`;
-                html += `<span class="econ-icon" style="font-size:1.3rem;width:28px;text-align:center;flex-shrink:0;">${ut.icon}</span>`;
-                html += `<span class="econ-name" style="flex:1;min-width:0;">${ut.name} <span style="color:var(--gold);font-weight:700;">×${count}</span></span>`;
-                html += `<span style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:0.72rem;flex-shrink:0;">`;
-                html += `<span style="color:var(--red);" title="ATK">⚔️${ut.atk*count}</span>`;
-                html += `<span style="color:var(--accent);" title="DEF">🛡️${ut.def*count}</span>`;
-                html += `</span>`;
+                html += `<span style="font-size:1.3rem;width:28px;text-align:center;flex-shrink:0;">${ut.icon}</span>`;
+                html += `<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ut.name} <span style="color:var(--gold);font-weight:700;">×${count}</span></span>`;
+                html += `<span style="display:inline-flex;align-items:center;gap:2px;width:56px;justify-content:flex-end;font-family:var(--font-mono);font-size:0.72rem;color:var(--red);flex-shrink:0;" title="ATK">⚔️ ${ut.atk*count}</span>`;
+                html += `<span style="display:inline-flex;align-items:center;gap:2px;width:56px;justify-content:flex-end;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);flex-shrink:0;" title="DEF">🛡️ ${ut.def*count}</span>`;
                 html += `</div>`;
             }
         });
         const totalAtk = GameEngine.calcMilitary(state.player, 'atk');
         const totalDef = GameEngine.calcMilitary(state.player, 'def');
+        const totalUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
         html += `</div>`;
-        html += `<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px;padding:8px 12px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);border-radius:6px;font-family:var(--font-mono);font-size:0.8rem;">`;
-        html += `<span style="color:var(--red);font-weight:700;">⚔️ ${totalAtk} ATK</span>`;
+        html += `<div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-top:10px;padding:8px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);border-radius:6px;font-family:var(--font-mono);font-size:0.82rem;">`;
+        html += `<span style="color:var(--red);font-weight:700;">⚔️ ${totalAtk}</span>`;
         html += `<span style="color:var(--border);font-size:0.6rem;">│</span>`;
-        html += `<span style="color:var(--accent);font-weight:700;">🛡️ ${totalDef} DEF</span>`;
+        html += `<span style="color:var(--accent);font-weight:700;">🛡️ ${totalDef}</span>`;
+        html += `<span style="color:var(--border);font-size:0.6rem;">│</span>`;
+        html += `<span style="color:var(--gold);font-weight:700;">🪖 ${totalUnits}</span>`;
         html += `</div></div>`;
 
         /* Technologies */

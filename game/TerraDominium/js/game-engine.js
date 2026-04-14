@@ -8,6 +8,11 @@ const GameEngine = (() => {
     let state = null;
     let onEvent = null;     // callback for UI log
 
+    /** i18n helper: use global I18n if available, fallback to key */
+    function _t(key, params) {
+        return (typeof I18n !== 'undefined') ? I18n.t(key, params) : key;
+    }
+
     /* ── Territory count cache: nationCode → count.
        Updated incrementally on every ownership change.
        Avoids O(n) full scans of state.territories. ── */
@@ -79,7 +84,7 @@ const GameEngine = (() => {
             };
         });
 
-        emit('game','⚔️ La partita inizia! Turno 1');
+        emit('game',`⚔️ ${_t('ge_game_start')}`);
         return state;
     }
 
@@ -176,7 +181,7 @@ const GameEngine = (() => {
             n.res[res] -= cost;
         }
         n.army[unitType] = (n.army[unitType] || 0) + 1;
-        emit('resource', `${n.flag} ${n.name} produce ${ut.icon} ${ut.name}`);
+        emit('resource', `${n.flag} ${n.name} ${_t('ge_produces')} ${ut.icon} ${ut.name}`);
         return true;
     }
 
@@ -204,7 +209,7 @@ const GameEngine = (() => {
             n.res[res] -= cost;
         }
         n.techs.push(techId);
-        emit('tech', `${n.flag} ${n.name} ricerca ${tech.icon} ${tech.name}`);
+        emit('tech', `${n.flag} ${n.name} ${_t('ge_researches')} ${tech.icon} ${tech.name}`);
         return true;
     }
 
@@ -496,7 +501,7 @@ const GameEngine = (() => {
                     if (v > 0) lootParts.push(`${RESOURCES[r]?.icon||r}${v}`);
                 });
                 if (lootParts.length) {
-                    emit('battle', `🏴 ${atk.flag} ${atk.name} saccheggia ${def.flag} ${def.name}: 📦 ${lootParts.join(' ')}`);
+                    emit('battle', `🏴 ${atk.flag} ${atk.name} ${_t('ge_loots')} ${def.flag} ${def.name}: 📦 ${lootParts.join(' ')}`);
                 }
             } /* end normal conquest vs homeland siege */
 
@@ -538,8 +543,8 @@ const GameEngine = (() => {
         const costTag = (attackCost.money > 0 || attackCost.infantry > 0)
             ? ` [${attackCost.attackNum}° att. 💰${attackCost.money} 🪖${attackCost.infantry}]` : '';
         emit('battle',
-            `${icon} ${atk.flag} ${atk.name} attacca ${def.flag} ${def.name} a ${defenderTerritoryCode.toUpperCase()} — ` +
-            `ATK:${result.atkPow} vs DEF:${result.defPow} → ${success ? 'VITTORIA' : 'SCONFITTA'} ` +
+            `${icon} ${atk.flag} ${atk.name} ${_t('ge_attacks')} ${def.flag} ${def.name} @ ${defenderTerritoryCode.toUpperCase()} — ` +
+            `ATK:${result.atkPow} vs DEF:${result.defPow} → ${success ? _t('ge_victory') : _t('ge_defeat')} ` +
             `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${fatigueTag}${costTag}`);
 
         /* Check elimination */
@@ -644,8 +649,8 @@ const GameEngine = (() => {
         });
 
         emit('nuke',
-            `☢️ ${atk.flag} ${atk.name} lancia TESTATA NUCLEARE su ${defenderTerritoryCode.toUpperCase()}! ` +
-            `Stabilità globale: ${state.globalStability}%`);
+            `☢️ ${atk.flag} ${atk.name} ${_t('ge_nuke_launch')} ${defenderTerritoryCode.toUpperCase()}! ` +
+            `${_t('ge_global_stability')}: ${state.globalStability}%`);
 
         checkElimination(defender);
         return { success: true, nukeUsed: true, territory: defenderTerritoryCode };
@@ -686,7 +691,11 @@ const GameEngine = (() => {
               (w.attacker === codeB && w.defender === codeA)));
         adjustRelation(codeA, codeB, 20);
         adjustRelation(codeB, codeA, 20);
-        emit('diplomacy', `🕊️ ${state.nations[codeA]?.flag || ''} ${codeA.toUpperCase()} e ${state.nations[codeB]?.flag || ''} ${codeB.toUpperCase()} firmano la pace`);
+        /* Auto-lift mutual sanctions on peace */
+        const nA = state.nations[codeA], nB = state.nations[codeB];
+        if (nA) nA.sanctions = nA.sanctions.filter(s => s !== codeB);
+        if (nB) nB.sanctions = nB.sanctions.filter(s => s !== codeA);
+        emit('diplomacy', `🕊️ ${state.nations[codeA]?.flag || ''} ${codeA.toUpperCase()} ${_t('ge_and')} ${state.nations[codeB]?.flag || ''} ${codeB.toUpperCase()} ${_t('ge_sign_peace')}`);
     }
 
     /**
@@ -865,13 +874,13 @@ const GameEngine = (() => {
         return true;
     }
 
-    function addSanction(fromCode, toCode) {
+    function addSanction(fromCode, toCode, silent) {
         const n = state.nations[toCode];
         if (!n) return;
         if (!n.sanctions.includes(fromCode)) {
             n.sanctions.push(fromCode);
             adjustRelation(toCode, fromCode, -15);
-            emit('diplomacy', `🚫 ${state.nations[fromCode]?.flag} ${fromCode.toUpperCase()} sanziona ${n.flag} ${toCode.toUpperCase()}`);
+            if (!silent) emit('diplomacy', `🚫 ${state.nations[fromCode]?.flag} ${fromCode.toUpperCase()} ${_t('ge_sanctions')} ${n.flag} ${toCode.toUpperCase()}`);
         }
     }
 
@@ -893,7 +902,7 @@ const GameEngine = (() => {
         });
         const removed = before - n.sanctions.length;
         if (removed > 0) {
-            emit('game', `📜 ${n.flag} ${n.name}: ${removed} sanzioni revocate (nazioni conquistate/eliminate)`);
+            emit('game', `📜 ${n.flag} ${n.name}: ${removed} ${_t('ge_sanctions_revoked')}`);
         }
     }
 
@@ -904,7 +913,11 @@ const GameEngine = (() => {
             state.alliances.push({ a: codeA, b: codeB, turn: state.turn });
             adjustRelation(codeA, codeB, 30);
             adjustRelation(codeB, codeA, 30);
-            emit('diplomacy', `🤝 ${state.nations[codeA]?.flag} ${codeA.toUpperCase()} e ${state.nations[codeB]?.flag} ${codeB.toUpperCase()} formano un'alleanza`);
+            /* Auto-lift mutual sanctions: allies don't sanction each other */
+            const nA = state.nations[codeA], nB = state.nations[codeB];
+            if (nA) nA.sanctions = nA.sanctions.filter(s => s !== codeB);
+            if (nB) nB.sanctions = nB.sanctions.filter(s => s !== codeA);
+            emit('diplomacy', `🤝 ${state.nations[codeA]?.flag} ${codeA.toUpperCase()} ${_t('ge_and')} ${state.nations[codeB]?.flag} ${codeB.toUpperCase()} ${_t('ge_form_alliance')}`);
         }
     }
 
@@ -918,7 +931,7 @@ const GameEngine = (() => {
             !((a.a === codeA && a.b === codeB) || (a.a === codeB && a.b === codeA)));
         adjustRelation(codeA, codeB, -25);
         adjustRelation(codeB, codeA, -25);
-        emit('diplomacy', `💔 Alleanza rotta tra ${codeA.toUpperCase()} e ${codeB.toUpperCase()}`);
+        emit('diplomacy', `💔 ${_t('ge_alliance_broken')} ${codeA.toUpperCase()} ${_t('ge_and')} ${codeB.toUpperCase()}`);
     }
 
     /* ════════════════ ELIMINATION / VICTORY ════════════════ */
@@ -1008,7 +1021,7 @@ const GameEngine = (() => {
             });
 
             emit('battle',
-                `🏳️ ${def.flag} ${def.name} cede ${getNation(colony.code)?.name || colony.code.toUpperCase()} a ${atk.flag} ${atk.name} per difendere la patria`);
+                `🏳️ ${def.flag} ${def.name} ${_t('ge_cedes')} ${getNation(colony.code)?.name || colony.code.toUpperCase()} ${_t('ge_to')} ${atk.flag} ${atk.name}`);
         }
 
         /* Did we accumulate enough? */
@@ -1022,9 +1035,9 @@ const GameEngine = (() => {
             if (remaining.length > 0) {
                 const retreatTo = remaining[0].code;
                 emit('battle',
-                    `🛡️ ${def.flag} ${def.name} perde la patria ma SOPRAVVIVE! ` +
-                    `Si ritira a ${getNation(retreatTo)?.name || retreatTo.toUpperCase()} ` +
-                    `(cedute ${released.length} colonie, +${troopsWithdrawn} truppe ritirate)`);
+                    `🛡️ ${def.flag} ${def.name} ${_t('ge_loses_homeland_survives')} ` +
+                    `${_t('ge_retreats_to')} ${getNation(retreatTo)?.name || retreatTo.toUpperCase()} ` +
+                    `(${released.length} ${_t('ge_colonies_ceded')}, +${troopsWithdrawn} ${_t('ge_troops_withdrawn')})`);
                 return { survived: true, releasedColonies: released, retreatedTo: retreatTo };
             } else {
                 /* Released all colonies and somehow nothing left — shouldn't happen, but fallback */
@@ -1044,8 +1057,8 @@ const GameEngine = (() => {
             });
 
             emit('battle',
-                `💀 ${def.flag} ${def.name}: le colonie non bastano a resistere! ` +
-                `${atk.flag} ${atk.name} conquista TUTTO (${released.length} territori)`);
+                `💀 ${def.flag} ${def.name}: ${_t('ge_total_collapse')} ` +
+                `${atk.flag} ${atk.name} ${_t('ge_conquers_all')} (${released.length} ${_t('ge_territories')})`);
             return { survived: false, releasedColonies: released, retreatedTo: null };
         }
     }
@@ -1056,7 +1069,7 @@ const GameEngine = (() => {
         const owned = getTerritoryCount(nationCode);
         if (owned === 0) {
             n.alive = false;
-            emit('battle', `💀 ${n.flag} ${n.name} è stata eliminata!`);
+            /* Event logged by UI with translated text (evt_ai_eliminated) */
         }
     }
 
@@ -1075,7 +1088,7 @@ const GameEngine = (() => {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'military';
-                emit('game', `🏆 ${n.flag} ${n.name} DOMINA IL MONDO! (${Math.round(pct*100)}% territori)`);
+                emit('game', `🏆 ${n.flag} ${n.name} ${_t('ge_military_victory')} (${Math.round(pct*100)}% ${_t('ge_territories')})`);
                 return code;
             }
 
@@ -1084,7 +1097,7 @@ const GameEngine = (() => {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'economic';
-                emit('game', `🏆 ${n.flag} ${n.name} VITTORIA ECONOMICA! (💰${n.res.money}, ${Math.round(pct*100)}% territori)`);
+                emit('game', `🏆 ${n.flag} ${n.name} ${_t('ge_economic_victory')} (💰${n.res.money}, ${Math.round(pct*100)}% ${_t('ge_territories')})`);
                 return code;
             }
 
@@ -1095,7 +1108,7 @@ const GameEngine = (() => {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'strategic';
-                emit('game', `🏆 ${n.flag} ${n.name} controlla tutti gli asset strategici!`);
+                emit('game', `🏆 ${n.flag} ${n.name} ${_t('ge_strategic_victory')}`);
                 return code;
             }
         }
@@ -1144,7 +1157,7 @@ const GameEngine = (() => {
             });
         }
 
-        emit('game', `📅 Turno ${state.turn}`);
+        emit('game', `📅 ${_t('hud_turn')} ${state.turn}`);
     }
 
     /* Get all alive non-player nation codes (for AI processing) */
@@ -1284,7 +1297,7 @@ const GameEngine = (() => {
         n.army.infantry -= 2;
         /* Reduce unrest */
         state.unrest[tCode] = Math.max(0, (state.unrest[tCode] || 0) - 40);
-        emit('game', `🛡️ Rivolta sedata in ${state.nations[tCode]?.flag||''} ${state.nations[tCode]?.name||tCode}! (-💰15, -🪖2)`);
+        emit('game', `🛡️ ${_t('ge_revolt_suppressed')} ${state.nations[tCode]?.flag||''} ${state.nations[tCode]?.name||tCode}! (-💰15, -🪖2)`);
         return { success: true };
     }
 
@@ -1345,7 +1358,7 @@ const GameEngine = (() => {
                     originalNation.res.money = Math.max(originalNation.res.money || 0, 20);
                 }
                 revoltEvents.push({ territory: tCode, from: conquerorCode, to: tCode });
-                emit('battle', `🔥 RIVOLTA IMMEDIATA in ${originalNation?.flag||''} ${originalNation?.name||tCode}! Guarnigione troppo debole — il territorio si ribella a ${n.flag} ${n.name}!`);
+                emit('battle', `🔥 ${_t('ge_instant_revolt')} ${originalNation?.flag||''} ${originalNation?.name||tCode}! ${_t('ge_garrison_weak')} — ${_t('ge_rebels_against')} ${n.flag} ${n.name}!`);
                 adjustRelation(tCode, conquerorCode, -30);
             }
         });
@@ -1381,7 +1394,7 @@ const GameEngine = (() => {
                     originalNation.res.money = Math.max(originalNation.res.money || 0, 20);
                 }
                 revoltEvents.push({ territory: tCode, from: owner, to: tCode });
-                emit('battle', `🔥 RIVOLTA in ${originalNation.flag} ${originalNation.name}! Il territorio si ribella a ${state.nations[owner]?.flag||''} ${state.nations[owner]?.name||owner}`);
+                emit('battle', `🔥 ${_t('ge_revolt_in')} ${originalNation.flag} ${originalNation.name}! ${_t('ge_rebels_against')} ${state.nations[owner]?.flag||''} ${state.nations[owner]?.name||owner}`);
                 adjustRelation(tCode, owner, -30);
             }
         });
@@ -1394,26 +1407,26 @@ const GameEngine = (() => {
             const n = state.nations[victim];
             n.res.money = Math.max(0, n.res.money - 30);
             n.res.steel = Math.max(0, n.res.steel - 10);
-            emit('game', `🌍 Terremoto in ${n.flag} ${n.name}! Danni economici.`);
+            emit('game', `🌍 ${_t('ge_earthquake')} ${n.flag} ${n.name}!`);
         } else if (roll < 0.08) {
             /* Oil crisis */
             Object.values(state.nations).forEach(n => {
                 if (n.alive) n.res.oil = Math.max(0, Math.round(n.res.oil * 0.85));
             });
-            emit('game', `🛢️ Crisi petrolifera globale! -15% scorte petrolio per tutti.`);
+            emit('game', `🛢️ ${_t('ge_oil_crisis')}`);
         } else if (roll < 0.10) {
             /* Tech breakthrough for random nation */
             const alive = Object.keys(state.nations).filter(c => state.nations[c].alive);
             const lucky = alive[Math.floor(Math.random() * alive.length)];
             const n = state.nations[lucky];
             n.res.money += 50;
-            emit('game', `🔬 Scoperta scientifica in ${n.flag} ${n.name}! +50 fondi.`);
+            emit('game', `🔬 ${_t('ge_tech_breakthrough')} ${n.flag} ${n.name}! +50 💰`);
         } else if (roll < 0.12) {
             /* Pandemic scare */
             Object.values(state.nations).forEach(n => {
                 if (n.alive) n.res.food = Math.max(0, n.res.food - 5);
             });
-            emit('game', `🦠 Allarme pandemico globale! -5 cibo per tutti.`);
+            emit('game', `🦠 ${_t('ge_pandemic')}`);
         }
 
         return revoltEvents;

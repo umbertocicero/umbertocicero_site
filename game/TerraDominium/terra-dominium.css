@@ -665,11 +665,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .popup-content > .btn-main:last-child {
     margin-top: var(--sp-5);
     margin-bottom: 0;
-    padding-bottom: 12px;
+    padding-top: 14px;
+    padding-bottom: 14px;
     display: block;
     margin-left: auto;
     margin-right: auto;
     line-height: 1;
+    box-sizing: border-box;
 }
 
 /* ═══════════════ SETTINGS POPUP ═══════════════ */
@@ -873,16 +875,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     background: rgba(0,229,255,0.08);
     border-color: rgba(0,229,255,0.15);
 }
-/* Close button inside battle modal */
-.battle-content > .btn-main:last-child {
-    margin: 6px auto;
-    display: block;
-    border-radius: 0 0 14px 14px;
-    width: 100%;
-    padding: 10px;
-    font-size: 0.8rem;
-    flex-shrink: 0;
-}
+/* Close button inside battle modal — inherit standard popup style */
 
 /* ── Peace Negotiation ── */
 .peace-content { max-width: 500px; }
@@ -1239,10 +1232,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .go-stat .label { font-size: var(--fs-sm); color: var(--text-dim); margin-bottom: 2px; }
 .go-stat .val { font-family: var(--font-mono); font-size: 1.3rem; color: var(--gold); font-weight: 700; }
 .go-buttons {
-    display: flex; gap: 12px; justify-content: center; margin-top: 18px;
-    padding-bottom: 4px;
+    display: flex; gap: 14px; justify-content: center; margin-top: 18px;
+    padding-bottom: 0;
 }
-.go-buttons .btn-main { flex: 0 1 200px; margin: 0; padding-bottom: 12px; line-height: 1; }
+.go-buttons .btn-main { flex: 0 1 200px; margin: 0; padding-top: 14px; padding-bottom: 14px; line-height: 1; }
 .btn-view-map {
     background: transparent !important;
     border: 2px solid var(--accent) !important;
@@ -1874,3 +1867,78 @@ body.spectator-active .btn-reopen-events { top: 86px; }
 .spy-res, .spy-unit { font-size: 0.85rem; color: #cfd8dc; padding: 2px 0; }
 .spy-res strong, .spy-unit strong { color: #fff; }
 .spy-tech { display: inline-block; font-size: 0.78rem; background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); border-radius: 4px; padding: 2px 8px; margin: 2px; color: #80deea; }
+
+/* ═══════════ NAP INFO OVERLAY ═══════════ */
+.nap-info-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    animation: napFadeIn 0.25s ease-out;
+}
+@keyframes napFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.nap-info-card {
+    background: var(--bg-card, #1a1a2e);
+    border: 1px solid rgba(0,229,255,0.25);
+    border-radius: 14px;
+    padding: 28px 32px 22px;
+    max-width: 360px; width: 90%;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 80px rgba(0,229,255,0.08);
+    animation: napSlideUp 0.3s ease-out;
+}
+@keyframes napSlideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.nap-info-icon {
+    font-size: 2.4rem; margin-bottom: 6px;
+}
+.nap-info-title {
+    font-family: var(--font-title, 'Rajdhani', sans-serif);
+    font-size: 1.1rem; font-weight: 700;
+    color: var(--accent, #00e5ff);
+    text-transform: uppercase; letter-spacing: 2px;
+    margin-bottom: 8px;
+}
+.nap-info-nation {
+    font-size: 1rem; color: #eceff1;
+    margin-bottom: 14px;
+}
+.nap-info-detail {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+.nap-info-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.82rem; color: #b0bec5;
+    padding: 4px 0;
+}
+.nap-info-row + .nap-info-row {
+    border-top: 1px solid rgba(255,255,255,0.04);
+}
+.nap-info-hint {
+    font-size: 0.72rem; color: var(--text-dim, #78909c);
+    line-height: 1.45; margin-bottom: 16px;
+    padding: 0 8px;
+}
+.nap-info-close {
+    background: rgba(0,229,255,0.12);
+    border: 1px solid rgba(0,229,255,0.3);
+    color: var(--accent, #00e5ff);
+    font-family: var(--font-title, 'Rajdhani', sans-serif);
+    font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    padding: 8px 32px; border-radius: 6px;
+    cursor: pointer; transition: all 0.2s;
+}
+.nap-info-close:hover {
+    background: rgba(0,229,255,0.22);
+    border-color: rgba(0,229,255,0.5);
+}
