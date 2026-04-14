@@ -613,6 +613,11 @@ const UI = (() => {
                     showNationDetail(item.dataset.code);
                 }
             });
+
+            /* Prevent map pan/zoom from hijacking scroll on the legend */
+            ['touchstart','touchmove','wheel'].forEach(evt => {
+                legend.addEventListener(evt, (e) => e.stopPropagation(), { passive: true });
+            });
         }
 
         /* Count territories per nation */
@@ -824,7 +829,7 @@ const UI = (() => {
         const isMyTerritory = owner === state.player;
         const atWar = GameEngine.isAtWar(state.player, owner);
         const isAlly = GameEngine.isAlly(state.player, owner);
-        const rel = GameEngine.getRelation(state.player, owner);
+        const rel = GameEngine.getRelation(owner, state.player);  // how THEY see US (most relevant)
 
         els['panel-territory-name'].textContent = `${tBase.flag || '\u{1F3F3}'} ${tBase.name || code.toUpperCase()}`;
 
@@ -3014,8 +3019,10 @@ const UI = (() => {
                 if (btnReopen) {
                     if (panel.classList.contains('hidden')) {
                         btnReopen.classList.remove('hidden');
+                        document.body.classList.add('evt-minimized');
                     } else {
                         btnReopen.classList.add('hidden');
+                        document.body.classList.remove('evt-minimized');
                     }
                 }
             });
@@ -3026,6 +3033,7 @@ const UI = (() => {
                 if (!panel) return;
                 panel.classList.remove('hidden');
                 btnReopen.classList.add('hidden');
+                document.body.classList.remove('evt-minimized');
             });
         }
     }

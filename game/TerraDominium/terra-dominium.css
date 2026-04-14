@@ -29,9 +29,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .hidden { display: none !important; }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 6px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); }
 ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+/* Thin scrollbar for HUD resources row */
+.hud-resources { scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+.hud-resources::-webkit-scrollbar { height: 3px; }
+.hud-resources::-webkit-scrollbar-track { background: transparent; }
+.hud-resources::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
 
 /* ═══════════════ BUTTONS ═══════════════ */
 .btn-main {
@@ -121,7 +127,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     display: flex; flex-direction: column;
     padding: 30px 40px;
     overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--accent) transparent;
 }
+#nation-select-screen::-webkit-scrollbar { width: 4px; height: 3px; }
+#nation-select-screen::-webkit-scrollbar-track { background: transparent; }
+#nation-select-screen::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
 .nation-select-header { text-align: center; margin-bottom: 24px; position: relative; }
 .nation-select-header h2 { font-family: var(--font-title); font-size: 2rem; color: var(--accent); letter-spacing: 4px; }
 .nation-select-header p { color: var(--text-dim); }
@@ -142,7 +152,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     flex: 1;
     overflow-y: auto;
     padding-bottom: 180px;
+    scrollbar-width: thin; scrollbar-color: var(--accent) transparent;
 }
+.nation-grid::-webkit-scrollbar { width: 4px; }
+.nation-grid::-webkit-scrollbar-track { background: transparent; }
+.nation-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
 .nation-card {
     background: var(--bg-panel);
     border: 1px solid var(--border);
@@ -549,20 +563,21 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     max-width: 540px;
     padding: 0 !important;
     border: none !important;
-    overflow: hidden;
+    overflow-y: auto;
     border-radius: 14px !important;
     background: linear-gradient(180deg, #0d1a2e 0%, var(--bg-panel) 20%) !important;
+    max-height: 90vh;
 }
 .btl-header {
     text-align: center;
-    padding: 18px 24px 10px;
+    padding: 14px 20px 6px;
     background: linear-gradient(180deg, rgba(0,229,255,0.08) 0%, transparent 100%);
 }
 .btl-header h3 {
     font-family: var(--font-title);
     color: var(--accent);
-    font-size: 1.2rem;
-    margin: 0 0 4px;
+    font-size: 1.1rem;
+    margin: 0 0 2px;
     letter-spacing: 3px;
 }
 .btl-territory {
@@ -571,28 +586,28 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     color: var(--text-dim);
     padding: 0 0 6px;
 }
-.btl-body { padding: 0 20px 18px; }
+.btl-body { padding: 0 16px 12px; }
 .btl-grid {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    gap: 10px;
+    gap: 8px;
     align-items: stretch;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 .btl-col {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 10px;
-    padding: 12px 10px;
+    padding: 8px 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 .btl-nation {
     font-family: var(--font-title);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-align: center;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -644,9 +659,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .battle-result {
     text-align: center;
     font-family: var(--font-title);
-    font-size: 1rem;
-    margin: 0 0 12px;
-    padding: 10px 16px;
+    font-size: 0.9rem;
+    margin: 0 0 8px;
+    padding: 8px 12px;
     border-radius: 8px;
     letter-spacing: 1px;
 }
@@ -666,7 +681,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     background: rgba(255,215,0,0.06);
     border: 1px solid rgba(255,215,0,0.2);
     border-radius: 8px;
-    padding: 10px 14px;
+    padding: 8px 12px;
     margin-bottom: 4px;
 }
 .btl-loot-title {
@@ -696,12 +711,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 }
 /* Close button inside battle modal */
 .battle-content > .btn-main:last-child {
-    margin: 16px auto;
+    margin: 10px auto;
     display: block;
     border-radius: 0 0 14px 14px;
     width: 100%;
-    padding: 14px;
-    font-size: 0.9rem;
+    padding: 12px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
 }
 
 /* ── Peace Negotiation ── */
@@ -1354,6 +1370,9 @@ body.spectator-active .side-panel {
     font-size: 0.72rem;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 .map-legend::-webkit-scrollbar { width: 4px; }
 .map-legend::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -1454,7 +1473,14 @@ body.spectator-active .side-panel {
         width: 100% !important; top: 38px; bottom: 36px;
         border-radius: 0; max-height: 45vh;
     }
-    #left-panel { bottom: auto; border-radius: 0 0 8px 0; max-height: 50vh; }
+    #left-panel {
+        width: 55% !important; bottom: auto;
+        border-radius: 0 8px 8px 0; max-height: 50vh;
+    }
+    /* When events are minimized to icon, let left panel extend to bottom */
+    body.evt-minimized #left-panel {
+        max-height: none; bottom: 36px;
+    }
     #right-panel { bottom: auto; top: auto; bottom: 36px; max-height: 35vh; border-radius: 8px 0 0 0; }
 
     /* Bottom bar */
@@ -1521,6 +1547,8 @@ body.spectator-active .side-panel {
     #bottom-panel { height: 32px; }
     .mil-unit { font-size: 0.55rem; padding: 2px 4px; }
     .side-panel { max-height: 40vh; }
+    #left-panel { width: 60% !important; }
+    body.evt-minimized #left-panel { max-height: none; bottom: 32px; }
     .popup-content { padding: 10px 12px; }
 }
 
