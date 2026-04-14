@@ -352,6 +352,27 @@ const GameEngine = (() => {
         /* Terrain bonus +20% defender */
         let defTotal = defPow * 1.2;
 
+        /* ── Homeland defense bonus ──
+         * Defending your own homeland is MUCH harder to crack.
+         * Scales with nation power rating:
+         *   power ≥80 (superpower)  → +100% defense (×2.0)
+         *   power ≥60 (major power) → +70% defense  (×1.7)
+         *   power ≥40 (regional)    → +45% defense  (×1.45)
+         *   power ≥20 (minor+)      → +20% defense  (×1.2)
+         * This makes it nearly impossible to one-shot a superpower.
+         */
+        const defHomelandCode = def.homeland || defender;
+        const isDefendingHomeland = (defenderTerritoryCode === defHomelandCode);
+        if (isDefendingHomeland) {
+            const defPower = def.power || 5;
+            const homelandBonus = defPower >= 80 ? 2.00
+                                : defPower >= 60 ? 1.70
+                                : defPower >= 40 ? 1.45
+                                : defPower >= 20 ? 1.20
+                                : 1.0;
+            defTotal *= homelandBonus;
+        }
+
         /* Local garrison bonus: heavy garrison on the specific territory gives extra defense */
         const localGarrison = getGarrison(defenderTerritoryCode);
         if (localGarrison) {
@@ -545,9 +566,22 @@ const GameEngine = (() => {
         const casualties = {};
         if (!n) return casualties;
 
-        /* Engagement: larger empires commit fewer troops per battle */
+        /* Engagement: larger empires commit fewer troops per battle.
+         * ALSO: powerful nations (superpowers) have a LOWER engagement ceiling
+         * even with only 1 territory — their military is too large and organized
+         * to be fully destroyed in a single battle.
+         *   power ≥80 → max 25% engaged (superpowers)
+         *   power ≥60 → max 35% engaged (major powers)
+         *   power ≥40 → max 45% engaged (regional powers)
+         *   others   → max 60% engaged (default)
+         */
         const terrCount = getTerritoryCount(nationCode);
-        const engaged = engagedFraction || Math.min(0.6, Math.max(0.10, 1.0 / Math.max(1, terrCount)));
+        const nationPower = n.power || 5;
+        const engageCeiling = nationPower >= 80 ? 0.25
+                            : nationPower >= 60 ? 0.35
+                            : nationPower >= 40 ? 0.45
+                            : 0.60;
+        const engaged = engagedFraction || Math.min(engageCeiling, Math.max(0.08, 1.0 / Math.max(1, terrCount)));
 
         const effectiveRate = rate * engaged;
 
