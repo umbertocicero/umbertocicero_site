@@ -161,7 +161,7 @@ const UI = (() => {
         click('btn-close-colonies', () => hide('colonies-popup'));
         click('btn-colonies', showColonies);
         click('btn-close-revolt-alert', () => hide('revolt-alert-popup'));
-        click('btn-close-left', () => hide('left-panel'));
+        click('btn-close-left', () => { hide('left-panel'); MapRenderer.selectTerritory(null); });
         click('btn-restart', () => location.reload());
         click('btn-view-map', () => {
             hide('gameover-popup');

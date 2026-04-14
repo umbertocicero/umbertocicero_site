@@ -14,6 +14,15 @@ const Animations = (() => {
     let speedMult  = 1;    // 1 = normal, 1.8 = spectator (faster missiles)
     const MAX_TRAILS = 10; // cap visible trails for performance
 
+    /** Zoom-aware pixel scale: returns a factor so that canvas-drawn
+     *  elements (lines, fonts, dots) shrink when zoomed out and grow
+     *  when zoomed in — but softly (square-root), so they stay readable.
+     *  Clamped to [0.45, 2.5] to avoid extremes. */
+    function _zoomFactor() {
+        const s = (typeof MapRenderer !== 'undefined') ? MapRenderer.scale : 1;
+        return Math.max(0.45, Math.min(2.5, Math.pow(s, 0.5)));
+    }
+
     /* ── helper: compute arc point at parameter t ── */
     function arcPoint(from, to, t, arcFactor) {
         const x = from.x + (to.x - from.x) * t;
@@ -82,6 +91,7 @@ const Animations = (() => {
             const to   = MapRenderer.getTerritoryScreenPos(this.toCode);
             if (!from || !to) return;
 
+            const zf    = _zoomFactor();
             const age   = (Date.now() - this.born) / 1000;
             const pulse = 0.35 + 0.12 * Math.sin(age * 2);
 
@@ -94,7 +104,7 @@ const Animations = (() => {
             /* Outer coloured arc */
             ctx.globalAlpha = pulse * 0.55;
             ctx.strokeStyle = this.color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 3 * zf;
             ctx.setLineDash([]);
             ctx.beginPath();
             ctx.moveTo(pts[0].x, pts[0].y);
@@ -105,7 +115,7 @@ const Animations = (() => {
             if (speedMult <= 1) {
                 ctx.globalAlpha = pulse * 0.7;
                 ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 1 * zf;
                 ctx.beginPath();
                 ctx.moveTo(pts[0].x, pts[0].y);
                 for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
@@ -113,8 +123,8 @@ const Animations = (() => {
 
                 ctx.globalAlpha = pulse * 0.12;
                 ctx.strokeStyle = this.color;
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5, 4]);
+                ctx.lineWidth = 1 * zf;
+                ctx.setLineDash([5 * zf, 4 * zf]);
                 ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
                 ctx.setLineDash([]);
             }
@@ -122,19 +132,19 @@ const Animations = (() => {
             /* Origin dot + ring */
             ctx.globalAlpha = pulse * 0.7;
             ctx.fillStyle = this.color;
-            ctx.beginPath(); ctx.arc(from.x, from.y, 5, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = this.color; ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.arc(from.x, from.y, 9, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(from.x, from.y, 5 * zf, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = this.color; ctx.lineWidth = 1.5 * zf;
+            ctx.beginPath(); ctx.arc(from.x, from.y, 9 * zf, 0, Math.PI * 2); ctx.stroke();
 
             /* Target marker */
             const mc = this.success ? '#00e676' : '#ff1744';
             ctx.globalAlpha = pulse * 0.7;
             if (this.success) {
                 ctx.fillStyle = mc;
-                ctx.beginPath(); ctx.arc(to.x, to.y, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(to.x, to.y, 6 * zf, 0, Math.PI * 2); ctx.fill();
             } else {
-                ctx.strokeStyle = mc; ctx.lineWidth = 2;
-                const sz = 7;
+                ctx.strokeStyle = mc; ctx.lineWidth = 2 * zf;
+                const sz = 7 * zf;
                 ctx.beginPath();
                 ctx.moveTo(to.x - sz, to.y); ctx.lineTo(to.x + sz, to.y);
                 ctx.moveTo(to.x, to.y - sz); ctx.lineTo(to.x, to.y + sz);
@@ -143,24 +153,24 @@ const Animations = (() => {
 
             /* Result text at target */
             ctx.globalAlpha = pulse;
-            ctx.font = 'bold 12px Rajdhani, sans-serif';
+            ctx.font = `bold ${Math.round(12 * zf)}px Rajdhani, sans-serif`;
             ctx.textAlign = 'center';
             const ico = this.success ? 'OK' : 'FAIL';
-            ctx.fillStyle = '#000'; ctx.fillText(ico, to.x + 1, to.y - 11);
-            ctx.fillStyle = mc;     ctx.fillText(ico, to.x, to.y - 12);
+            ctx.fillStyle = '#000'; ctx.fillText(ico, to.x + 1, to.y - 11 * zf);
+            ctx.fillStyle = mc;     ctx.fillText(ico, to.x, to.y - 12 * zf);
 
             /* Midpoint label with background */
             if (this.label) {
                 const mx = (from.x + to.x) / 2;
-                const my = (from.y + to.y) / 2 - 14;
+                const my = (from.y + to.y) / 2 - 14 * zf;
                 ctx.globalAlpha = Math.min(pulse + 0.2, 0.85);
-                ctx.font = 'bold 11px Rajdhani, sans-serif';
+                ctx.font = `bold ${Math.round(11 * zf)}px Rajdhani, sans-serif`;
                 ctx.textAlign = 'center';
                 const tw = ctx.measureText(this.label).width;
                 ctx.fillStyle = 'rgba(0,0,0,0.65)';
-                ctx.fillRect(mx - tw / 2 - 4, my - 10, tw + 8, 15);
+                ctx.fillRect(mx - tw / 2 - 4 * zf, my - 10 * zf, tw + 8 * zf, 15 * zf);
                 ctx.fillStyle = '#ffd740';
-                ctx.fillText(this.label, mx, my + 2);
+                ctx.fillText(this.label, mx, my + 2 * zf);
             }
         }
         /* Trails older than 6s start fading, gone at 10s */
@@ -226,13 +236,14 @@ const Animations = (() => {
         draw(ctx) {
             const from = this._from();
             const to   = this._to();
+            const zf   = _zoomFactor();
 
             /* Convert parametric trail → screen points */
             const pts = this.trail.map(tVal => arcPoint(from, to, Math.min(tVal, 1), this.arcFactor));
 
             /* Dashed guide */
             ctx.globalAlpha = 0.15; ctx.strokeStyle = this.color;
-            ctx.lineWidth = 1; ctx.setLineDash([6, 4]);
+            ctx.lineWidth = 1 * zf; ctx.setLineDash([6 * zf, 4 * zf]);
             ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
             ctx.stroke(); ctx.setLineDash([]);
 
@@ -244,7 +255,7 @@ const Animations = (() => {
                 const pct = i / pts.length;
                 ctx.globalAlpha = pct * 0.85;
                 ctx.strokeStyle = trailColor;
-                ctx.lineWidth = 2 + pct * 4;
+                ctx.lineWidth = (2 + pct * 4) * zf;
                 ctx.beginPath();
                 ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
                 ctx.lineTo(pts[i].x, pts[i].y);
@@ -258,6 +269,7 @@ const Animations = (() => {
                 ctx.save();
                 ctx.translate(h.x, h.y);
                 ctx.rotate(angle);
+                ctx.scale(zf, zf);
 
                 if (this.category === 'air') {
                     /* ✈ Plane/jet triangle */
@@ -327,12 +339,12 @@ const Animations = (() => {
 
             /* Origin ring */
             ctx.globalAlpha = 0.4 + Math.sin(Date.now() * 0.01) * 0.15;
-            ctx.strokeStyle = this.color; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(from.x, from.y, 10, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = this.color; ctx.lineWidth = 2 * zf;
+            ctx.beginPath(); ctx.arc(from.x, from.y, 10 * zf, 0, Math.PI * 2); ctx.stroke();
 
             /* Target crosshair */
-            ctx.globalAlpha = 0.3; ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 1.5;
-            const sz = 9;
+            ctx.globalAlpha = 0.3; ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 1.5 * zf;
+            const sz = 9 * zf;
             ctx.beginPath();
             ctx.moveTo(to.x - sz, to.y); ctx.lineTo(to.x + sz, to.y);
             ctx.moveTo(to.x, to.y - sz); ctx.lineTo(to.x, to.y + sz);
@@ -404,7 +416,8 @@ const Animations = (() => {
         }
         draw(ctx) {
             const a = this.life / this.maxLife;
-            ctx.globalAlpha = a; ctx.font = 'bold 12px Rajdhani, sans-serif'; ctx.textAlign = 'center';
+            const zf = _zoomFactor();
+            ctx.globalAlpha = a; ctx.font = `bold ${Math.round(12 * zf)}px Rajdhani, sans-serif`; ctx.textAlign = 'center';
             ctx.fillStyle = '#000'; ctx.fillText(this.text, this.x + 1, this.y + 1);
             ctx.fillStyle = this.color; ctx.fillText(this.text, this.x, this.y);
         }
@@ -432,8 +445,9 @@ const Animations = (() => {
         }
         draw(ctx) {
             const a = Math.min(1, this.life / (this.maxLife * 0.3));
+            const zf = _zoomFactor();
             ctx.globalAlpha = a;
-            ctx.font = `bold ${this.size}px Rajdhani, sans-serif`; ctx.textAlign = 'center';
+            ctx.font = `bold ${Math.round(this.size * zf)}px Rajdhani, sans-serif`; ctx.textAlign = 'center';
             ctx.fillStyle = '#000'; ctx.fillText(this.text, this.x + 1, this.y + 1);
             ctx.fillStyle = this.color; ctx.fillText(this.text, this.x, this.y);
         }

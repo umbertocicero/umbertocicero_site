@@ -555,7 +555,13 @@ const MapRenderer = (() => {
         const TAP_THRESHOLD = 12;   // px
         const TAP_MAX_MS    = 300;  // max duration for a tap
 
+        /** Check if a touch target is inside a scrollable overlay (e.g. map-legend) */
+        function _isScrollableChild(el) {
+            return el && el.closest('.map-legend');
+        }
+
         container.addEventListener('touchstart', e => {
+            if (_isScrollableChild(e.target)) return; // let legend scroll
             if (e.touches.length === 1) {
                 dragging = true;
                 didDrag  = false;
@@ -576,6 +582,7 @@ const MapRenderer = (() => {
         }, { passive: true });
 
         container.addEventListener('touchmove', e => {
+            if (_isScrollableChild(e.target)) return; // let legend scroll natively
             e.preventDefault();
             if (e.touches.length === 1 && dragging) {
                 const dx = e.touches[0].clientX - (tapStartPos ? tapStartPos.x : 0);
@@ -868,20 +875,24 @@ const MapRenderer = (() => {
     }
 
     /**
-     * Re-scale garrison badges so they keep a constant visual size
-     * regardless of the current zoom level.
-     * Each <g> uses  translate(cx,cy) scale(1/s) translate(-cx,-cy)
-     * to shrink around its own centroid.
+     * Re-scale garrison badges so they grow/shrink proportionally with
+     * the zoom level, but not 1:1 — a soft square-root factor keeps them
+     * readable at every zoom without overwhelming the map.
+     *
+     * factor = 1 / sqrt(scale)
+     *   • zoom-out (scale 0.5) → factor ≈ 1.41  → markers a bit bigger in SVG → visually OK
+     *   • zoom 1x              → factor = 1      → baseline size
+     *   • zoom-in  (scale 4)   → factor = 0.5    → markers shrink in SVG but zoom magnifies → net 2x bigger on screen
      */
     function rescaleGarrisonOverlay() {
-        const invS = 1 / scale;
+        const f = 1 / Math.sqrt(scale);
         for (const code in garrisonLayer) {
             const gEl = garrisonLayer[code];
             const cx = gEl._cx;
             const cy = gEl._cy;
             if (cx == null || cy == null) continue;
             gEl.setAttribute('transform',
-                `translate(${cx},${cy}) scale(${invS}) translate(${-cx},${-cy})`);
+                `translate(${cx},${cy}) scale(${f}) translate(${-cx},${-cy})`);
         }
     }
 
