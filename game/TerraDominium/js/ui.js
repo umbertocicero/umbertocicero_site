@@ -827,7 +827,7 @@ const UI = (() => {
             const atWar = GameEngine.isAtWar(state.player, code);
             const isAlly = GameEngine.isAlly(state.player, code);
             let cls = !alive ? 'legend-dead' : isPlayer ? 'legend-player' : atWar ? 'legend-enemy' : isAlly ? 'legend-ally' : '';
-            html += `<div class="legend-item ${cls}" data-code="${code}"><div class="legend-swatch" style="background:${n.color}"></div><span>${n.name}</span><span class="legend-count">${count}</span></div>`;
+            html += `<div class="legend-item ${cls}" data-code="${code}"><div class="legend-swatch" style="background:${n.color}"></div>${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">${count}</span></div>`;
         });
 
         /* Skip DOM write + Twemoji parse if nothing changed */

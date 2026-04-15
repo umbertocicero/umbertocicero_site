@@ -1862,8 +1862,20 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     flex-shrink: 0;
     box-shadow: 0 0 4px rgba(0,0,0,0.3);
 }
-.legend-item span:nth-child(2) {
-    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.legend-flag-img {
+    width: 16px;
+    height: 12px;
+    object-fit: cover;
+    border-radius: 2px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.14);
+}
+.legend-name {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-weight: 500;
 }
 .legend-count {
