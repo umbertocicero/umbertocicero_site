@@ -500,20 +500,33 @@ const UI = (() => {
             tt.classList.remove('tt-interactive');
         }
 
-        /* Position tooltip */
+        /* Position tooltip: prefer near tap/hover, then clamp to visible viewport */
         const rect = els['map-container'].getBoundingClientRect();
-        let left = e.clientX - rect.left + 15;
-        let top  = e.clientY - rect.top - 10;
+        const margin = interactive ? 12 : 10;
+        const ttW = tt.offsetWidth || 220;
+        const ttH = tt.offsetHeight || 140;
+        const viewportLeft = margin - rect.left;
+        const viewportTop = margin - rect.top;
+        const viewportRight = window.innerWidth - rect.left - margin;
+        const viewportBottom = window.innerHeight - rect.top - margin;
 
-        /* On mobile interactive tooltip, clamp position so it stays within the map */
-        if (interactive) {
-            const ttW = tt.offsetWidth || 200;
-            const ttH = tt.offsetHeight || 120;
-            if (left + ttW > rect.width - 10) left = rect.width - ttW - 10;
-            if (left < 10) left = 10;
-            if (top + ttH > rect.height - 10) top = rect.height - ttH - 10;
-            if (top < 10) top = 10;
+        let left = e.clientX - rect.left + (interactive ? 14 : 15);
+        let top = e.clientY - rect.top - (interactive ? 12 : 10);
+
+        const leftSide = e.clientX - rect.left - ttW - 14;
+        const below = e.clientY - rect.top + 14;
+
+        if (left + ttW > viewportRight && leftSide >= viewportLeft) {
+            left = leftSide;
         }
+        if (top < viewportTop && below + ttH <= viewportBottom) {
+            top = below;
+        } else if (top + ttH > viewportBottom && below + ttH <= viewportBottom) {
+            top = below;
+        }
+
+        left = Math.min(Math.max(left, viewportLeft), Math.max(viewportLeft, viewportRight - ttW));
+        top = Math.min(Math.max(top, viewportTop), Math.max(viewportTop, viewportBottom - ttH));
 
         tt.style.left = left + 'px';
         tt.style.top  = top + 'px';
@@ -572,12 +585,15 @@ const UI = (() => {
     function showNationSelect() {
         hide('intro-screen');
         show('nation-select-screen');
+        els['nation-select-screen']?.classList.remove('preview-open');
+        hide('nation-preview');
         renderNationGrid();
     }
 
     function backToIntro() {
         hide('nation-select-screen');
         hide('nation-preview');
+        els['nation-select-screen']?.classList.remove('preview-open');
         show('intro-screen');
     }
 
@@ -609,6 +625,7 @@ const UI = (() => {
         /* Show preview */
         const n = NATIONS[code];
         show('nation-preview');
+        els['nation-select-screen']?.classList.add('preview-open');
         els['preview-flag'].innerHTML = n.flag;
         els['preview-name'].textContent = n.name;
 
@@ -630,6 +647,7 @@ const UI = (() => {
     /* ════════════════ START GAME ════════════════ */
     function startGameFromSelect() {
         if (!selectedNation) return;
+        els['nation-select-screen']?.classList.remove('preview-open');
         hide('nation-select-screen');
         show('game-screen');
 
