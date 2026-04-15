@@ -187,7 +187,34 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 }
 .nation-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,229,255,0.15); }
 .nation-card.selected { border-color: var(--accent); background: rgba(0,229,255,0.08); box-shadow: 0 0 20px rgba(0,229,255,0.2), inset 0 0 12px rgba(0,229,255,0.04); }
-.nation-card .flag { font-size: 2.2rem; margin-bottom: 6px; }
+.nation-card .flag {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    margin-bottom: 8px;
+}
+.nation-card .nation-flag-img {
+    width: 36px;
+    height: 36px;
+    display: block;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.18));
+}
+.nation-card .flag-img-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,229,255,0.22);
+    background: rgba(0,229,255,0.08);
+    color: var(--accent);
+    font-family: var(--font-title);
+    font-size: 0.95rem;
+    letter-spacing: 1.4px;
+}
 .nation-card .name { font-family: var(--font-title); font-size: 0.75rem; letter-spacing: 1px; color: var(--text); }
 .nation-card .power-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; }
 .nation-card .power-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s; }
@@ -1146,10 +1173,28 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 
 .diplo-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .diplo-card-flag {
-    font-size: 2rem; width: 48px; height: 48px;
+    font-size: 0.9rem; width: 48px; height: 48px;
     display: flex; align-items: center; justify-content: center;
     border: 2px solid var(--border); border-radius: 50%;
     background: var(--bg-dark); flex-shrink: 0;
+    color: var(--accent);
+    font-family: var(--font-title);
+    letter-spacing: 1px;
+}
+.diplo-player-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--bg-dark);
+    color: var(--accent);
+    font-family: var(--font-title);
+    font-size: 1rem;
+    letter-spacing: 1px;
 }
 .diplo-card-info { flex: 1; }
 .diplo-card-name { font-family: var(--font-title); font-size: 0.9rem; color: var(--text); font-weight: 700; }
@@ -1204,7 +1249,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .prod-army-item { font-family: var(--font-mono); font-size: 0.8rem; background: var(--bg-dark); padding: 3px 8px; border-radius: 3px; color: var(--gold); }
 
 /* Economy panel */
-.economy-content { max-width: 700px; }
+.economy-content { max-width: 820px; }
 .econ-section { margin-bottom: var(--sp-4); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--border-subtle); }
 .econ-section:last-child { border-bottom: none; }
 .econ-section h4 { font-family: var(--font-title); font-size: var(--fs-base); color: var(--accent); margin-bottom: var(--sp-2); letter-spacing: 1px; }
@@ -1220,6 +1265,147 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 .econ-name { flex: 1; color: var(--text); }
 .econ-val { font-family: var(--font-mono); color: var(--gold); font-weight: 700; min-width: 40px; text-align: right; }
 .econ-val.econ-pos { color: var(--green); }
+
+.econ-section-army { border-bottom: none; padding-bottom: 0; }
+.army-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+}
+.army-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(14,21,33,0.92) 100%);
+}
+.army-summary-card-atk { box-shadow: inset 0 1px 0 rgba(255,23,68,0.12); }
+.army-summary-card-def { box-shadow: inset 0 1px 0 rgba(0,229,255,0.12); }
+.army-summary-card-units { box-shadow: inset 0 1px 0 rgba(255,215,64,0.14); }
+.army-summary-label {
+    font-size: 0.58rem;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+.army-summary-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+.army-summary-card-atk .army-summary-value { color: var(--red); }
+.army-summary-card-def .army-summary-value { color: var(--accent); }
+.army-summary-card-units .army-summary-value { color: var(--gold); }
+
+.army-unit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--sp-2);
+}
+.army-unit-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: linear-gradient(180deg, rgba(28,39,57,0.95) 0%, rgba(18,26,40,0.96) 100%);
+    transition: transform 0.18s var(--ease-out), border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
+}
+.army-unit-card:hover {
+    border-color: rgba(0,229,255,0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+}
+.army-unit-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+.army-unit-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: rgba(8,13,23,0.85);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 1.35rem;
+}
+.army-unit-copy {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    width: 100%;
+}
+.army-unit-name {
+    min-width: 0;
+    font-family: var(--font-title);
+    font-size: 0.72rem;
+    line-height: 1.3;
+    letter-spacing: 0.6px;
+    color: var(--text);
+    text-transform: uppercase;
+}
+.army-unit-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 38px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: rgba(255,215,64,0.12);
+    border: 1px solid rgba(255,215,64,0.25);
+    color: var(--gold);
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+.army-unit-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.army-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(8,13,23,0.62);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.army-stat-k {
+    font-size: 0.56rem;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+.army-stat-v {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+.army-stat-atk .army-stat-v { color: var(--red); }
+.army-stat-def .army-stat-v { color: var(--accent); }
 
 /* Game over */
 .gameover-content { text-align: center; }
@@ -1718,7 +1904,9 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     .btn-back { position: static; margin-bottom: 10px; font-size: 0.75rem; padding: 6px 12px; }
     .nation-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: var(--sp-2); padding-bottom: 12px; }
     .nation-card { padding: 10px 6px; }
-    .nation-card .flag { font-size: 1.6rem; }
+    .nation-card .flag { min-height: 30px; margin-bottom: 6px; }
+    .nation-card .nation-flag-img { width: 28px; height: 28px; }
+    .nation-card .flag-img-fallback { min-width: 42px; height: 28px; font-size: 0.78rem; letter-spacing: 1px; }
     .nation-card .name { font-size: 0.6rem; }
     .nation-preview {
         position: relative !important; bottom: auto; left: auto; transform: none;
@@ -1792,8 +1980,23 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     .tech-card .tech-name { font-size: 0.65rem; }
     .tech-card .tech-name { font-size: 0.6rem; }
     .production-content .prod-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+    .economy-content { max-width: 100%; }
+    .army-summary-grid { gap: 6px; margin-bottom: 10px; }
+    .army-summary-card { padding: 10px 8px; gap: 4px; }
+    .army-summary-label { font-size: 0.5rem; letter-spacing: 0.8px; }
+    .army-summary-value { font-size: 0.76rem; gap: 4px; }
+    .army-unit-grid { grid-template-columns: 1fr; gap: 8px; }
+    .army-unit-card { padding: 10px; gap: 10px; }
+    .army-unit-head { gap: 10px; }
+    .army-unit-icon { width: 36px; height: 36px; font-size: 1.15rem; border-radius: 8px; }
+    .army-unit-name { font-size: 0.64rem; letter-spacing: 0.45px; }
+    .army-unit-count { min-width: 34px; padding: 4px 7px; font-size: 0.68rem; }
+    .army-stat { padding: 7px 8px; }
+    .army-stat-k { font-size: 0.5rem; }
+    .army-stat-v { font-size: 0.72rem; }
     .diplomacy-content { max-width: 100%; width: 100%; }
-    .diplo-card-flag { width: 36px; height: 36px; font-size: 1.4rem; }
+    .diplo-card-flag { width: 36px; height: 36px; font-size: 0.72rem; letter-spacing: 0.7px; }
+    .diplo-player-mark { width: 42px; height: 42px; font-size: 0.72rem; letter-spacing: 0.7px; }
     .diplo-card-name { font-size: 0.75rem; }
     .diplo-card-actions { gap: 4px; }
     .diplo-btn { font-size: 0.6rem; padding: 4px 7px; }
@@ -1834,6 +2037,8 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     #left-panel { width: 60% !important; }
     body.evt-minimized #left-panel { max-height: none; bottom: 32px; }
     .popup-content { padding: 10px 12px; }
+    .army-summary-grid { grid-template-columns: 1fr; }
+    .army-unit-stats { grid-template-columns: 1fr 1fr; }
 }
 
 /* ═══════════ BADGE SYSTEM (replaces scattered inline badge styles) ═══════════ */

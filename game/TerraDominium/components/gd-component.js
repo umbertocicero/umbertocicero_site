@@ -105,7 +105,10 @@ class GdComponent extends HTMLElement {
         if (typeof twemoji !== 'undefined') {
             try {
                 twemoji.parse(target, {
-                    callback: (icon) => `assets/emoji/${icon}.svg`,
+                    callback: (icon) => {
+                        const cache = window._svgBlobCache;
+                        return cache?.get(icon) || `assets/emoji/${icon}.svg`;
+                    },
                     ext: '.svg'
                 });
             } catch(e) {}

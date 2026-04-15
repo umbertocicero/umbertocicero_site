@@ -17,23 +17,14 @@ const UI = (() => {
      *  initial load.  While the cache is warming, we fall back to the file path. */
     const _emojiBase = 'assets/emoji/';
     const _svgBlobCache = new Map();   // 'icon-code' → 'blob:…' URL
+    const _svgBlobPromises = new Map(); // 'icon-code' → Promise<'blob:…'>
     let _blobCacheReady = false;
+    const _emojiParseInFlight = new WeakSet();
 
     const _emojiOpts = {
         callback: (icon) => {
             const cached = _svgBlobCache.get(icon);
-            if (cached) return cached;
-            /* Not yet cached — schedule a background fetch so FUTURE
-               twemoji.parse() calls will use the blob URL.
-               Do NOT patch existing <img> — changing src triggers a re-fetch. */
-            if (_blobCacheReady && !_svgBlobCache.has(icon)) {
-                _svgBlobCache.set(icon, '');  // mark as in-flight
-                const url = _emojiBase + icon + '.svg';
-                fetch(url).then(r => r.blob()).then(blob => {
-                    _svgBlobCache.set(icon, URL.createObjectURL(blob));
-                }).catch(() => _svgBlobCache.delete(icon));
-            }
-            return _emojiBase + icon + '.svg';
+            return cached || (_emojiBase + icon + '.svg');
         },
         ext: '.svg'
     };
@@ -49,15 +40,92 @@ const UI = (() => {
         return false;
     }
 
-    function parseEmoji(el) {
-        if (typeof twemoji !== 'undefined' && el && _hasUnparsedEmoji(el)) {
-            try { twemoji.parse(el, _emojiOpts); } catch(e) {}
+    function _fetchEmojiBlob(icon) {
+        if (!icon) return Promise.resolve('');
+        const cached = _svgBlobCache.get(icon);
+        if (cached) return Promise.resolve(cached);
+        const pending = _svgBlobPromises.get(icon);
+        if (pending) return pending;
+
+        const url = _emojiBase + icon + '.svg';
+        const req = fetch(url)
+            .then(r => {
+                if (!r.ok) throw new Error(`Emoji fetch failed: ${icon}`);
+                return r.blob();
+            })
+            .then(blob => {
+                const blobUrl = URL.createObjectURL(blob);
+                _svgBlobCache.set(icon, blobUrl);
+                _svgBlobPromises.delete(icon);
+                return blobUrl;
+            })
+            .catch(err => {
+                _svgBlobPromises.delete(icon);
+                throw err;
+            });
+
+        _svgBlobPromises.set(icon, req);
+        return req;
+    }
+
+    function _collectEmojiIcons(el) {
+        const icons = new Set();
+        if (typeof twemoji === 'undefined' || !el) return icons;
+
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+        let node;
+        while ((node = walker.nextNode())) {
+            const text = node.nodeValue || '';
+            if (!_emojiRe.test(text)) continue;
+            try {
+                twemoji.parse(text, {
+                    callback: (icon) => {
+                        icons.add(icon);
+                        return '';
+                    },
+                    ext: '.svg'
+                });
+            } catch (e) {}
         }
+        return icons;
+    }
+
+    function _ensureEmojiIcons(el) {
+        const icons = Array.from(_collectEmojiIcons(el)).filter(icon => !_svgBlobCache.has(icon));
+        if (icons.length === 0) return Promise.resolve();
+        return Promise.allSettled(icons.map(_fetchEmojiBlob)).then(() => {
+            _blobCacheReady = true;
+        });
+    }
+
+    function parseEmoji(el) {
+        if (typeof twemoji === 'undefined' || !el || !_hasUnparsedEmoji(el) || _emojiParseInFlight.has(el)) return;
+        _emojiParseInFlight.add(el);
+        _ensureEmojiIcons(el)
+            .catch(() => {})
+            .finally(() => {
+                try {
+                    if (_hasUnparsedEmoji(el)) twemoji.parse(el, _emojiOpts);
+                } catch(e) {}
+                _emojiParseInFlight.delete(el);
+            });
     }
     function parseEmojiIfNeeded(el) {
-        if (typeof twemoji !== 'undefined' && el && _hasUnparsedEmoji(el)) {
-            try { twemoji.parse(el, _emojiOpts); } catch(e) {}
-        }
+        parseEmoji(el);
+    }
+
+    function _flagAssetForCode(code) {
+        const cc = String(code || '').trim().toUpperCase();
+        if (!/^[A-Z]{2}$/.test(cc)) return '';
+        return Array.from(cc)
+            .map(ch => (0x1F1E6 + ch.charCodeAt(0) - 65).toString(16))
+            .join('-');
+    }
+
+    function _flagImgHtml(code, alt, cls) {
+        const asset = _flagAssetForCode(code);
+        if (!asset) return `<span class="${cls || 'flag-img-fallback'}">${alt || code || ''}</span>`;
+        return `<img class="${cls || 'flag-img'}" src="${_emojiBase}${asset}.svg" alt="${alt || code || ''}" loading="lazy" decoding="async">`;
     }
 
     /** i18n shorthand: translate a key via I18n module (safe fallback) */
@@ -98,16 +166,8 @@ const UI = (() => {
 
         if (icons.size === 0) { _blobCacheReady = true; return; }
 
-        let done = 0;
-        const total = icons.size;
-        icons.forEach(icon => {
-            if (_svgBlobCache.has(icon)) { if (++done >= total) _blobCacheReady = true; return; }
-            const url = _emojiBase + icon + '.svg';
-            fetch(url).then(r => r.blob()).then(blob => {
-                _svgBlobCache.set(icon, URL.createObjectURL(blob));
-            }).catch(() => {}).finally(() => {
-                if (++done >= total) _blobCacheReady = true;
-            });
+        Promise.allSettled(Array.from(icons).map(_fetchEmojiBlob)).finally(() => {
+            _blobCacheReady = true;
         });
     }
 
@@ -531,14 +591,13 @@ const UI = (() => {
             card.className = 'nation-card';
             card.dataset.code = code;
             card.innerHTML = `
-                <div class="flag">${n.flag}</div>
+                <div class="flag">${_flagImgHtml(code, n.name, 'nation-flag-img')}</div>
                 <div class="name">${n.name}</div>
                 <div class="power-bar"><div class="power-fill" style="width:${n.power}%"></div></div>
             `;
             card.addEventListener('click', () => selectNationCard(code));
             grid.appendChild(card);
         });
-        parseEmoji(grid);
     }
 
     function selectNationCard(code) {
@@ -768,14 +827,13 @@ const UI = (() => {
             const atWar = GameEngine.isAtWar(state.player, code);
             const isAlly = GameEngine.isAlly(state.player, code);
             let cls = !alive ? 'legend-dead' : isPlayer ? 'legend-player' : atWar ? 'legend-enemy' : isAlly ? 'legend-ally' : '';
-            html += `<div class="legend-item ${cls}" data-code="${code}"><div class="legend-swatch" style="background:${n.color}"></div><span>${n.flag} ${n.name}</span><span class="legend-count">${count}</span></div>`;
+            html += `<div class="legend-item ${cls}" data-code="${code}"><div class="legend-swatch" style="background:${n.color}"></div><span>${n.name}</span><span class="legend-count">${count}</span></div>`;
         });
 
         /* Skip DOM write + Twemoji parse if nothing changed */
         if (html === _lastLegendHtml) return;
         _lastLegendHtml = html;
         legend.innerHTML = html;
-        parseEmoji(legend);
     }
     function showNationDetail(code) {
         const state = GameEngine.getState();
@@ -825,7 +883,7 @@ const UI = (() => {
                     hGarDot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${hgc};box-shadow:0 0 5px ${hgc};margin-right:5px;vertical-align:middle;" title="${t('nd_garrison_title')}: ${hg?.strength?.toUpperCase()||'NONE'}"></span>`;
                 }
                 resHtml += `<div style="font-size:0.6rem;color:var(--text-muted);margin:6px 0 3px;text-transform:uppercase;letter-spacing:1.5px;font-family:var(--font-title);font-weight:400;">${t('nd_homeland')}</div>`;
-                resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${homeland}')"><span>${hGarDot}${tb.flag||'🏳️'} ${tb.name||homeland.toUpperCase()}</span></div>`;
+                resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${homeland}')"><span>${hGarDot}${tb.name||homeland.toUpperCase()}</span></div>`;
             }
 
             /* Conquered territories (with garrison dot + unrest info + clickable) */
@@ -849,7 +907,7 @@ const UI = (() => {
                         const uc = unrest >= 80 ? '#ff1744' : unrest >= 60 ? '#ff9100' : unrest >= 40 ? '#ffd740' : '#66bb6a';
                         unrestTag = ` <span style="font-size:0.58rem;color:${uc};font-weight:600;">(🔥${Math.round(unrest)}%)</span>`;
                     }
-                    resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${tc}')"><span>${garDot}${tb.flag||'🏳️'} ${tb.name||tc.toUpperCase()}${unrestTag}</span></div>`;
+                    resHtml += `<div class="res-row" style="font-size:0.72rem;padding:2px 0;cursor:pointer;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''" onclick="UI.showTerritoryPanel('${tc}')"><span>${garDot}${tb.name||tc.toUpperCase()}${unrestTag}</span></div>`;
                 });
             }
         }
@@ -970,6 +1028,7 @@ const UI = (() => {
             }
         });
         els['military-bar'].innerHTML = html;
+        parseEmoji(els['military-bar']);
 
         /* Notify components */
         _emitBus('army:changed');
@@ -1888,6 +1947,7 @@ const UI = (() => {
         html += `</div>`; /* close btl-body */
 
         els['battle-display'].innerHTML = html;
+        parseEmoji(els['battle-display']);
         parseEmoji(els['battle-popup']);
     }
 
@@ -1993,6 +2053,7 @@ const UI = (() => {
         });
         html += '</div>';
         els['production-display'].innerHTML = html;
+        parseEmoji(els['production-display']);
     }
 
     function doBuild(unitType) {
@@ -2078,6 +2139,7 @@ const UI = (() => {
         });
 
         els['tech-tree-display'].innerHTML = html;
+        parseEmoji(els['tech-tree-display']);
     }
 
     function doResearch(techId) {
@@ -2112,7 +2174,7 @@ const UI = (() => {
         const pTerr = GameEngine.getTerritoryCount(state.player);
         const pAtk = GameEngine.calcMilitary(state.player, 'atk');
         html += `<div class="diplo-player-summary">`;
-        html += `<span style="font-size:2rem">${pn.flag}</span>`;
+        html += `<span class="diplo-player-mark" style="border-color:${pn.color||'#607d8b'}">${state.player.toUpperCase()}</span>`;
         html += `<div><strong>${pn.name}</strong><br><span style="font-size:0.7rem;color:var(--text-dim);">${t('diplo_summary',{terr:pTerr,atk:pAtk,allies:allies.length,wars:wars.length})}</span></div>`;
         html += `</div>`;
 
@@ -2142,7 +2204,7 @@ const UI = (() => {
 
             /* Top row: flag, name, status, color swatch */
             c += `<div class="diplo-card-header">`;
-            c += `<div class="diplo-card-flag" style="border-color:${nColor}">${n.flag}</div>`;
+            c += `<div class="diplo-card-flag" style="border-color:${nColor}">${code.toUpperCase()}</div>`;
             c += `<div class="diplo-card-info">`;
             c += `<div class="diplo-card-name">${n.name}</div>`;
             c += `<div class="diplo-card-stats">\ud83c\udf0d${terrCount} | \u2694\ufe0f${atkPow}</div>`;
@@ -2205,6 +2267,7 @@ const UI = (() => {
         html += renderSection(t('diplo_section_others') || 'OTHER NATIONS', '\ud83c\udf0d', '#42a5f5', others);
 
         els['diplomacy-display'].innerHTML = html;
+        parseEmoji(els['diplomacy-display']);
         parseEmoji(els['diplomacy-popup']);
     }
 
@@ -3065,29 +3128,34 @@ const UI = (() => {
         if (!anyAsset) html += `<div style="color:var(--text-dim);font-size:0.75rem;">${t('econ_no_assets')}</div>`;
         html += '</div></div>';
 
-        /* Army overview */
-        html += `<div class="econ-section"><h4>${t('econ_army_title')}</h4><div class="econ-grid">`;
-        Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
-            const count = n.army[key] || 0;
-            if (count > 0) {
-                html += `<div class="econ-item" style="display:flex;align-items:center;gap:var(--sp-2);">`;
-                html += `<span style="font-size:1.3rem;width:28px;text-align:center;flex-shrink:0;">${ut.icon}</span>`;
-                html += `<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ut.name} <span style="color:var(--gold);font-weight:700;">×${count}</span></span>`;
-                html += `<span style="display:inline-flex;align-items:center;gap:2px;width:56px;justify-content:flex-end;font-family:var(--font-mono);font-size:0.72rem;color:var(--red);flex-shrink:0;" title="ATK">⚔️ ${ut.atk*count}</span>`;
-                html += `<span style="display:inline-flex;align-items:center;gap:2px;width:56px;justify-content:flex-end;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);flex-shrink:0;" title="DEF">🛡️ ${ut.def*count}</span>`;
-                html += `</div>`;
-            }
-        });
         const totalAtk = GameEngine.calcMilitary(state.player, 'atk');
         const totalDef = GameEngine.calcMilitary(state.player, 'def');
         const totalUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
+        html += `<div class="econ-section econ-section-army"><h4>${t('econ_army_title')}</h4>`;
+        html += `<div class="army-summary-grid">`;
+        html += `<div class="army-summary-card army-summary-card-atk"><span class="army-summary-label">ATK TOTALE</span><span class="army-summary-value">⚔️ ${totalAtk}</span></div>`;
+        html += `<div class="army-summary-card army-summary-card-def"><span class="army-summary-label">DEF TOTALE</span><span class="army-summary-value">🛡️ ${totalDef}</span></div>`;
+        html += `<div class="army-summary-card army-summary-card-units"><span class="army-summary-label">UNITA</span><span class="army-summary-value">🪖 ${totalUnits}</span></div>`;
         html += `</div>`;
-        html += `<div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-top:10px;padding:8px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);border-radius:6px;font-family:var(--font-mono);font-size:0.82rem;">`;
-        html += `<span style="color:var(--red);font-weight:700;">⚔️ ${totalAtk}</span>`;
-        html += `<span style="color:var(--border);font-size:0.6rem;">│</span>`;
-        html += `<span style="color:var(--accent);font-weight:700;">🛡️ ${totalDef}</span>`;
-        html += `<span style="color:var(--border);font-size:0.6rem;">│</span>`;
-        html += `<span style="color:var(--gold);font-weight:700;">🪖 ${totalUnits}</span>`;
+        html += `<div class="army-unit-grid">`;
+        Object.entries(UNIT_TYPES).forEach(([key, ut]) => {
+            const count = n.army[key] || 0;
+            if (count > 0) {
+                html += `<article class="army-unit-card" title="${ut.name} - ATK:${ut.atk} DEF:${ut.def}">`;
+                html += `<div class="army-unit-head">`;
+                html += `<span class="army-unit-icon">${ut.icon}</span>`;
+                html += `<div class="army-unit-copy">`;
+                html += `<span class="army-unit-name">${ut.name}</span>`;
+                html += `<span class="army-unit-count">x${count}</span>`;
+                html += `</div>`;
+                html += `</div>`;
+                html += `<div class="army-unit-stats">`;
+                html += `<span class="army-stat army-stat-atk"><span class="army-stat-k">ATK</span><span class="army-stat-v">⚔️ ${ut.atk * count}</span></span>`;
+                html += `<span class="army-stat army-stat-def"><span class="army-stat-k">DEF</span><span class="army-stat-v">🛡️ ${ut.def * count}</span></span>`;
+                html += `</div>`;
+                html += `</article>`;
+            }
+        });
         html += `</div></div>`;
 
         /* Technologies */
@@ -3105,6 +3173,7 @@ const UI = (() => {
         html += '</div>';
 
         els['economy-display'].innerHTML = html;
+        parseEmoji(els['economy-display']);
     }
 
     /* ════════════════ END TURN / AI PHASE ════════════════ */
