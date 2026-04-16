@@ -520,9 +520,11 @@ const Animations = (() => {
                     (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6 - 2,
                     30 + Math.random() * 20, impactCode));
             }
-            const lbl = success ? t('anim_conquered') : t('anim_repelled');
+            const lbl = success
+                ? `${atkName} → ${defName} ${t('anim_conquered')}`
+                : `${atkName} → ${defName} ${t('anim_repelled')}`;
             textPopups.push(new BigLabel(x, y - 15, lbl, ec, 15, 90, impactCode));
-        }, fromCode, toCode, success, trailLbl, cat));
+        }, fromCode, toCode, success, '', cat));
 
         /* Secondary projectiles — skip entirely in spectator/fast mode */
         if (cat === 'air' && speedMult <= 1) {
@@ -569,11 +571,6 @@ const Animations = (() => {
                 ensureRunning();
             }, 100);
         }
-
-        /* Attack label with unit type icon — anchored to midpoint between territories */
-        const midX = (from.x + to.x) / 2, midY = (from.y + to.y) / 2 - 25;
-        textPopups.push(new BigLabel(midX, midY, trailLbl, '#ffd740', 14, 110, toCode));
-        textPopups.push(new BigLabel(from.x, from.y - 12, `${atkUnit.icon} ${atkName} ${t('anim_attacks')}`, missileColor, 12, 80, fromCode));
 
         ensureRunning();
     }

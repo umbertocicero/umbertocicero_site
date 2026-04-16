@@ -157,6 +157,5 @@ body.spectator-active #map-legend {
         min-height: 40px;
     }
     .legend-flag-img { width: 24px; height: 18px; }
-    .legend-name { }
     .legend-count { min-width: 20px; }
 }

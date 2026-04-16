@@ -667,6 +667,10 @@ const AI = (() => {
         });
 
         /* ── Smart peace: only when losing or overstretched, NEVER when winning ── */
+        /* Pre-compute reachable enemy set for peace decisions */
+        const reachableEnemies = new Set(
+            situation.scoredTargets.filter(t => situation.enemies.includes(t.owner)).map(t => t.owner)
+        );
         situation.enemies.forEach(enemy => {
             if (situation.homelandLost && enemy === situation.homelandEnemy) return;
             const war = state.wars.find(w =>
@@ -674,6 +678,12 @@ const AI = (() => {
                 (w.attacker === enemy && w.defender === code));
             const minWarTurns = Math.round(5 + situation.restlessness * 10);
             if (war && (state.turn - war.turn) > minWarTurns && profile.diplomacy > 0.4) {
+                /* Make peace with unreachable enemies (pointless wars) */
+                if (!reachableEnemies.has(enemy)) {
+                    GameEngine.makePeace(code, enemy);
+                    actions.push({ type:'peace', nation:code, target:enemy });
+                    return;
+                }
                 /* Only seek peace if we're weaker or overstretched */
                 const enemyPow = GameEngine.calcMilitary(enemy, 'atk');
                 const losing = enemyPow > situation.myAtkPow * 1.1;
@@ -688,8 +698,10 @@ const AI = (() => {
             }
         });
 
-        /* ── Anti-stall: if at peace too long, start a strategic war ── */
-        if (situation.enemies.length === 0 && state.turn > 10) {
+        /* ── Anti-stall: if at peace too long OR enemies unreachable, start a strategic war ── */
+        const reachableEnemyTerr = situation.scoredTargets.filter(t => situation.enemies.includes(t.owner)).length;
+        const enemiesUnreachable = situation.enemies.length > 0 && reachableEnemyTerr === 0;
+        if ((situation.enemies.length === 0 || enemiesUnreachable) && state.turn > 10) {
             const myWars = state.wars.filter(w => w.attacker === code || w.defender === code);
             const lastWarTurn = myWars.length ? Math.max(...myWars.map(w => w.turn)) : 0;
             const peaceTurns = state.turn - lastWarTurn;
@@ -703,29 +715,49 @@ const AI = (() => {
                 let target = situation.scoredTargets.find(t =>
                     !GameEngine.isAlly(code, t.owner) && !GameEngine.isAtWar(code, t.owner)
                 );
-                /* If ALL reachable targets are allies, betray the weakest neighbor */
-                if (!target && peaceTurns > 15 && situation.allies.length > 0) {
-                    /* Pick the weakest ally that we border */
-                    const allyByStrength = situation.allies
-                        .filter(a => state.nations[a]?.alive)
-                        .map(a => ({ code: a, def: GameEngine.calcMilitary(a, 'def') }))
-                        .sort((a, b) => a.def - b.def);
-                    if (allyByStrength.length > 0) {
-                        const betrayed = allyByStrength[0].code;
-                        GameEngine.breakAlliance(code, betrayed);
-                        actions.push({ type:'betray', nation:code, target:betrayed });
-                        /* Now find a territory of the betrayed nation to attack */
-                        const betrayedTerr = Object.entries(state.territories)
-                            .filter(([, o]) => o === betrayed)
-                            .map(([t]) => t);
-                        if (betrayedTerr.length > 0) {
-                            const result = GameEngine.attack(code, betrayedTerr[0]);
-                            if (result) actions.push({ type:'attack', nation:code, target:betrayedTerr[0], result });
+
+                /* Fallback A: if scoredTargets empty, pick ANY neighbor not allied */
+                if (!target) {
+                    const neighbors = situation.neighborOwners.filter(nc =>
+                        nc !== code && !GameEngine.isAlly(code, nc) && state.nations[nc]?.alive
+                    );
+                    if (neighbors.length > 0) {
+                        /* Pick weakest neighbor */
+                        const weakest = neighbors
+                            .map(nc => ({ code: nc, def: GameEngine.calcMilitary(nc, 'def') }))
+                            .sort((a, b) => a.def - b.def)[0];
+                        /* Find any territory of theirs to attack */
+                        const victimTerr = Object.entries(state.territories)
+                            .find(([, o]) => o === weakest.code);
+                        if (victimTerr) {
+                            target = { territory: victimTerr[0], owner: weakest.code };
                         }
                     }
-                } else if (target) {
-                    const victim = target.owner;
-                    const canFight = peaceTurns > 20 || _canRealisticallyFight(code, victim, state);
+                }
+
+                /* Fallback B: if ALL neighbors are allies, betray the weakest */
+                if (!target && peaceTurns > 15) {
+                    const allyNeighbors = situation.neighborOwners.filter(nc =>
+                        nc !== code && GameEngine.isAlly(code, nc) && state.nations[nc]?.alive
+                    );
+                    if (allyNeighbors.length > 0) {
+                        const weakest = allyNeighbors
+                            .map(a => ({ code: a, def: GameEngine.calcMilitary(a, 'def') }))
+                            .sort((a, b) => a.def - b.def)[0];
+                        GameEngine.breakAlliance(code, weakest.code);
+                        actions.push({ type:'betray', nation:code, target:weakest.code });
+                        const victimTerr = Object.entries(state.territories)
+                            .find(([, o]) => o === weakest.code);
+                        if (victimTerr) {
+                            target = { territory: victimTerr[0], owner: weakest.code };
+                        }
+                    }
+                }
+
+                /* Execute attack */
+                if (target) {
+                    /* After 15 turns of peace, skip power-ratio check — MUST fight */
+                    const canFight = peaceTurns > 15 || _canRealisticallyFight(code, target.owner, state);
                     if (canFight) {
                         const result = GameEngine.attack(code, target.territory);
                         if (result) actions.push({ type:'attack', nation:code, target:target.territory, result });
@@ -794,12 +826,14 @@ const AI = (() => {
         }
 
         /* ── Active war: use scored targets to pick the best territory to attack ── */
+        let hasReachableWarTargets = false;
         if (situation.enemies.length > 0 && situation.myAtkPow > 5) {
             const maxAttacks = 1 + Math.floor(restless * 2); // 1 early, up to 3 late
             let attacksMade = 0;
 
             /* Filter scored targets to only those owned by current enemies */
             const warTargets = situation.scoredTargets.filter(t => situation.enemies.includes(t.owner));
+            hasReachableWarTargets = warTargets.length > 0;
 
             for (const tgt of warTargets) {
                 if (attacksMade >= maxAttacks) break;
@@ -814,14 +848,34 @@ const AI = (() => {
         }
 
         /* ── Strategic expansion: declare war on highest-value target ── */
-        const expansionChance = profile.expansion + restless * 0.4;
+        /* Also expand if we have enemies but can't reach any of their territories */
+        const unreachableWars = situation.enemies.length > 0 && !hasReachableWarTargets;
+        const expansionChance = unreachableWars ? 1.0 : (profile.expansion + restless * 0.4);
         if (expansionChance > Math.random() && !situation.overextended) {
-            /* Find best non-war target from scored list */
-            const expansionTarget = situation.scoredTargets.find(t =>
-                !situation.enemies.includes(t.owner) &&
+            /* Find best non-war target from scored list (include existing enemies if none reachable) */
+            let expansionTarget = situation.scoredTargets.find(t =>
+                (unreachableWars || !situation.enemies.includes(t.owner)) &&
                 !GameEngine.isAlly(code, t.owner) &&
                 state.nations[t.owner]?.alive
             );
+
+            /* Fallback: if scoredTargets is empty, pick weakest non-ally neighbor */
+            if (!expansionTarget) {
+                const neighbors = situation.neighborOwners.filter(nc =>
+                    nc !== code && !GameEngine.isAlly(code, nc) &&
+                    !situation.enemies.includes(nc) && state.nations[nc]?.alive
+                );
+                if (neighbors.length > 0) {
+                    const weakest = neighbors
+                        .map(nc => ({ code: nc, def: GameEngine.calcMilitary(nc, 'def') }))
+                        .sort((a, b) => a.def - b.def)[0];
+                    const victimTerr = Object.entries(state.territories)
+                        .find(([, o]) => o === weakest.code);
+                    if (victimTerr) {
+                        expansionTarget = { territory: victimTerr[0], owner: weakest.code, score: 20 };
+                    }
+                }
+            }
 
             const isEarlyWarWindow = (state.turn || 0) <= 8;
             const minExpansionScore = isEarlyWarWindow ? 28 : 15;
@@ -842,7 +896,7 @@ const AI = (() => {
 
         /* ── Late-game aggression: restless nations attack more ── */
         const warChance = (profile.aggression + restless * 0.35) * 0.25;
-        if ((state.turn || 0) > 6 && situation.enemies.length < 2 && Math.random() < warChance && !situation.overextended) {
+        if ((state.turn || 0) > 6 && (situation.enemies.length < 2 || unreachableWars) && Math.random() < warChance && !situation.overextended) {
             const potentialTargets = situation.scoredTargets.filter(t =>
                 !GameEngine.isAlly(code, t.owner) &&
                 !GameEngine.isAtWar(code, t.owner) &&
