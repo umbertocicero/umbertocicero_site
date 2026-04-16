@@ -69,7 +69,7 @@ const UNIT_TYPES = {
     submarine:       {icon:'🐟',name:'Sottomarino',      atk:16, def:8,  cost:{money:450,steel:30,silver:3},            spd:2, rng:4},
     cruiseMissile:   {icon:'🚀',name:'Missile Crociera', atk:25, def:0,  cost:{money:300,steel:15,silver:2},            spd:8, rng:6, consumable:true},
     ballisticMissile:{icon:'☄️',name:'Missile Balistico',atk:40, def:0,  cost:{money:800,steel:20,uranium:2,gold:3},    spd:10,rng:10,consumable:true},
-    sam:             {icon:'📡',name:'Sistema SAM',      atk:5,  def:20, cost:{money:250,steel:15},                     spd:0, rng:3},
+    sam:             {icon:'📡',name:'Sistema SAM',      atk:5,  def:16, cost:{money:400,steel:20,rareEarth:3},         spd:0, rng:3},
     nuke:            {icon:'☢️',name:'Testata Nucleare', atk:200,def:0,  cost:{money:5000,uranium:50,diamonds:10},       spd:10,rng:15,consumable:true,nuke:true}
 };
 
@@ -78,7 +78,7 @@ const TECHNOLOGIES = [
     {id:'stealth_tech',     icon:'👻',name:'Stealth',             cost:{money:1200,rareEarth:30},          effect:'fighter_atk+8',         desc:'+8 ATK caccia',             prereq:['advanced_drones'],             tip:'I caccia colpiscono più forte grazie alla tecnologia stealth.'},
     {id:'hypersonic',       icon:'⚡',name:'Missili Ipersonici',  cost:{money:2000,steel:60,rareEarth:40}, effect:'cruiseMissile_atk+15',  desc:'+15 ATK missili',           prereq:['stealth_tech'],                tip:'Missili troppo veloci per essere intercettati.'},
     {id:'cyberwarfare',     icon:'💻',name:'Cyberwarfare',        cost:{money:600,rareEarth:15},           effect:'sabotage',              desc:'+20% successo spie',        prereq:[],                              tip:'Le missioni di spionaggio hanno l\'80% di successo invece del 60%.'},
-    {id:'missile_defense',  icon:'📡',name:'Difesa Antimissile', cost:{money:1500,steel:40},              effect:'sam_def+15',            desc:'+15 DEF SAM',               prereq:[],                              tip:'Le batterie SAM difendono molto meglio dai missili.'},
+    {id:'missile_defense',  icon:'📡',name:'Difesa Antimissile', cost:{money:1800,steel:40,rareEarth:10}, effect:'sam_def+10',            desc:'+10 DEF SAM',               prereq:[],                              tip:'Le batterie SAM difendono molto meglio dai missili.'},
     {id:'nuclear_program',  icon:'☢️',name:'Programma Nucleare', cost:{money:3000,uranium:30},            effect:'nuke_enabled',          desc:'Sblocca testate nucleari',  prereq:['missile_defense'],             tip:'Puoi costruire e lanciare armi nucleari devastanti.'},
     {id:'carrier_fleet',    icon:'🛳️',name:'Portaerei',          cost:{money:2500,steel:80},              effect:'navy_atk+10',           desc:'+10 ATK flotta',            prereq:[],                              tip:'La flotta navale diventa molto più potente in attacco.'},
     {id:'space_recon',      icon:'🛰️',name:'Ricognizione Spaz.', cost:{money:1800,rareEarth:25},          effect:'recon',                 desc:'Visione globale',           prereq:['advanced_drones'],             tip:'Vedi risorse ed eserciti di tutte le nazioni.'},

@@ -200,6 +200,17 @@ const UI = (() => {
         bindButtons();
         setupMapCallbacks();
         setupEventLog();
+
+        /* Pre-fetch ALL nation flag SVGs into blob cache at boot.
+           This ensures _flagImgHtml() uses blob: URLs by the time
+           the nation-select grid renders → zero double-fetches. */
+        const _allFlagCodes = (typeof NATIONS !== 'undefined')
+            ? Object.keys(NATIONS).map(c => _flagAssetForCode(c)).filter(Boolean)
+            : [];
+        window._svgBlobCache = _svgBlobCache;
+        Promise.allSettled(_allFlagCodes.map(_fetchEmojiBlob)).then(() => {
+            _blobCacheReady = true;
+        });
     }
 
     function cacheElements() {
@@ -744,29 +755,15 @@ const UI = (() => {
             MapRenderer.resizeFx();
         }, 300);
 
-        /* Pre-fetch ALL nation flag SVGs into blob cache BEFORE first render.
-           This ensures _flagImgHtml() always uses blob: URLs from the start,
-           so the browser never makes file-path HTTP requests for flags. */
-        const _allFlagCodes = (typeof NATIONS !== 'undefined')
-            ? Object.keys(NATIONS).map(c => _flagAssetForCode(c)).filter(Boolean)
-            : [];
-        window._svgBlobCache = _svgBlobCache;
-        Promise.allSettled(_allFlagCodes.map(_fetchEmojiBlob)).then(() => {
-            _blobCacheReady = true;
-            /* Now render — all flags will use blob URLs */
-            updateHUD();
-            updateMilitaryBar();
-            _emitBus('state:changed');
-            _emitBus('resources:changed');
-            _emitBus('army:changed');
-            _emitBus('hud:refresh');
-            /* Warm remaining non-flag emoji icons from DOM */
-            requestAnimationFrame(() => _warmSvgBlobCache());
-        });
-
-        /* Render immediately with file-path fallback (will be patched by warm-up) */
+        /* Render HUD (flag cache was warmed at init, so blob URLs are used) */
         updateHUD();
         updateMilitaryBar();
+        _emitBus('state:changed');
+        _emitBus('resources:changed');
+        _emitBus('army:changed');
+        _emitBus('hud:refresh');
+        /* Warm remaining non-flag emoji icons (resource icons, etc.) */
+        requestAnimationFrame(() => _warmSvgBlobCache());
     }
 
     /* ════════════════ EVENT BUS HELPER ════════════════ */
@@ -2050,7 +2047,7 @@ const UI = (() => {
             html += `<div class="btl-mod-result-box btl-mod-atk">⚔️ <strong style="color:#00e5ff">${result.atkPow}</strong></div>`;
 
             html += `<div class="btl-vs"></div>`;
-            
+
             /* DEF result box */
             html += `<div class="btl-mod-result-box btl-mod-def">🛡️ <strong style="color:#ff1744">${result.defPow}</strong></div>`;
 

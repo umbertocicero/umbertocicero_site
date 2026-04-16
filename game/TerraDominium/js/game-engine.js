@@ -561,11 +561,22 @@ const GameEngine = (() => {
         const outcomeColor = success ? '#4caf50' : '#ff1744';
         const outcomeLabel = success ? _t('ge_victory') : _t('ge_defeat');
 
-        emit('battle',
-            `${icon} ${atk.flag} ${atk.name} ${_t('ge_attacks')} ${terrFlag} ${terrName} — ` +
-            `⚔️${result.atkPow} vs 🛡️${result.defPow} → ` +
-            `<span style="color:${outcomeColor};font-weight:700">${outcomeLabel}</span> ` +
-            `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${costTag}`);
+        /* Show detailed stats only if player is involved; hide AI-vs-AI intel */
+        const playerCode = state.player;
+        const playerInvolved = (attackerCode === playerCode || defender === playerCode);
+
+        let battleMsg;
+        if (playerInvolved) {
+            battleMsg = `${icon} ${atk.flag} ${atk.name} ${_t('ge_attacks')} ${terrFlag} ${terrName} — ` +
+                `⚔️${result.atkPow} vs 🛡️${result.defPow} → ` +
+                `<span style="color:${outcomeColor};font-weight:700">${outcomeLabel}</span> ` +
+                `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${costTag}`;
+        } else {
+            battleMsg = `${icon} ${atk.flag} ${atk.name} ${_t('ge_attacks')} ${terrFlag} ${terrName} → ` +
+                `<span style="color:${outcomeColor};font-weight:700">${outcomeLabel}</span> ` +
+                `(☠️ ${atkDeadTotal} vs ${defDeadTotal})`;
+        }
+        emit('battle', battleMsg);
 
         /* Check elimination */
         checkElimination(defender);
