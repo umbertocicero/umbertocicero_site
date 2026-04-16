@@ -386,7 +386,7 @@ const UI = (() => {
                 const isMain = i === 0;
                 const color = isMain ? '#00e676' : '#90caf9';
                 const role = isMain ? t('nd_reach_role_main') : t('nd_reach_role_support');
-                html += `<div class="res-row" style="font-size:0.75rem;">`;
+                html += `<div class="res-row reachability" style="font-size:0.75rem;">`;
                 html += `<span style="color:${color};font-weight:700;">${p.icon} ${p.label}</span>`;
                 html += `<span class="val" style="color:var(--text-dim);font-size:0.6rem;">${role}</span>`;
                 html += `</div>`;
@@ -784,6 +784,7 @@ const UI = (() => {
 
         /* Update map legend */
         updateMapLegend();
+        _syncTurnButtonState();
         /* Only parse emoji for the flag element, not the entire HUD */
         parseEmojiIfNeeded(els['hud-nation-flag']);
 
@@ -1252,7 +1253,7 @@ const UI = (() => {
                 if (reach.reachable) {
                     reachHtml += buildAttackChainHtml(reach, false);
                 } else {
-                    reachHtml += `<div class="res-row"><span style="color:#ff6e40;">${t('nd_unreachable')}</span></div>`;
+                    reachHtml += `<div class="res-row reachability"><span style="color:#ff6e40;">${t('nd_unreachable')}</span></div>`;
                 }
                 reachHtml += `</div>`; /* close reachability wrapper */
                 els['panel-military'].innerHTML += reachHtml;
@@ -3221,6 +3222,22 @@ const UI = (() => {
     /* Speed multiplier for delays: 1 = normal, 0.5 = autoplay */
     function dly(ms) { return delay(autoPlayMode ? Math.round(ms * 0.5) : ms); }
 
+    function _syncTurnButtonState() {
+        const btnEnd = els['btn-end-turn'];
+        if (!btnEnd) return;
+
+        if (autoPlayMode || playerDead) {
+            btnEnd.style.display = 'none';
+            return;
+        }
+
+        btnEnd.style.display = '';
+        const state = GameEngine.getState();
+        const canEndTurn = !!state && !state.gameOver && !aiTurnBusy && state.phase === 'player';
+        btnEnd.disabled = !canEndTurn;
+        btnEnd.style.opacity = canEndTurn ? '1' : '0.4';
+    }
+
     async function endTurn() {
         const state = GameEngine.getState();
         if (!state || state.gameOver || aiTurnBusy) return;
@@ -3390,8 +3407,8 @@ const UI = (() => {
         /* Refresh spectator/autoplay banner year */
         if (autoPlayMode) updateAutoPlayBanner();
 
-        /* Re-enable end-turn button if not in autoplay */
-        if (!autoPlayMode && btnEnd) { btnEnd.disabled = false; btnEnd.style.opacity = '1'; }
+        /* Re-sync end-turn button with real phase/busy state */
+        _syncTurnButtonState();
 
         aiTurnBusy = false;
 
@@ -3434,6 +3451,8 @@ const UI = (() => {
 
         /* If not already running, kick off a turn */
         if (!aiTurnBusy) endTurn();
+
+        _syncTurnButtonState();
     }
 
     function stopAutoPlay() {
@@ -3444,11 +3463,11 @@ const UI = (() => {
 
         /* If player is still alive, restore controls */
         if (!playerDead) {
-            const btnEnd = els['btn-end-turn'];
-            if (btnEnd) { btnEnd.style.display = ''; btnEnd.disabled = false; btnEnd.style.opacity = '1'; }
             const btnAuto = document.getElementById('btn-autoplay');
             if (btnAuto) btnAuto.style.display = '';
         }
+
+        _syncTurnButtonState();
 
         hideAutoPlayBanner();
     }

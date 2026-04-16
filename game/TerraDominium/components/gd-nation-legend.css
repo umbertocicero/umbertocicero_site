@@ -85,10 +85,22 @@
     min-width: 16px; text-align: right;
 }
 
+/* Keep nations legend below autoplay/spectator toolbar (same behavior as events) */
+#spectator-banner:not(.hidden) ~ #map-container #map-legend,
+body.spectator-active #map-legend {
+    transform: translateY(36px);
+}
+
 /* ── Mobile (≤768px) ── */
 @media (max-width: 768px) {
+    #spectator-banner:not(.hidden) ~ #map-container #map-legend,
+    body.spectator-active #map-legend {
+        top: 34px !important;
+        transform: none;
+    }
+
     .map-legend {
-        top: 0; bottom: 0; left: 0;
+        top: 6px; bottom: 0; left: 0;
         max-height: none;
         min-width: 170px;
         max-width: min(30vw, 200px);
@@ -115,16 +127,25 @@
     .legend-count { font-size: 0.8rem; min-width: 20px; }
 }
 
+@media (max-width: 480px) {
+    #spectator-banner:not(.hidden) ~ #map-container #map-legend,
+    body.spectator-active #map-legend {
+        top: 38px !important;
+    }
+}
+
 /* ── Landscape mobile ── */
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
     .map-legend {
         top: 0; bottom: 0; left: 0;
         min-width: 160px;
-        max-width: min(22vw, 200px);
+        max-width: min(25vw, 200px);
         max-height: none;
         padding: 10px 10px;
         border-radius: 0;
         border-left: none; border-top: none; border-bottom: none;
+        border-radius: 0 12px 12px 0;
+
     }
     .legend-toggle { display: inline-flex; }
     .legend-title {
