@@ -385,6 +385,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 }
 .map-tooltip .tt-name { font-family: var(--font-title); color: var(--accent); font-size: var(--fs-md); margin-bottom: 2px; font-weight: 700; letter-spacing: 0.5px; }
 .map-tooltip .tt-owner { color: var(--text-dim); font-size: var(--fs-sm); }
+
+/* Flag images in tooltips, legend, and nation detail */
+.tt-flag-img { width: 1.1em; height: 1.1em; vertical-align: -0.15em; object-fit: contain; }
+.legend-flag-img { width: 1em; height: 1em; vertical-align: -0.1em; object-fit: contain; }
+.nation-flag-img { width: 36px; height: 36px; object-fit: contain; }
 .map-tooltip .tt-res { margin-top: var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.6; }
 
 /* Tooltip close button (mobile only) */
@@ -780,7 +785,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     margin: 0 0 1px;
     letter-spacing: 3px;
 }
-.btl-body { padding: 0 14px 8px; }
+.btl-body { padding: 0 14px 0; }
 .btl-grid {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -906,12 +911,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 }
 
 /* ── Combat Modifier 4-Box Grid ── */
-.btl-mod-4grid {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 4px 8px;
-    margin: 6px 0 2px;
-}
 .btl-mod-box {
     padding: 4px 7px; border-radius: 5px;
     background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
@@ -1988,7 +1987,6 @@ body.spectator-active .btn-reopen-nations { top: 86px; }
     .btl-header { padding: 10px 12px 4px; }
     .btl-header h3 { font-size: 0.9rem; letter-spacing: 2px; }
     .battle-result { font-size: 0.75rem; padding: 5px 8px; }
-    .btl-mod-4grid { gap: 3px 5px; margin: 4px 0 2px; }
     .btl-mod-box { padding: 3px 5px; font-size: 0.52rem; line-height: 1.5; }
     .btl-mod-result-box { padding: 2px 4px; font-size: 0.6rem; }
     .btl-mod-result-box strong { font-size: 0.68rem; }
