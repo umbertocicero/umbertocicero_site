@@ -3726,6 +3726,11 @@ const UI = (() => {
                 type = 'diplomacy';
                 break;
             }
+            case 'alliance_decay': {
+                msg = `💔 ${me} <span class="evt-action">${t('evt_ai_alliance_decay')}</span> ${tgt(action.target)}`;
+                type = 'diplomacy';
+                break;
+            }
             case 'peace': {
                 msg = `🕊️ ${me} <span class="evt-action">${t('evt_ai_peace')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
@@ -3768,7 +3773,16 @@ const UI = (() => {
                 break;
             }
             default: {
-                msg = `${me}: ${action.type}`;
+                const evtKey = `evt_ai_${action.type}`;
+                const evtLabel = t(evtKey);
+                const rawKeyLabel = t(action.type);
+                const label = evtLabel !== evtKey
+                    ? evtLabel
+                    : (rawKeyLabel !== action.type ? rawKeyLabel : action.type);
+                msg = action.target
+                    ? `${me} <span class="evt-action">${label}</span> ${tgt(action.target)}`
+                    : `${me} <span class="evt-action">${label}</span>`;
+                type = 'game';
             }
         }
 
@@ -4038,7 +4052,8 @@ const UI = (() => {
         const VICTORY_LABELS = {
             military:  { icon: '⚔️', label: t('vic_military'),   desc: t('vic_military_desc') },
             economic:  { icon: '💰', label: t('vic_economic'),  desc: t('vic_economic_desc') },
-            strategic: { icon: '🎯', label: t('vic_strategic'), desc: t('vic_strategic_desc') }
+            strategic: { icon: '🎯', label: t('vic_strategic'), desc: t('vic_strategic_desc') },
+            hegemony:  { icon: '👑', label: t('vic_hegemony'),  desc: t('vic_hegemony_desc') }
         };
         const vt = VICTORY_LABELS[state.victoryType] || VICTORY_LABELS.military;
 
@@ -4072,11 +4087,12 @@ const UI = (() => {
         parseEmoji(els['gameover-popup']);
 
         /* Build the persistent victory banner text */
+        const winnerFlagHtml = _flagImgHtml(victor, n.flag, 'flag-img');
         const bannerTitle = isPlayer
-            ? `🏆 ${n.flag} ${n.name} — ${vt.label} ${t('hud_turn').toLowerCase()} ${state.turn}!`
+            ? `🏆 ${winnerFlagHtml} ${n.name} — ${vt.label} ${t('hud_turn').toLowerCase()} ${state.turn}!`
             : playerDead
-                ? `🏆 ${n.flag} ${n.name} ${t('go_won')} — ${vt.label}`
-                : `💀 ${n.flag} ${n.name} ${t('go_won')} — ${vt.label}`;
+                ? `🏆 ${winnerFlagHtml} ${n.name} ${t('go_won')} — ${vt.label}`
+                : `💀 ${winnerFlagHtml} ${n.name} ${t('go_won')} — ${vt.label}`;
 
         const banner = document.getElementById('victory-banner');
         if (banner) {
@@ -4085,6 +4101,7 @@ const UI = (() => {
                 <button class="btn-sm btn-details-sm" id="btn-banner-details">📊</button>
                 <button class="btn-sm btn-restart-sm" id="btn-banner-restart">${t('btn_restart')}</button>
             `;
+            parseEmojiIfNeeded(banner);
             /* Wire banner buttons */
             document.getElementById('btn-banner-restart').addEventListener('click', () => location.reload());
             document.getElementById('btn-banner-details').addEventListener('click', () => {

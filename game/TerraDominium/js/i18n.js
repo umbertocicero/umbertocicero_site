@@ -68,7 +68,7 @@ const I18n = (() => {
             tut_step5_title:      '5. Intelligenza Artificiale',
             tut_step5:            'Le nazioni IA hanno personalità diverse (superpotenza, difensiva, opportunista, instabile…). Si difendono, formano alleanze, ricercano tecnologie e contrattaccano. Puoi anche attivare l\'autoplay e lasciar giocare l\'IA al posto tuo.',
             tut_step6_title:      '6. Condizioni di Vittoria',
-            tut_step6:            '<strong>Vittoria Militare:</strong> conquista l\'85% dei territori. <strong>Vittoria Economica:</strong> accumula 50.000 fondi controllando almeno il 30% della mappa. <strong>Vittoria Strategica:</strong> controlla tutti gli asset strategici globali. Attento all\'economia: senza risorse, crolla tutto.',
+            tut_step6:            '<strong>Vittoria Militare:</strong> conquista l\'85% dei territori. <strong>Vittoria Economica:</strong> accumula 50.000 fondi controllando almeno il 30% della mappa. <strong>Vittoria Strategica:</strong> controlla tutti gli asset strategici globali. <strong>Vittoria Egemonica:</strong> dal turno 60 in poi, raggiungi almeno il 35% dei territori, con distacco di almeno 20 territori dal secondo e rapporto di almeno 2.5x. Attento all\'economia: senza risorse, crolla tutto.',
 
             /* ── HUD ── */
             hud_turn:             'Turno',
@@ -189,6 +189,7 @@ const I18n = (() => {
             evt_ai_sanction:      'sanziona',
             evt_ai_research:      'ricerca',
             evt_ai_betray:        'tradisce',
+            evt_ai_alliance_decay:'alleanza deteriorata con',
             evt_ai_revolt:        'RIVOLTA!',
             evt_ai_revolt_taken:  'Territorio strappato a',
             evt_ai_suppress:      'seda rivolta in',
@@ -320,6 +321,8 @@ const I18n = (() => {
             vic_economic_desc:    'Supremazia economica (≥50K fondi + ≥30% territori)',
             vic_strategic:        'VITTORIA STRATEGICA',
             vic_strategic_desc:   'Controllo di tutti gli asset strategici',
+            vic_hegemony:         'VITTORIA EGEMONICA',
+            vic_hegemony_desc:    'Supremazia schiacciante nel late-game (≥35%, distacco netto)',
 
             /* ── Spy ── */
             spy_success:          '🕵️ MISSIONE RIUSCITA',
@@ -601,6 +604,7 @@ const I18n = (() => {
             ge_game_start:             'La partita inizia! Turno 1',
             ge_produces:               'produce',
             ge_researches:             'ricerca',
+            alliance_decay:            'alleanza deteriorata con',
             ge_loots:                  'saccheggia',
             ge_attacks:                'attacca',
             ge_victory:                'VITTORIA',
@@ -625,6 +629,7 @@ const I18n = (() => {
             ge_military_victory:       'DOMINA IL MONDO!',
             ge_economic_victory:       'VITTORIA ECONOMICA!',
             ge_strategic_victory:      'controlla tutti gli asset strategici!',
+            ge_hegemony_victory:       'impone una EGEMONIA GLOBALE!',
             ge_revolt_suppressed:      'Rivolta sedata in',
             ge_instant_revolt:         'RIVOLTA IMMEDIATA in',
             ge_revolt_in:              'RIVOLTA in',
@@ -678,7 +683,7 @@ const I18n = (() => {
             tut_step5_title:      '5. Artificial Intelligence',
             tut_step5:            'AI nations have diverse personalities (superpower, defensive, opportunist, unstable…). They defend themselves, form alliances, research technologies and counter-attack. You can also enable autoplay and let the AI play for you.',
             tut_step6_title:      '6. Victory Conditions',
-            tut_step6:            '<strong>Military Victory:</strong> conquer 85% of territories. <strong>Economic Victory:</strong> accumulate 50,000 funds while controlling at least 30% of the map. <strong>Strategic Victory:</strong> control all global strategic assets. Watch your economy: without resources, everything collapses.',
+            tut_step6:            '<strong>Military Victory:</strong> conquer 85% of territories. <strong>Economic Victory:</strong> accumulate 50,000 funds while controlling at least 30% of the map. <strong>Strategic Victory:</strong> control all global strategic assets. <strong>Hegemony Victory:</strong> from turn 60 onward, reach at least 35% of territories, with a lead of at least 20 territories over second place and a ratio of at least 2.5x. Watch your economy: without resources, everything collapses.',
 
             /* ── HUD ── */
             hud_turn:             'Turn',
@@ -799,6 +804,7 @@ const I18n = (() => {
             evt_ai_sanction:      'sanctions',
             evt_ai_research:      'researches',
             evt_ai_betray:        'betrays',
+            evt_ai_alliance_decay:'alliance decayed with',
             evt_ai_revolt:        'REVOLT!',
             evt_ai_revolt_taken:  'Territory torn from',
             evt_ai_suppress:      'suppresses revolt in',
@@ -929,6 +935,8 @@ const I18n = (() => {
             vic_economic_desc:    'Economic supremacy (≥50K funds + ≥30% territories)',
             vic_strategic:        'STRATEGIC VICTORY',
             vic_strategic_desc:   'Control of all strategic assets',
+            vic_hegemony:         'HEGEMONY VICTORY',
+            vic_hegemony_desc:    'Overwhelming late-game supremacy (≥35%, clear lead)',
 
             /* ── Spy ── */
             spy_success:          '🕵️ MISSION SUCCESS',
@@ -1210,6 +1218,7 @@ const I18n = (() => {
             ge_game_start:             'The game begins! Turn 1',
             ge_produces:               'produces',
             ge_researches:             'researches',
+            alliance_decay:            'alliance decayed with',
             ge_loots:                  'loots',
             ge_attacks:                'attacks',
             ge_victory:                'VICTORY',
@@ -1234,6 +1243,7 @@ const I18n = (() => {
             ge_military_victory:       'DOMINATES THE WORLD!',
             ge_economic_victory:       'ECONOMIC VICTORY!',
             ge_strategic_victory:      'controls all strategic assets!',
+            ge_hegemony_victory:       'imposes GLOBAL HEGEMONY!',
             ge_revolt_suppressed:      'Revolt suppressed in',
             ge_instant_revolt:         'INSTANT REVOLT in',
             ge_revolt_in:              'REVOLT in',

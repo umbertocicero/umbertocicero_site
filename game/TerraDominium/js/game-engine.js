@@ -1107,6 +1107,12 @@ const GameEngine = (() => {
     function checkVictory() {
         if (state.gameOver) return state.victor;
         const totalTerr = SVG_IDS.length;
+        const rankedAlive = Object.keys(state.nations)
+            .filter(code => state.nations[code]?.alive)
+            .map(code => ({ code, owned: getTerritoryCount(code) }))
+            .sort((a, b) => b.owned - a.owned);
+        const leader = rankedAlive[0] || null;
+        const second = rankedAlive[1] || { code: null, owned: 0 };
 
         for (const code of Object.keys(state.nations)) {
             const n = state.nations[code];
@@ -1120,6 +1126,26 @@ const GameEngine = (() => {
                 state.victor = code;
                 state.victoryType = 'military';
                 emit('game', `🏆 ${n.flag} ${n.name} ${_t('ge_military_victory')} (${Math.round(pct*100)}% ${_t('ge_territories')})`);
+                return code;
+            }
+
+            /* Hegemony victory: late-game dominant lead over #2 */
+            const isLeader = leader && leader.code === code;
+            const leadGap = isLeader ? (leader.owned - second.owned) : 0;
+            const leadRatio = isLeader ? (leader.owned / Math.max(1, second.owned)) : 0;
+            if (
+                isLeader &&
+                state.turn >= 60 &&
+                pct >= 0.35 &&
+                leadGap >= 20 &&
+                leadRatio >= 2.5
+            ) {
+                state.gameOver = true;
+                state.victor = code;
+                state.victoryType = 'hegemony';
+                emit('game',
+                    `🏆 ${n.flag} ${n.name} ${_t('ge_hegemony_victory')} ` +
+                    `(${leader.owned}-${second.owned}, ${Math.round(pct * 100)}% ${_t('ge_territories')})`);
                 return code;
             }
 

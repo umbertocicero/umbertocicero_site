@@ -255,11 +255,14 @@ const AI = (() => {
         const myPow  = GameEngine.calcMilitary(code, 'atk');
         const tDef   = GameEngine.calcMilitary(targetCode, 'def');
         const myUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
-        /* Absolute floor: scales with game phase */
-        const unitFloor = (state.turn || 0) > 50 ? 10 : 20;
+        const tUnits  = Object.values(t.army).reduce((a,b) => a+b, 0);
+        /* Absolute floor: need a real army to start wars */
+        const unitFloor = (state.turn || 0) > 50 ? 15 : 25;
         if (myUnits < unitFloor) return false;
+        /* Don't attack nations with 3x+ your units */
+        if (tUnits > myUnits * 3) return false;
         /* Power-ratio gate (relaxed in late game) */
-        const powerRatio = (state.turn || 0) > 50 ? 0.45 : 0.60;
+        const powerRatio = (state.turn || 0) > 50 ? 0.55 : 0.70;
         if (myPow < tDef * powerRatio) return false;
         /* Early game: only fight if near-parity */
         if ((state.turn || 0) <= 10 && myPow < tDef * 0.90) return false;
@@ -565,6 +568,24 @@ const AI = (() => {
         const state = GameEngine.getState();
         const n = state.nations[code];
 
+        /* Hard alliance cap — never exceed 3 active alliances */
+        const ALLIANCE_CAP = 3;
+        const currentAllyCount = () => state.alliances.filter(a => a.a === code || a.b === code).length;
+        const canAlly = () => currentAllyCount() < ALLIANCE_CAP;
+        /* Max 2 new alliances formed per turn to reduce noise */
+        let alliancesFormedThisTurn = 0;
+        const MAX_NEW_ALLIANCES_PER_TURN = 2;
+        const tryAlliance = (a, b) => {
+            if (!canAlly() || alliancesFormedThisTurn >= MAX_NEW_ALLIANCES_PER_TURN) return false;
+            if (GameEngine.isAlly(a, b) || GameEngine.isAtWar(a, b)) return false;
+            /* Also check partner's alliance count */
+            const partnerAllies = state.alliances.filter(al => al.a === b || al.b === b).length;
+            if (partnerAllies >= ALLIANCE_CAP) return false;
+            GameEngine.makeAlliance(a, b);
+            alliancesFormedThisTurn++;
+            return true;
+        };
+
         /* ── Alliance decay: long peace erodes alliances ──
            Without wars, nations drift apart. Max 3 allies sustained;
            beyond that, weakest alliances dissolve each turn. */
@@ -594,41 +615,47 @@ const AI = (() => {
             }
             /* Seek alliances against the dominant */
             (situation.reachableOwners || situation.neighborOwners).forEach(nc => {
-                if (nc !== dom && !GameEngine.isAlly(code, nc) && state.nations[nc]?.alive) {
+                if (nc !== dom && !GameEngine.isAlly(code, nc) && !GameEngine.isAtWar(code, nc) && state.nations[nc]?.alive) {
                     const ncRel = GameEngine.getRelation(nc, dom);
                     if (ncRel < -10 && Math.random() < profile.diplomacy * 0.4) {
-                        GameEngine.makeAlliance(code, nc);
-                        actions.push({ type:'alliance', nation:code, target:nc });
+                        if (tryAlliance(code, nc)) {
+                            actions.push({ type:'alliance', nation:code, target:nc });
+                        }
                     }
                 }
             });
         }
 
         /* ── Seek allies among neighbors ── */
-        if (profile.diplomacy > 0.3 && situation.allies.length < 3) {
+        if (profile.diplomacy > 0.3 && canAlly()) {
             situation.neighborOwners.forEach(nc => {
+                if (!canAlly()) return;
                 if (GameEngine.isAlly(code, nc) || GameEngine.isAtWar(code, nc)) return;
                 if (!state.nations[nc]?.alive) return;
                 const rel = GameEngine.getRelation(code, nc);
                 if (rel > 5 && Math.random() < profile.diplomacy * 0.35) {
-                    GameEngine.makeAlliance(code, nc);
-                    actions.push({ type:'alliance', nation:code, target:nc });
+                    if (tryAlliance(code, nc)) {
+                        actions.push({ type:'alliance', nation:code, target:nc });
+                    }
                 }
             });
         }
 
         /* ── Enemy-of-my-enemy ── */
-        if (situation.enemies.length > 0 && situation.allies.length < 4) {
+        if (situation.enemies.length > 0 && canAlly()) {
             situation.enemies.forEach(enemy => {
+                if (!canAlly()) return;
                 const enemyWars = GameEngine.getWarsFor(enemy);
                 enemyWars.forEach(w => {
+                    if (!canAlly()) return;
                     const otherFighter = w.attacker === enemy ? w.defender : w.attacker;
                     if (otherFighter === code) return;
                     if (!state.nations[otherFighter]?.alive) return;
                     if (GameEngine.isAlly(code, otherFighter) || GameEngine.isAtWar(code, otherFighter)) return;
                     if (Math.random() < 0.3 * profile.diplomacy) {
-                        GameEngine.makeAlliance(code, otherFighter);
-                        actions.push({ type:'alliance', nation:code, target:otherFighter });
+                        if (tryAlliance(code, otherFighter)) {
+                            actions.push({ type:'alliance', nation:code, target:otherFighter });
+                        }
                     }
                 });
             });
@@ -756,8 +783,18 @@ const AI = (() => {
 
                 /* Execute attack */
                 if (target) {
-                    /* After 15 turns of peace, skip power-ratio check — MUST fight */
-                    const canFight = peaceTurns > 15 || _canRealisticallyFight(code, target.owner, state);
+                    /* After very long peace we can be bolder, but never fully suicidal */
+                    let canFight = _canRealisticallyFight(code, target.owner, state);
+                    if (!canFight && peaceTurns > 15) {
+                        const myPow = GameEngine.calcMilitary(code, 'atk');
+                        const targetDef = GameEngine.calcMilitary(target.owner, 'def');
+                        const myUnits = Object.values((state.nations[code]?.army || {})).reduce((a, b) => a + b, 0);
+                        const targetUnits = Object.values((state.nations[target.owner]?.army || {})).reduce((a, b) => a + b, 0);
+                        const hasMinimumForce = myUnits >= 18;
+                        const acceptableParity = myPow >= targetDef * 0.65;
+                        const notHopelesslyOutnumbered = targetUnits <= myUnits * 2;
+                        canFight = hasMinimumForce && acceptableParity && notHopelesslyOutnumbered;
+                    }
                     if (canFight) {
                         const result = GameEngine.attack(code, target.territory);
                         if (result) actions.push({ type:'attack', nation:code, target:target.territory, result });
@@ -933,22 +970,24 @@ const AI = (() => {
         }
 
         /* ── Opportunistic: finish off defenseless nations ── */
-        (situation.reachableOwners || situation.neighborOwners).forEach(nc => {
-            if (GameEngine.isAlly(code, nc) || nc === code) return;
-            const nn = state.nations[nc];
-            if (!nn || !nn.alive) return;
-            const nDefPow = GameEngine.calcMilitary(nc, 'def');
-            if (nDefPow < 5 && situation.myAtkPow > 10 && _canRealisticallyFight(code, nc, state)) {
-                const targets = findAttackTargets(code, nc);
-                if (targets.length > 0) {
-                    /* attack() calls ensureWar() internally — no redundant declaration */
-                    const result = GameEngine.attack(code, targets[0]);
-                    if (result) {
-                        actions.push({ type:'attack', nation:code, target:targets[0], result });
+        /* Only opportunistic attacks if we have meaningful military */
+        if (situation.myAtkPow > 20 && situation.totalUnits > 15) {
+            (situation.reachableOwners || situation.neighborOwners).forEach(nc => {
+                if (GameEngine.isAlly(code, nc) || nc === code) return;
+                const nn = state.nations[nc];
+                if (!nn || !nn.alive) return;
+                const nDefPow = GameEngine.calcMilitary(nc, 'def');
+                if (nDefPow < 5 && _canRealisticallyFight(code, nc, state)) {
+                    const targets = findAttackTargets(code, nc);
+                    if (targets.length > 0) {
+                        const result = GameEngine.attack(code, targets[0]);
+                        if (result) {
+                            actions.push({ type:'attack', nation:code, target:targets[0], result });
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         return actions;
     }
