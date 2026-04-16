@@ -284,8 +284,40 @@ const UI = (() => {
     /* Track tooltip state for mobile tap interaction */
     let tooltipTerritoryCode = null;   // currently shown territory in tooltip
     let isMobile = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const MOBILE_LONG_PRESS_MS = 420;
+    const MOBILE_MOVE_TOLERANCE_PX = 12;
+    let _mobileTouchStartTs = 0;
+    let _mobileTouchStartX = 0;
+    let _mobileTouchStartY = 0;
+    let _mobileTouchMoved = false;
 
     function setupMapCallbacks() {
+        const mapCont = els['map-container'];
+        if (mapCont) {
+            mapCont.addEventListener('touchstart', (ev) => {
+                const t = ev.touches && ev.touches[0];
+                if (!t) return;
+                _mobileTouchStartTs = Date.now();
+                _mobileTouchStartX = t.clientX;
+                _mobileTouchStartY = t.clientY;
+                _mobileTouchMoved = false;
+            }, { passive: true });
+
+            mapCont.addEventListener('touchmove', (ev) => {
+                const t = ev.touches && ev.touches[0];
+                if (!t || !_mobileTouchStartTs) return;
+                if (Math.abs(t.clientX - _mobileTouchStartX) > MOBILE_MOVE_TOLERANCE_PX ||
+                    Math.abs(t.clientY - _mobileTouchStartY) > MOBILE_MOVE_TOLERANCE_PX) {
+                    _mobileTouchMoved = true;
+                }
+            }, { passive: true });
+
+            mapCont.addEventListener('touchcancel', () => {
+                _mobileTouchStartTs = 0;
+                _mobileTouchMoved = false;
+            }, { passive: true });
+        }
+
         /* Desktop click → open sidebar directly */
         MapRenderer.onClick = (code, e) => {
             try {
@@ -306,16 +338,24 @@ const UI = (() => {
             hideTooltip();
         };
 
-        /* Mobile tap → show tooltip (interactive, with X close button) */
+        /* Mobile tap/long-press:
+           - tap/click: open sidebar
+           - long-press: show tooltip */
         MapRenderer.onTap = (code, e) => {
-            if (tooltipTerritoryCode === code) {
-                /* Tapping same territory again → open sidebar */
-                hideTooltip();
-                MapRenderer.selectTerritory(code);
-                showTerritoryPanel(code);
-            } else {
+            const heldMs = _mobileTouchStartTs ? (Date.now() - _mobileTouchStartTs) : 0;
+            const isLongPress = heldMs >= MOBILE_LONG_PRESS_MS && !_mobileTouchMoved;
+
+            _mobileTouchStartTs = 0;
+            _mobileTouchMoved = false;
+
+            if (isLongPress) {
                 showTooltip(code, e, true);
+                return;
             }
+
+            hideTooltip();
+            MapRenderer.selectTerritory(code);
+            showTerritoryPanel(code);
         };
 
         /* Close tooltip when tapping outside on mobile */
@@ -3287,43 +3327,55 @@ const UI = (() => {
                 const aiLaunchCode = act.result.launchFrom || act.nation;
                 Animations.spawnBattleFX(aiLaunchCode, act.target, act.result.success, _aI, _dI);
                 if (act.result.conquered) {
-                    MapRenderer.colourAllTerritories();
-                    Animations.spawnConquerFX(act.target);
+                    if (!autoPlayMode) {
+                        MapRenderer.colourAllTerritories();
+                        Animations.spawnConquerFX(act.target);
+                    }
                 }
                 /* Homeland siege colony releases */
                 if (act.result.homelandSiege && act.result.homelandSiege.releasedColonies.length > 0) {
                     const siege = act.result.homelandSiege;
-                    for (let ci = 0; ci < siege.releasedColonies.length; ci++) {
-                        const colCode = siege.releasedColonies[ci];
-                        Animations.spawnConquerFX(colCode);
-                        Animations.spawnText(colCode, siege.survived ? t('revolt_mid_yielded') : '💀', '#ff6e40', true);
-                    }
-                    MapRenderer.colourAllTerritories();
-                    if (siege.survived && siege.retreatedTo) {
-                        Animations.spawnText(siege.retreatedTo, t('revolt_mid_retreat'), '#ffd740', true);
+                    if (!autoPlayMode) {
+                        for (let ci = 0; ci < siege.releasedColonies.length; ci++) {
+                            const colCode = siege.releasedColonies[ci];
+                            Animations.spawnConquerFX(colCode);
+                            Animations.spawnText(colCode, siege.survived ? t('revolt_mid_yielded') : '💀', '#ff6e40', true);
+                        }
+                        MapRenderer.colourAllTerritories();
+                        if (siege.survived && siege.retreatedTo) {
+                            Animations.spawnText(siege.retreatedTo, t('revolt_mid_retreat'), '#ffd740', true);
+                        }
                     }
                 }
-                await dly(autoPlayMode ? 900 : 500);
+                await dly(500);
             } else if (act.type === 'nuke' && act.result) {
                 const _nkA = state.nations[act.result.attacker || act.nation];
                 const _nkD = state.nations[act.result.defender || act.target];
                 const _nkAI = { code: act.nation, name: _nkA?.name, flag: _nkA?.flag, color: _nkA?.color };
                 const _nkDI = { code: act.target, name: _nkD?.name, flag: _nkD?.flag, color: _nkD?.color };
-                Animations.spawnNukeFX(act.nation, act.target, _nkAI, _nkDI);
-                MapRenderer.colourAllTerritories();
-                await dly(autoPlayMode ? 1200 : 700);
+                if (autoPlayMode) {
+                    MapRenderer.flashTerritory(act.target, '#ff00ff', 250);
+                } else {
+                    Animations.spawnNukeFX(act.nation, act.target, _nkAI, _nkDI);
+                    MapRenderer.colourAllTerritories();
+                }
+                await dly(700);
             } else if (act.type === 'war_declare') {
-                MapRenderer.flashTerritory(act.target, '#ff4400', autoPlayMode ? 400 : 500);
-                await dly(autoPlayMode ? 500 : 300);
+                MapRenderer.flashTerritory(act.target, '#ff4400', autoPlayMode ? 250 : 500);
+                await dly(300);
             } else if (act.type === 'alliance' || act.type === 'peace') {
                 await dly(150);
             } else if (act.type === 'betray') {
-                MapRenderer.flashTerritory(act.target, '#ff00ff', autoPlayMode ? 400 : 500);
-                await dly(autoPlayMode ? 500 : 300);
+                MapRenderer.flashTerritory(act.target, '#ff00ff', autoPlayMode ? 250 : 500);
+                await dly(300);
             } else if (act.type === 'revolt') {
-                Animations.spawnRevoltFX(act.target);
-                MapRenderer.colourAllTerritories();
-                await dly(autoPlayMode ? 600 : 400);
+                if (autoPlayMode) {
+                    MapRenderer.flashTerritory(act.target, '#ff6e40', 220);
+                } else {
+                    Animations.spawnRevoltFX(act.target);
+                    MapRenderer.colourAllTerritories();
+                }
+                await dly(400);
             } else {
                 await dly(100);
             }
@@ -3414,7 +3466,7 @@ const UI = (() => {
 
         /* In autoplay mode, auto-advance to next turn */
         if (autoPlayMode && !autoPlayStop) {
-            await delay(800);
+            await delay(400);
             endTurn();
         }
     }
@@ -3439,7 +3491,7 @@ const UI = (() => {
     function startAutoPlay() {
         autoPlayMode = true;
         autoPlayStop = false;
-        Animations.setSpeed(1.8);
+        Animations.setSpeed(2);
         showAutoPlayBanner();
         _emitBus('autoplay:start');
 

@@ -228,6 +228,8 @@ const I18n = (() => {
             per_turn_label:       '/turno',
             ai_turn_label:        '🤖 TURNO AI — T{n}',
             player_eliminated:    '💀 {flag} {name} È STATO ELIMINATO! Modalità spettatore attiva.',
+            panel_defeated:    'La tua nazione è stata sconfitta. Stai osservando la partita in modalità spettatore.',
+
 
             /* ── Badges & tooltips ── */
             badge_your_territory: '👑 TUO TERRITORIO',
@@ -831,6 +833,7 @@ const I18n = (() => {
             per_turn_label:       '/turn',
             ai_turn_label:        '🤖 AI TURN — T{n}',
             player_eliminated:    '💀 {flag} {name} HAS BEEN ELIMINATED! Spectator mode active.',
+            panel_defeated:       'Your nation has been defeated. You are now watching the match in spectator mode.',
 
             /* ── Badges & tooltips ── */
             badge_your_territory: '👑 YOUR TERRITORY',
