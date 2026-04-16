@@ -30,6 +30,7 @@ const GameEngine = (() => {
             alliances: [],          // {a, b, turn}
             globalStability: 100,   // 0-100, nukes lower this
             unrest: {},             // territoryCode → 0-100, revolt at ≥100
+            revoltCooldown: {},     // territoryCode → turns remaining (grace period after revolt)
             gameOver: false,
             victor: null,
             log: []
@@ -181,7 +182,7 @@ const GameEngine = (() => {
             n.res[res] -= cost;
         }
         n.army[unitType] = (n.army[unitType] || 0) + 1;
-        emit('resource', `${n.flag} ${n.name} ${_t('ge_produces')} ${ut.icon} ${ut.name}`);
+        /* Build events are intentionally NOT emitted to keep the log clean */
         return true;
     }
 
@@ -522,6 +523,8 @@ const GameEngine = (() => {
             territory: defenderTerritoryCode,
             launchFrom,
             attackMethod,
+            atkPowRaw: Math.round(atkPow),
+            defPowRaw: Math.round(defPow),
             atkPow: Math.round(atkTotal),
             defPow: Math.round(defTotal),
             atkArmyBefore,
@@ -542,10 +545,27 @@ const GameEngine = (() => {
         const fatigueTag = attackCost.fatigue > 0 ? ` ⚡-${result.fatiguePct}%` : '';
         const costTag = (attackCost.money > 0 || attackCost.infantry > 0)
             ? ` [${attackCost.attackNum}° att. 💰${attackCost.money} 🪖${attackCost.infantry}]` : '';
+        /* Show territory flag+name being attacked, not the owner nation */
+        const terrNation = getNation(defenderTerritoryCode);
+        const terrFlag = terrNation?.flag || def.flag;
+        const terrName = terrNation?.name || defenderTerritoryCode.toUpperCase();
+        const outcomeColor = success ? '#4caf50' : '#ff1744';
+        const outcomeLabel = success ? _t('ge_victory') : _t('ge_defeat');
+
+        /* Build modifier breakdown for tooltip-style info */
+        const modParts = [];
+        modParts.push(`RNG:${Math.round(rng*100)}%`);
+        if (attackCost.fatigue > 0) modParts.push(`⚡-${result.fatiguePct}%`);
+        if (isDefendingHomeland) modParts.push('🏠');
+        if (localGarrison?.strength === 'heavy') modParts.push('🛡️+25%');
+        else if (localGarrison?.strength === 'medium') modParts.push('🛡️+12%');
+        const modTag = modParts.length ? ` <span style="color:#aaa;font-size:0.85em">[${modParts.join(' ')}]</span>` : '';
+
         emit('battle',
-            `${icon} ${atk.flag} ${atk.name} ${_t('ge_attacks')} ${def.flag} ${def.name} @ ${defenderTerritoryCode.toUpperCase()} — ` +
-            `ATK:${result.atkPow} vs DEF:${result.defPow} → ${success ? _t('ge_victory') : _t('ge_defeat')} ` +
-            `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${fatigueTag}${costTag}`);
+            `${icon} ${atk.flag} ${atk.name} ${_t('ge_attacks')} ${terrFlag} ${terrName} — ` +
+            `⚔️${result.atkPowRaw}→${result.atkPow} vs 🛡️${result.defPowRaw}→${result.defPow} → ` +
+            `<span style="color:${outcomeColor};font-weight:700">${outcomeLabel}</span> ` +
+            `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${costTag}${modTag}`);
 
         /* Check elimination */
         checkElimination(defender);
@@ -1218,16 +1238,19 @@ const GameEngine = (() => {
     function calcUnrestGain(tCode, owner) {
         const originalNation = state.nations[tCode];
         if (!originalNation) return 0;
-        let gain = 3;                                           // base +3 per turn
-        if (originalNation.alive) gain += 4;                    // original nation alive → +4
+        /* Revolt cooldown: territory recently reconquered gets grace period */
+        const cooldown = state.revoltCooldown?.[tCode] || 0;
+        if (cooldown > 0) return 0;
+        let gain = 2;                                           // base +2 per turn (was 3)
+        if (originalNation.alive) gain += 2;                    // original nation alive → +2 (was 4)
         const occupierWars = state.wars.filter(w => w.attacker === owner || w.defender === owner).length;
-        gain += Math.min(4, occupierWars);                      // +1 per war, max +4
+        gain += Math.min(3, occupierWars);                      // +1 per war, max +3 (was 4)
         /* Garrison reduces unrest accumulation */
         const garrison = getGarrison(tCode);
         if (garrison.strength === 'heavy')       gain -= 6;
         else if (garrison.strength === 'medium') gain -= 4;
         else if (garrison.strength === 'light')  gain -= 2;
-        if (garrison.total === 0)                gain += 5;     // no garrison → rapid unrest
+        if (garrison.total === 0)                gain += 3;     // no garrison → unrest (was +5)
         return Math.max(0, gain);
     }
 
@@ -1360,6 +1383,8 @@ const GameEngine = (() => {
                 revoltEvents.push({ territory: tCode, from: conquerorCode, to: tCode });
                 emit('battle', `🔥 ${_t('ge_instant_revolt')} ${originalNation?.flag||''} ${originalNation?.name||tCode}! ${_t('ge_garrison_weak')} — ${_t('ge_rebels_against')} ${n.flag} ${n.name}!`);
                 adjustRelation(tCode, conquerorCode, -30);
+                if (!state.revoltCooldown) state.revoltCooldown = {};
+                state.revoltCooldown[tCode] = 5;
             }
         });
 
@@ -1367,6 +1392,14 @@ const GameEngine = (() => {
     }
 
     function rollRandomEvents() {
+        /* ── Revolt cooldown tick-down ── */
+        if (state.revoltCooldown) {
+            Object.keys(state.revoltCooldown).forEach(tCode => {
+                state.revoltCooldown[tCode]--;
+                if (state.revoltCooldown[tCode] <= 0) delete state.revoltCooldown[tCode];
+            });
+        }
+
         /* ── Unrest accumulation & Revolts ── */
         const revoltEvents = [];
         Object.entries(state.territories).forEach(([tCode, owner]) => {
@@ -1396,6 +1429,9 @@ const GameEngine = (() => {
                 revoltEvents.push({ territory: tCode, from: owner, to: tCode });
                 emit('battle', `🔥 ${_t('ge_revolt_in')} ${originalNation.flag} ${originalNation.name}! ${_t('ge_rebels_against')} ${state.nations[owner]?.flag||''} ${state.nations[owner]?.name||owner}`);
                 adjustRelation(tCode, owner, -30);
+                /* Cooldown: if this territory is reconquered, give 5 turns grace */
+                if (!state.revoltCooldown) state.revoltCooldown = {};
+                state.revoltCooldown[tCode] = 5;
             }
         });
 

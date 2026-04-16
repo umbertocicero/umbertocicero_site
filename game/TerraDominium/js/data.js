@@ -38,8 +38,8 @@ const RESOURCES = {
 const STRATEGIC_ASSETS = {
     /* ── Chokepoints marittimi (stretti e canali) ── */
     hormuz:        { name:'Stretto di Hormuz',         icon:'⚓', bonus:{oil:30},                holders:['ir','om'] },
-    panama:        { name:'Canale di Panama',           icon:'🚢', bonus:{money:50},              holders:['pa'] },  /* transferred to Panama in 1999 */
-    suez:          { name:'Canale di Suez',             icon:'🚢', bonus:{money:40,oil:10},       holders:['eg'] },
+    panama:        { name:'Canale di Panama',           icon:'🚢', bonus:{money:30},              holders:['pa'] },  /* transferred to Panama in 1999 */
+    suez:          { name:'Canale di Suez',             icon:'🚢', bonus:{money:25,oil:5},        holders:['eg'] },
     malacca:       { name:'Stretto di Malacca',         icon:'⚓', bonus:{money:35},              holders:['my','id'] },
     singapore:     { name:'Stretto di Singapore',       icon:'⚓', bonus:{money:30},              holders:['sg'] },  /* busiest port on Earth, 130k+ ships/yr */
     bosphorus:     { name:'Bosforo',                    icon:'⚓', bonus:{money:20},              holders:['tr'] },

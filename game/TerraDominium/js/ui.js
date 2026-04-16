@@ -18,11 +18,13 @@ const UI = (() => {
     const _emojiBase = 'assets/emoji/';
     const _svgBlobCache = new Map();   // 'icon-code' → 'blob:…' URL
     const _svgBlobPromises = new Map(); // 'icon-code' → Promise<'blob:…'>
+    const _failedIcons = new Set();     // icons that 404'd — never retry
     let _blobCacheReady = false;
     const _emojiParseInFlight = new WeakSet();
 
     const _emojiOpts = {
         callback: (icon) => {
+            if (_failedIcons.has(icon)) return false;  // skip missing SVGs
             const cached = _svgBlobCache.get(icon);
             return cached || (_emojiBase + icon + '.svg');
         },
@@ -41,7 +43,7 @@ const UI = (() => {
     }
 
     function _fetchEmojiBlob(icon) {
-        if (!icon) return Promise.resolve('');
+        if (!icon || _failedIcons.has(icon)) return Promise.resolve('');
         const cached = _svgBlobCache.get(icon);
         if (cached) return Promise.resolve(cached);
         const pending = _svgBlobPromises.get(icon);
@@ -50,18 +52,20 @@ const UI = (() => {
         const url = _emojiBase + icon + '.svg';
         const req = fetch(url)
             .then(r => {
-                if (!r.ok) throw new Error(`Emoji fetch failed: ${icon}`);
+                if (!r.ok) { _failedIcons.add(icon); return null; }
                 return r.blob();
             })
             .then(blob => {
+                if (!blob) { _svgBlobPromises.delete(icon); return ''; }
                 const blobUrl = URL.createObjectURL(blob);
                 _svgBlobCache.set(icon, blobUrl);
                 _svgBlobPromises.delete(icon);
                 return blobUrl;
             })
             .catch(err => {
+                _failedIcons.add(icon);
                 _svgBlobPromises.delete(icon);
-                throw err;
+                return '';
             });
 
         _svgBlobPromises.set(icon, req);
@@ -125,7 +129,8 @@ const UI = (() => {
     function _flagImgHtml(code, alt, cls) {
         const asset = _flagAssetForCode(code);
         if (!asset) return `<span class="${cls || 'flag-img-fallback'}">${alt || code || ''}</span>`;
-        return `<img class="${cls || 'flag-img'}" src="${_emojiBase}${asset}.svg" alt="${alt || code || ''}" loading="lazy" decoding="async">`;
+        const src = _svgBlobCache.get(asset) || (_emojiBase + asset + '.svg');
+        return `<img class="${cls || 'flag-img'}" src="${src}" alt="${alt || code || ''}" loading="lazy" decoding="async">`;
     }
 
     /** i18n shorthand: translate a key via I18n module (safe fallback) */
@@ -149,7 +154,7 @@ const UI = (() => {
     function _warmSvgBlobCache() {
         /* Collect every unique emoji icon code currently in use */
         const icons = new Set();
-        document.querySelectorAll('img.emoji').forEach(img => {
+        document.querySelectorAll('img.emoji, img.legend-flag-img, img.nation-flag-img, img.flag-img').forEach(img => {
             const src = img.getAttribute('src') || '';
             if (src.startsWith(_emojiBase)) {
                 icons.add(src.slice(_emojiBase.length).replace(/\.svg$/i, ''));
@@ -168,6 +173,24 @@ const UI = (() => {
 
         Promise.allSettled(Array.from(icons).map(_fetchEmojiBlob)).finally(() => {
             _blobCacheReady = true;
+            /* Patch every existing <img> and <image> to use blob URLs,
+               so the browser never re-fetches the file-path originals. */
+            document.querySelectorAll('img.emoji, img.legend-flag-img, img.nation-flag-img, img.flag-img').forEach(img => {
+                const src = img.getAttribute('src') || '';
+                if (src.startsWith(_emojiBase)) {
+                    const icon = src.slice(_emojiBase.length).replace(/\.svg$/i, '');
+                    const blob = _svgBlobCache.get(icon);
+                    if (blob) img.src = blob;
+                }
+            });
+            document.querySelectorAll('image[href^="assets/emoji/"]').forEach(img => {
+                const href = img.getAttribute('href') || '';
+                const icon = href.slice(_emojiBase.length).replace(/\.svg$/i, '');
+                const blob = _svgBlobCache.get(icon);
+                if (blob) img.setAttribute('href', blob);
+            });
+            /* Invalidate legend cache so next updateHUD rebuilds with blob URLs */
+            _lastLegendHtml = '';
         });
     }
 
@@ -470,18 +493,18 @@ const UI = (() => {
         html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">`;
         const ownerColor = n?.color || '#607d8b';
         html += `<div style="width:14px;height:14px;border-radius:50%;background:${ownerColor};border:2px solid rgba(255,255,255,0.25);flex-shrink:0;box-shadow:0 0 6px ${ownerColor}60;"></div>`;
-        html += `<div class="tt-name">${tBase.flag || '🏳️'} ${tBase.name || code.toUpperCase()}</div>`;
+        html += `<div class="tt-name">${_flagImgHtml(code, tBase.name, 'tt-flag-img')} ${tBase.name || code.toUpperCase()}</div>`;
         html += `</div>`;
 
         /* Ownership badge */
         if (isMyTerritory) {
             html += `<div class="tt-badge mine">${t('badge_your_territory')}</div>`;
         } else if (atWar) {
-            html += `<div class="tt-badge enemy">${t('badge_enemy')} — ${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
+            html += `<div class="tt-badge enemy">${t('badge_enemy')} — ${_flagImgHtml(owner, n?.name, 'tt-flag-img')} ${n?.name || owner.toUpperCase()}</div>`;
         } else if (isAlly) {
-            html += `<div class="tt-badge ally-badge">${t('badge_allied')} — ${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
+            html += `<div class="tt-badge ally-badge">${t('badge_allied')} — ${_flagImgHtml(owner, n?.name, 'tt-flag-img')} ${n?.name || owner.toUpperCase()}</div>`;
         } else {
-            html += `<div class="tt-owner">${n?.flag || ''} ${n?.name || owner.toUpperCase()}</div>`;
+            html += `<div class="tt-owner">${_flagImgHtml(owner, n?.name, 'tt-flag-img')} ${n?.name || owner.toUpperCase()}</div>`;
         }
 
         /* Show resources for own territories */
@@ -721,20 +744,29 @@ const UI = (() => {
             MapRenderer.resizeFx();
         }, 300);
 
-        /* Update HUD */
+        /* Pre-fetch ALL nation flag SVGs into blob cache BEFORE first render.
+           This ensures _flagImgHtml() always uses blob: URLs from the start,
+           so the browser never makes file-path HTTP requests for flags. */
+        const _allFlagCodes = (typeof NATIONS !== 'undefined')
+            ? Object.keys(NATIONS).map(c => _flagAssetForCode(c)).filter(Boolean)
+            : [];
+        window._svgBlobCache = _svgBlobCache;
+        Promise.allSettled(_allFlagCodes.map(_fetchEmojiBlob)).then(() => {
+            _blobCacheReady = true;
+            /* Now render — all flags will use blob URLs */
+            updateHUD();
+            updateMilitaryBar();
+            _emitBus('state:changed');
+            _emitBus('resources:changed');
+            _emitBus('army:changed');
+            _emitBus('hud:refresh');
+            /* Warm remaining non-flag emoji icons from DOM */
+            requestAnimationFrame(() => _warmSvgBlobCache());
+        });
+
+        /* Render immediately with file-path fallback (will be patched by warm-up) */
         updateHUD();
         updateMilitaryBar();
-
-        /* Notify components of initial game state */
-        _emitBus('state:changed');
-        _emitBus('resources:changed');
-        _emitBus('army:changed');
-        _emitBus('hud:refresh');
-
-        /* Pre-fetch all emoji SVGs into blob cache (async, non-blocking).
-           After this completes, every new <img.emoji> or SVG <image> will
-           use in-memory blob: URLs — zero further file/network requests. */
-        requestAnimationFrame(() => _warmSvgBlobCache());
     }
 
     /* ════════════════ EVENT BUS HELPER ════════════════ */
@@ -3628,17 +3660,12 @@ const UI = (() => {
 
         switch (action.type) {
             case 'attack': {
-                const ok = action.result?.success;
-                const icon = ok ? '✅' : '❌';
-                const res = ok
-                    ? `<span class="evt-result win">${t('evt_ai_win')}</span>`
-                    : `<span class="evt-result lose">${t('evt_ai_lose')}</span>`;
-                msg = `${icon} ${me} → ${tgt(action.target)} ${res}`;
-                if (action.result?.conquered) msg += ' 🏴';
-                type = 'battle';
-                break;
+                /* Engine already emits detailed battle log via emit('battle', ...) — skip duplicate */
+                return;
             }
             case 'war_declare': {
+                /* If this war_declare is followed by an attack, the engine logs the war
+                   via ensureWar. Only log standalone diplomatic declarations. */
                 msg = `🔥 ${me} <span class="evt-action">${t('evt_ai_declares_war')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
@@ -3664,10 +3691,8 @@ const UI = (() => {
                 break;
             }
             case 'build': {
-                const ut = UNIT_TYPES[action.unit];
-                msg = `🏭 ${me} <span class="evt-action">+</span>${ut?.icon || ''} ${ut?.name || action.unit}`;
-                type = 'resource';
-                break;
+                /* Don't log build events — too noisy */
+                return;
             }
             case 'research': {
                 const tech = TECHNOLOGIES.find(t => t.id === action.tech);
@@ -3878,6 +3903,9 @@ const UI = (() => {
     let _scrollRaf = 0;
 
     function addEventToLog(entry) {
+        /* Suppress noisy build/resource events from the log */
+        if (entry.type === 'resource') return;
+
         const log = els['event-log'];
         if (!log) return;
 
@@ -3900,6 +3928,8 @@ const UI = (() => {
 
         const div = document.createElement('div');
         div.className = `event-item ${typeMap[entry.type] || ''} ${ownerClass}`.trim();
+        div.className += ' evt-current-turn';
+        div.dataset.turn = entry.turn;
         div.innerHTML = `<span class="evt-turn">T${entry.turn}</span> ${msg}`;
         parseEmojiIfNeeded(div);
 
@@ -3907,8 +3937,15 @@ const UI = (() => {
            listener ignores any layout-induced scroll events ── */
         _pendingScroll++;
 
-        /* Trim old entries BEFORE appending the new one */
-        while (log.children.length >= 80) log.removeChild(log.firstChild);
+        /* Trim old entries BEFORE appending the new one.
+           NEVER remove events from the current turn — only older ones. */
+        const currentTurn = entry.turn;
+        while (log.children.length >= 200) {
+            const oldest = log.firstChild;
+            const oldTurn = parseInt(oldest?.dataset?.turn, 10);
+            if (!isNaN(oldTurn) && oldTurn >= currentTurn) break;  // protect current turn
+            log.removeChild(oldest);
+        }
 
         log.appendChild(div);
 

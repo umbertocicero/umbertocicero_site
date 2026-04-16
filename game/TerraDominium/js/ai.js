@@ -244,9 +244,47 @@ const AI = (() => {
        • homelandPriority:   massive bonus for reconquering homeland
        • allyCoordination:   bonus if an ally borders the target too
        ══════════════════════════════════════════════════════ */
+    /**
+     * Sanity check: can this nation realistically fight that target?
+     * Prevents Cyprus → Russia scenarios.
+     */
+    function _canRealisticallyFight(code, targetCode, state) {
+        const n = state.nations[code];
+        const t = state.nations[targetCode];
+        if (!n || !t || !t.alive) return false;
+        const myPow  = GameEngine.calcMilitary(code, 'atk');
+        const tDef   = GameEngine.calcMilitary(targetCode, 'def');
+        const myUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
+        /* Absolute floor: scales with game phase */
+        const unitFloor = (state.turn || 0) > 50 ? 10 : 20;
+        if (myUnits < unitFloor) return false;
+        /* Power-ratio gate (relaxed in late game) */
+        const powerRatio = (state.turn || 0) > 50 ? 0.45 : 0.60;
+        if (myPow < tDef * powerRatio) return false;
+        /* Early game: only fight if near-parity */
+        if ((state.turn || 0) <= 10 && myPow < tDef * 0.90) return false;
+        return true;
+    }
+
     function _scoreAllTargets(code, state, n, enemies, allies) {
         const atkArmy = n.army || {};
         const scored = [];  // {territory, owner, score, breakdown}
+        const isEarlyGame = (state.turn || 0) <= 12;
+
+        const territoryEconomicValue = (tCode) => {
+            const tBase = NATIONS[tCode];
+            if (!tBase) return 0;
+            const prodVal = Object.values(tBase.prod || {}).reduce((a, b) => a + (b || 0), 0);
+            let assetVal = 0;
+            if (typeof STRATEGIC_ASSETS !== 'undefined') {
+                Object.values(STRATEGIC_ASSETS).forEach(asset => {
+                    if ((asset.holders || []).includes(tCode)) {
+                        assetVal += Object.values(asset.bonus || {}).reduce((s, v) => s + (v || 0), 0);
+                    }
+                });
+            }
+            return prodVal + assetVal;
+        };
 
         /* All territories not owned by us */
         const myTerritories = new Set();
@@ -259,6 +297,12 @@ const AI = (() => {
         /* Pre-compute: which owners are we at war with? */
         const atWarWith = new Set(enemies);
 
+        const ownerTerritories = {};
+        Object.entries(state.territories).forEach(([tCode, owner]) => {
+            if (!ownerTerritories[owner]) ownerTerritories[owner] = [];
+            ownerTerritories[owner].push(tCode);
+        });
+
         /* Strategic asset lookup: territory → asset bonuses */
         const assetMap = {};
         if (typeof STRATEGIC_ASSETS !== 'undefined') {
@@ -269,6 +313,15 @@ const AI = (() => {
                 });
             });
         }
+
+        const ownerEconomicTotal = {};
+        const territoryBaseValue = {};
+        Object.keys(state.territories).forEach(tCode => {
+            territoryBaseValue[tCode] = territoryEconomicValue(tCode);
+        });
+        Object.entries(ownerTerritories).forEach(([owner, terr]) => {
+            ownerEconomicTotal[owner] = terr.reduce((sum, tCode) => sum + (territoryBaseValue[tCode] || 0), 0);
+        });
 
         /* Only score reachable territories */
         for (const tCode of enemyTerritories) {
@@ -306,7 +359,7 @@ const AI = (() => {
                     return sum + Object.values(a.bonus).reduce((s,v) => s+v, 0);
                 }, 0);
                 breakdown.asset = assetVal;
-                score += assetVal * 3;  // strategic assets are highly valuable
+                score += assetVal * 0.8;  // assets add value but don't dominate targeting
             }
 
             /* 3. Garrison weakness (weaker = easier to conquer) */
@@ -347,6 +400,20 @@ const AI = (() => {
                 score += 20;
             }
 
+            /* 7b. Anti-dogpile: penalize piling onto an owner already under attack.
+               Much stronger in early game to prevent T1 avalanches. */
+            if (!atWarWith.has(owner)) {
+                const warsOnOwner = state.wars.reduce((count, w) => {
+                    return count + ((w.attacker === owner || w.defender === owner) ? 1 : 0);
+                }, 0);
+                if (warsOnOwner >= 1) {
+                    const perWarPenalty = isEarlyGame ? 45 : 12;
+                    const dogpilePenalty = Math.min(180, warsOnOwner * perWarPenalty);
+                    breakdown.antiDogpile = -dogpilePenalty;
+                    score -= dogpilePenalty;
+                }
+            }
+
             /* 8. Ally coordination: an ally also borders this territory */
             for (const allyCode of allies) {
                 if (!state.nations[allyCode]?.alive) continue;
@@ -369,9 +436,31 @@ const AI = (() => {
 
             /* 10. Penalize attacking dominant nation's homeland (dangerous!) */
             const defHomeland = ownerNation.homeland || owner;
-            if (tCode === defHomeland && (ownerNation.power || 0) >= 60) {
-                breakdown.homelandPenalty = -40;
-                score -= 40;
+            const homelandPowerThreshold = isEarlyGame ? 50 : 60;
+            if (tCode === defHomeland && (ownerNation.power || 0) >= homelandPowerThreshold) {
+                breakdown.homelandPenalty = -55;
+                score -= 55;
+            }
+
+            /* 11. Homeland strike opportunity:
+               attacking homeland can trigger colony cession/collapse, so prefer it
+               only when expected nation-level value is better than a single colony. */
+            const ownerTerrList = ownerTerritories[owner] || [];
+            if (tCode === defHomeland && ownerTerrList.length > 1) {
+                const targetTerrValue = territoryBaseValue[tCode] || 0;
+                const totalNationValue = ownerEconomicTotal[owner] || targetTerrValue;
+                const colonyValue = Math.max(0, totalNationValue - targetTerrValue);
+                const valueDelta = colonyValue - targetTerrValue;
+                if (valueDelta > 0) {
+                    const ownerPower = ownerNation.power || 0;
+                    const conversionFactor = Math.max(0.25, 0.65 - ownerPower / 220);
+                    const expectedNationGain = valueDelta * conversionFactor;
+                    const homelandStrikeBonus = Math.min(40, Math.round(expectedNationGain * 0.6));
+                    if (homelandStrikeBonus > 0) {
+                        breakdown.homelandStrike = homelandStrikeBonus;
+                        score += homelandStrikeBonus;
+                    }
+                }
             }
 
             scored.push({ territory: tCode, owner, score, breakdown });
@@ -479,7 +568,8 @@ const AI = (() => {
         /* ── Coalition against dominant nation ── */
         if (situation.dominantThreat && situation.dominant !== code) {
             const dom = situation.dominant;
-            if (!GameEngine.isAtWar(code, dom) && profile.aggression > 0.2) {
+            if (!GameEngine.isAtWar(code, dom) && profile.aggression > 0.2
+                && _canRealisticallyFight(code, dom, state)) {
                 const coalitionChance = 0.3 + situation.restlessness * 0.3;
                 if (Math.random() < coalitionChance) {
                     GameEngine.ensureWar(code, dom);
@@ -537,8 +627,11 @@ const AI = (() => {
                     if (allyEnemy === code) continue;
                     if (GameEngine.isAlly(code, allyEnemy) || GameEngine.isAtWar(code, allyEnemy)) continue;
                     if (!state.nations[allyEnemy]?.alive) continue;
+                    if ((state.turn || 0) <= 6 && !(situation.reachableOwners || []).includes(allyEnemy)) continue;
+                    if (!_canRealisticallyFight(code, allyEnemy, state)) continue;
                     /* Join ally's war with moderate probability */
-                    if (Math.random() < 0.25 * profile.aggression) {
+                    const joinBase = (state.turn || 0) <= 6 ? 0.08 : 0.20;
+                    if (Math.random() < joinBase * profile.aggression) {
                         GameEngine.ensureWar(code, allyEnemy);
                         actions.push({ type:'war_declare', nation:code, target:allyEnemy });
                         break;
@@ -589,9 +682,10 @@ const AI = (() => {
                 if (situation.scoredTargets.length > 0) {
                     const bestTarget = situation.scoredTargets[0];
                     const victim = bestTarget.owner;
-                    if (!GameEngine.isAlly(code, victim) && !GameEngine.isAtWar(code, victim)) {
-                        GameEngine.ensureWar(code, victim);
-                        actions.push({ type:'war_declare', nation:code, target:victim });
+                    if (!GameEngine.isAlly(code, victim) && !GameEngine.isAtWar(code, victim)
+                        && _canRealisticallyFight(code, victim, state)) {
+                        const result = GameEngine.attack(code, bestTarget.territory);
+                        if (result) actions.push({ type:'attack', nation:code, target:bestTarget.territory, result });
                     }
                 }
             }
@@ -636,10 +730,7 @@ const AI = (() => {
         /* ── PRIORITY 0: Homeland reconquest ── */
         if (situation.homelandLost && situation.homelandEnemy) {
             const enemy = situation.homelandEnemy;
-            if (!GameEngine.isAtWar(code, enemy)) {
-                GameEngine.ensureWar(code, enemy);
-                actions.push({ type:'war_declare', nation:code, target:enemy });
-            }
+            /* attack() calls ensureWar() internally — no need for explicit declaration */
             /* Homeland will be scored highest (200 pts), so it'll be first in scoredTargets */
             const homelandTarget = situation.scoredTargets.find(t => t.territory === situation.homeland);
             if (homelandTarget) {
@@ -685,22 +776,26 @@ const AI = (() => {
                 state.nations[t.owner]?.alive
             );
 
-            if (expansionTarget && expansionTarget.score > 15) {
+            const isEarlyWarWindow = (state.turn || 0) <= 8;
+            const minExpansionScore = isEarlyWarWindow ? 28 : 15;
+            if (expansionTarget && expansionTarget.score > minExpansionScore
+                && _canRealisticallyFight(code, expansionTarget.owner, state)) {
                 const victim = expansionTarget.owner;
-                if (!GameEngine.isAtWar(code, victim)) {
-                    GameEngine.ensureWar(code, victim);
-                    actions.push({ type:'war_declare', nation:code, target:victim });
-                }
-                const result = GameEngine.attack(code, expansionTarget.territory);
-                if (result) {
-                    actions.push({ type:'attack', nation:code, target:expansionTarget.territory, result });
+                const victimDefPow = GameEngine.calcMilitary(victim, 'def');
+                const requiredAdvantage = isEarlyWarWindow ? 1.25 : 1.0;
+                if (situation.myAtkPow > victimDefPow * requiredAdvantage) {
+                    /* attack() calls ensureWar() internally — no redundant declaration */
+                    const result = GameEngine.attack(code, expansionTarget.territory);
+                    if (result) {
+                        actions.push({ type:'attack', nation:code, target:expansionTarget.territory, result });
+                    }
                 }
             }
         }
 
         /* ── Late-game aggression: restless nations attack more ── */
         const warChance = (profile.aggression + restless * 0.35) * 0.25;
-        if (situation.enemies.length < 2 && Math.random() < warChance && !situation.overextended) {
+        if ((state.turn || 0) > 6 && situation.enemies.length < 2 && Math.random() < warChance && !situation.overextended) {
             const potentialTargets = situation.scoredTargets.filter(t =>
                 !GameEngine.isAlly(code, t.owner) &&
                 !GameEngine.isAtWar(code, t.owner) &&
@@ -708,11 +803,13 @@ const AI = (() => {
             );
             if (potentialTargets.length > 0) {
                 const best = potentialTargets[0];
-                GameEngine.ensureWar(code, best.owner);
-                actions.push({ type:'war_declare', nation:code, target:best.owner });
+                if (!_canRealisticallyFight(code, best.owner, state)) { /* skip */ }
+                else {
+                /* attack() calls ensureWar() internally — no redundant declaration */
                 const result = GameEngine.attack(code, best.territory);
                 if (result) {
                     actions.push({ type:'attack', nation:code, target:best.territory, result });
+                }
                 }
             }
         }
@@ -740,13 +837,10 @@ const AI = (() => {
             const nn = state.nations[nc];
             if (!nn || !nn.alive) return;
             const nDefPow = GameEngine.calcMilitary(nc, 'def');
-            if (nDefPow < 5 && situation.myAtkPow > 10) {
+            if (nDefPow < 5 && situation.myAtkPow > 10 && _canRealisticallyFight(code, nc, state)) {
                 const targets = findAttackTargets(code, nc);
                 if (targets.length > 0) {
-                    if (!GameEngine.isAtWar(code, nc)) {
-                        GameEngine.ensureWar(code, nc);
-                        actions.push({ type:'war_declare', nation:code, target:nc });
-                    }
+                    /* attack() calls ensureWar() internally — no redundant declaration */
                     const result = GameEngine.attack(code, targets[0]);
                     if (result) {
                         actions.push({ type:'attack', nation:code, target:targets[0], result });
