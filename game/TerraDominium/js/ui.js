@@ -1983,7 +1983,7 @@ const UI = (() => {
         html += `<div class="btl-body">`;
         html += `<div class="btl-grid">`;
 
-        /* Attacker column */
+        /* Attacker column — units */
         html += `<div class="btl-col btl-atk">`;
         html += `<div class="btl-nation">${atkN.flag} ${atkN.name}</div>`;
         html += `<div class="btl-units">`;
@@ -1993,13 +1993,13 @@ const UI = (() => {
             html += `</span>`;
         });
         html += `</div>`;
-        html += `<div class="btl-pow">⚔ ${result.atkPow} <span class="btl-dead">☠️ −${atk.totalLost}</span></div>`;
+        html += `<div class="btl-pow">⚔ ${result.atkPowRaw} <span class="btl-dead">☠️ −${atk.totalLost}</span></div>`;
         html += `</div>`;
 
         /* VS divider */
         html += `<div class="btl-vs">VS</div>`;
 
-        /* Defender column */
+        /* Defender column — units */
         html += `<div class="btl-col btl-def">`;
         html += `<div class="btl-nation">${defN?.flag || '🏳️'} ${defN?.name || '?'}</div>`;
         html += `<div class="btl-units">`;
@@ -2009,10 +2009,53 @@ const UI = (() => {
             html += `</span>`;
         });
         html += `</div>`;
-        html += `<div class="btl-pow">🛡 ${result.defPow} <span class="btl-dead">☠️ −${def.totalLost}</span></div>`;
+        html += `<div class="btl-pow">🛡 ${result.defPowRaw} <span class="btl-dead">☠️ −${def.totalLost}</span></div>`;
         html += `</div>`;
 
         html += `</div>`; /* close btl-grid */
+
+        /* ── 4-box modifier grid: 2 left (atk) + 2 right (def) ── */
+        if (result.modifiers) {
+            const m = result.modifiers;
+            const rngColor = m.rngPct >= 100 ? '#4caf50' : '#ff9100';
+            html += `<div class="btl-grid">`;
+
+            /* ATK mod box */
+            html += `<div class="btl-mod-box btl-mod-atk">`;
+            html += `<div class="btl-mod-item">🎯 Base: <strong>${result.atkPowRaw}</strong></div>`;
+            html += `<div class="btl-mod-item">🧠 ${t('btl_rng')}: <span style="color:${rngColor}">${m.rngPct}%</span></div>`;
+            if (m.fatiguePct > 0) html += `<div class="btl-mod-item">⚡ ${t('btl_fatigue')}: <span style="color:#ff6e40">-${m.fatiguePct}%</span></div>`;
+            html += `</div>`;
+
+            html += `<div class="btl-vs"></div>`;
+
+            /* DEF mod box */
+            html += `<div class="btl-mod-box btl-mod-def">`;
+            html += `<div class="btl-mod-item">🎯 Base: <strong>${result.defPowRaw}</strong></div>`;
+            html += `<div class="btl-mod-item">🏔️ ${t('btl_terrain')}: <span style="color:#ffd740">+20%</span></div>`;
+            if (m.isHomeland) {
+                const hPct = Math.round((m.homelandMult - 1) * 100);
+                html += `<div class="btl-mod-item">🔥 ${t('btl_homeland')}: <span style="color:#ff1744">+${hPct}%</span></div>`;
+            }
+            if (m.garrisonStr !== 'none') {
+                const gPct = Math.round((m.garrisonMult - 1) * 100);
+                const gCol = m.garrisonStr === 'heavy' ? '#00e5ff' : m.garrisonStr === 'medium' ? '#ffd740' : '#ff9100';
+                html += `<div class="btl-mod-item">🛡️ ${m.garrisonStr.toUpperCase()}: <span style="color:${gCol}">+${gPct}%</span></div>`;
+            } else {
+                html += `<div class="btl-mod-item">🚫 ${t('btl_no_garrison')}: <span style="color:#4caf50">-10%</span></div>`;
+            }
+            html += `</div>`;
+
+            /* ATK result box */
+            html += `<div class="btl-mod-result-box btl-mod-atk">⚔️ <strong style="color:#00e5ff">${result.atkPow}</strong></div>`;
+
+            html += `<div class="btl-vs"></div>`;
+            
+            /* DEF result box */
+            html += `<div class="btl-mod-result-box btl-mod-def">🛡️ <strong style="color:#ff1744">${result.defPow}</strong></div>`;
+
+            html += `</div>`;
+        }
 
         /* Result banner */
         html += `<div class="battle-result ${result.success ? 'win' : 'lose'}">`;

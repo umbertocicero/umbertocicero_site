@@ -296,6 +296,11 @@ const I18n = (() => {
             btl_loot:             '📦 Bottino di guerra',
             btl_attack_cost:      'attacco',
             btl_fatigue:          'Fatica',
+            btl_modifiers:        'Modificatori Combattimento',
+            btl_rng:              'Strategia',
+            btl_terrain:          'Terreno',
+            btl_homeland:         'Patriottismo',
+            btl_no_garrison:      'Senza guarnig.',
 
             /* ── Game over ── */
             go_you_won:           '🏆 HAI VINTO!',
@@ -900,6 +905,11 @@ const I18n = (() => {
             btl_loot:             '📦 War loot',
             btl_attack_cost:      'attack',
             btl_fatigue:          'Fatigue',
+            btl_modifiers:        'Combat Modifiers',
+            btl_rng:              'Strategy',
+            btl_terrain:          'Terrain',
+            btl_homeland:         'Patriotism',
+            btl_no_garrison:      'No garrison',
 
             /* ── Game over ── */
             go_you_won:           '🏆 YOU WON!',

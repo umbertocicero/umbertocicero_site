@@ -536,13 +536,22 @@ const GameEngine = (() => {
             capturedUnits,       // {infantry:3,...}
             homelandSiege,
             attackCost,          // {money, infantry, fatigue, attackNum}
-            fatiguePct: Math.round(attackCost.fatigue * 100)
+            fatiguePct: Math.round(attackCost.fatigue * 100),
+            /* Combat modifier details for UI transparency */
+            modifiers: {
+                rngPct: Math.round(rng * 100),        // 70-130
+                fatiguePct: Math.round(attackCost.fatigue * 100),
+                terrainMult: 1.2,                     // always ×1.2
+                isHomeland: isDefendingHomeland,
+                homelandMult: isDefendingHomeland ? (def.power >= 80 ? 2.0 : def.power >= 60 ? 1.7 : def.power >= 40 ? 1.45 : def.power >= 20 ? 1.2 : 1.0) : 1.0,
+                garrisonStr: localGarrison?.strength || 'none',
+                garrisonMult: localGarrison ? (localGarrison.strength === 'heavy' ? 1.25 : localGarrison.strength === 'medium' ? 1.12 : localGarrison.strength === 'light' ? 1.05 : 0.90) : 1.0
+            }
         };
 
         const icon = success ? '✅' : '❌';
         const atkDeadTotal = Object.values(atkCasualties).reduce((s,v)=>s+v, 0);
         const defDeadTotal = Object.values(defCasualties).reduce((s,v)=>s+v, 0);
-        const fatigueTag = attackCost.fatigue > 0 ? ` ⚡-${result.fatiguePct}%` : '';
         const costTag = (attackCost.money > 0 || attackCost.infantry > 0)
             ? ` [${attackCost.attackNum}° att. 💰${attackCost.money} 🪖${attackCost.infantry}]` : '';
         /* Show territory flag+name being attacked, not the owner nation */
@@ -552,20 +561,11 @@ const GameEngine = (() => {
         const outcomeColor = success ? '#4caf50' : '#ff1744';
         const outcomeLabel = success ? _t('ge_victory') : _t('ge_defeat');
 
-        /* Build modifier breakdown for tooltip-style info */
-        const modParts = [];
-        modParts.push(`RNG:${Math.round(rng*100)}%`);
-        if (attackCost.fatigue > 0) modParts.push(`⚡-${result.fatiguePct}%`);
-        if (isDefendingHomeland) modParts.push('🏠');
-        if (localGarrison?.strength === 'heavy') modParts.push('🛡️+25%');
-        else if (localGarrison?.strength === 'medium') modParts.push('🛡️+12%');
-        const modTag = modParts.length ? ` <span style="color:#aaa;font-size:0.85em">[${modParts.join(' ')}]</span>` : '';
-
         emit('battle',
             `${icon} ${atk.flag} ${atk.name} ${_t('ge_attacks')} ${terrFlag} ${terrName} — ` +
-            `⚔️${result.atkPowRaw}→${result.atkPow} vs 🛡️${result.defPowRaw}→${result.defPow} → ` +
+            `⚔️${result.atkPow} vs 🛡️${result.defPow} → ` +
             `<span style="color:${outcomeColor};font-weight:700">${outcomeLabel}</span> ` +
-            `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${costTag}${modTag}`);
+            `(☠️ ${atkDeadTotal} vs ${defDeadTotal})${costTag}`);
 
         /* Check elimination */
         checkElimination(defender);

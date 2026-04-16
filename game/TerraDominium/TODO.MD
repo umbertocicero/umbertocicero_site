@@ -10,7 +10,9 @@ i sam costano troppo poco rispetto al vantaggio che danno. analizza e trova un e
 --
 RAGIONA COME ESPERTO DI GEOPOLITICA e programmatore senior:
 ...
+cosa fanno:
+T3 🌍 Terremoto in 🇹🇿 Tanzania!
+T1 🦠 Allarme pandemico globale! -5 cibo per tutti.
+e come funzionano questi eventi, come compaiono tecnicamente?
 
-
-
-
+cosa significa? [RNG:122% ⚡-5% 🏠 🛡️+25%]
