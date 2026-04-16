@@ -4056,19 +4056,20 @@ const UI = (() => {
             hegemony:  { icon: '👑', label: t('vic_hegemony'),  desc: t('vic_hegemony_desc') }
         };
         const vt = VICTORY_LABELS[state.victoryType] || VICTORY_LABELS.military;
+        const winnerFlagHtml = _flagImgHtml(victor, n.flag, 'flag-img');
 
         if (isPlayer) {
             els['gameover-title'].textContent = t('go_you_won');
             els['gameover-title'].style.color = 'var(--gold)';
-            els['gameover-text'].textContent = `${n.flag} ${n.name} ${t('go_dominates')}`;
+            els['gameover-text'].innerHTML = `${winnerFlagHtml} ${n.name} ${t('go_dominates')}`;
         } else if (playerDead) {
-            els['gameover-title'].textContent = `🏆 ${n.flag} ${n.name} ${t('go_won')}`;
+            els['gameover-title'].innerHTML = `🏆 ${winnerFlagHtml} ${n.name} ${t('go_won')}`;
             els['gameover-title'].style.color = 'var(--accent)';
-            els['gameover-text'].textContent = `${n.flag} ${n.name} ${t('go_conquered_turn')} ${state.turn}.`;
+            els['gameover-text'].innerHTML = `${winnerFlagHtml} ${n.name} ${t('go_conquered_turn')} ${state.turn}.`;
         } else {
             els['gameover-title'].textContent = t('go_you_lost');
             els['gameover-title'].style.color = 'var(--red)';
-            els['gameover-text'].textContent = `${n.flag} ${n.name} ${t('go_conquered')}`;
+            els['gameover-text'].innerHTML = `${winnerFlagHtml} ${n.name} ${t('go_conquered')}`;
         }
 
         const victorTerr = GameEngine.getTerritoryCount(victor);
@@ -4079,7 +4080,7 @@ const UI = (() => {
                 <div class="val" style="font-size:1rem;color:var(--gold);">${vt.label}</div>
                 <div style="font-size:0.65rem;color:#90a4ae;margin-top:2px;">${vt.desc}</div>
             </div>
-            <div class="go-stat"><div class="label">${t('go_winner')}</div><div class="val">${n.flag} ${n.name}</div></div>
+            <div class="go-stat"><div class="label">${t('go_winner')}</div><div class="val">${winnerFlagHtml} ${n.name}</div></div>
             <div class="go-stat"><div class="label">${t('go_turns')}</div><div class="val">${state.turn}</div></div>
             <div class="go-stat"><div class="label">${t('go_territories')}</div><div class="val">${victorTerr}/${totalTerr}</div></div>
             <div class="go-stat"><div class="label">${t('go_funds')}</div><div class="val">💰${n.res.money}</div></div>
@@ -4087,7 +4088,6 @@ const UI = (() => {
         parseEmoji(els['gameover-popup']);
 
         /* Build the persistent victory banner text */
-        const winnerFlagHtml = _flagImgHtml(victor, n.flag, 'flag-img');
         const bannerTitle = isPlayer
             ? `🏆 ${winnerFlagHtml} ${n.name} — ${vt.label} ${t('hud_turn').toLowerCase()} ${state.turn}!`
             : playerDead
