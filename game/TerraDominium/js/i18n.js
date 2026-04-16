@@ -1307,7 +1307,12 @@ const I18n = (() => {
         });
         root.querySelectorAll('[data-i18n-html]').forEach(el => {
             const key = el.getAttribute('data-i18n-html');
-            if (key) el.innerHTML = t(key);
+            if (!key) return;
+            const val = t(key);
+            /* Skip if innerHTML already matches — avoids destroying DOM
+               (and re-fetching embedded <img> resources) needlessly */
+            if (el.innerHTML === val) return;
+            el.innerHTML = val;
         });
         root.querySelectorAll('[data-i18n-title]').forEach(el => {
             const key = el.getAttribute('data-i18n-title');

@@ -142,7 +142,7 @@ const AI = (() => {
         }
 
         /* Overextended? Too many colonies with too few troops = danger */
-        const overextended = colonyCount > 0 && (totalUnits / Math.max(1, colonyCount)) < 8;
+        const overextended = colonyCount > 0 && (totalUnits / Math.max(1, colonyCount)) < 3;
 
         /* Find neighbors: land adjacency + sea/air/missile reachable nations */
         const neighborOwners = GameEngine.getNeighborOwners(code);
@@ -565,6 +565,22 @@ const AI = (() => {
         const state = GameEngine.getState();
         const n = state.nations[code];
 
+        /* ── Alliance decay: long peace erodes alliances ──
+           Without wars, nations drift apart. Max 3 allies sustained;
+           beyond that, weakest alliances dissolve each turn. */
+        if (situation.allies.length > 3) {
+            const excess = situation.allies.length - 3;
+            const allyByStrength = situation.allies
+                .map(a => ({ code: a, def: GameEngine.calcMilitary(a, 'def') }))
+                .sort((a, b) => a.def - b.def);
+            for (let i = 0; i < excess; i++) {
+                if (Math.random() < 0.3 + situation.restlessness * 0.4) {
+                    GameEngine.breakAlliance(code, allyByStrength[i].code);
+                    actions.push({ type:'alliance_decay', nation:code, target:allyByStrength[i].code });
+                }
+            }
+        }
+
         /* ── Coalition against dominant nation ── */
         if (situation.dominantThreat && situation.dominant !== code) {
             const dom = situation.dominant;
@@ -677,15 +693,42 @@ const AI = (() => {
             const myWars = state.wars.filter(w => w.attacker === code || w.defender === code);
             const lastWarTurn = myWars.length ? Math.max(...myWars.map(w => w.turn)) : 0;
             const peaceTurns = state.turn - lastWarTurn;
-            if (peaceTurns > 8 && Math.random() < 0.15 + situation.restlessness * 0.3) {
-                /* Use scored targets to pick the BEST victim, not just weakest */
-                if (situation.scoredTargets.length > 0) {
-                    const bestTarget = situation.scoredTargets[0];
-                    const victim = bestTarget.owner;
-                    if (!GameEngine.isAlly(code, victim) && !GameEngine.isAtWar(code, victim)
-                        && _canRealisticallyFight(code, victim, state)) {
-                        const result = GameEngine.attack(code, bestTarget.territory);
-                        if (result) actions.push({ type:'attack', nation:code, target:bestTarget.territory, result });
+            /* Probability ramps up with peace duration: guaranteed after 15 turns */
+            const stallProb = peaceTurns <= 8 ? 0
+                            : peaceTurns <= 12 ? 0.20 + situation.restlessness * 0.3
+                            : peaceTurns <= 15 ? 0.50 + situation.restlessness * 0.3
+                            : 1.0;  /* 15+ turns = MUST attack */
+            if (Math.random() < stallProb) {
+                /* First try: non-ally targets from scored list */
+                let target = situation.scoredTargets.find(t =>
+                    !GameEngine.isAlly(code, t.owner) && !GameEngine.isAtWar(code, t.owner)
+                );
+                /* If ALL reachable targets are allies, betray the weakest neighbor */
+                if (!target && peaceTurns > 15 && situation.allies.length > 0) {
+                    /* Pick the weakest ally that we border */
+                    const allyByStrength = situation.allies
+                        .filter(a => state.nations[a]?.alive)
+                        .map(a => ({ code: a, def: GameEngine.calcMilitary(a, 'def') }))
+                        .sort((a, b) => a.def - b.def);
+                    if (allyByStrength.length > 0) {
+                        const betrayed = allyByStrength[0].code;
+                        GameEngine.breakAlliance(code, betrayed);
+                        actions.push({ type:'betray', nation:code, target:betrayed });
+                        /* Now find a territory of the betrayed nation to attack */
+                        const betrayedTerr = Object.entries(state.territories)
+                            .filter(([, o]) => o === betrayed)
+                            .map(([t]) => t);
+                        if (betrayedTerr.length > 0) {
+                            const result = GameEngine.attack(code, betrayedTerr[0]);
+                            if (result) actions.push({ type:'attack', nation:code, target:betrayedTerr[0], result });
+                        }
+                    }
+                } else if (target) {
+                    const victim = target.owner;
+                    const canFight = peaceTurns > 20 || _canRealisticallyFight(code, victim, state);
+                    if (canFight) {
+                        const result = GameEngine.attack(code, target.territory);
+                        if (result) actions.push({ type:'attack', nation:code, target:target.territory, result });
                     }
                 }
             }
@@ -724,7 +767,11 @@ const AI = (() => {
                     if (result) actions.push({ type:'attack', nation:code, target:targets[0].territory, result });
                 }
             }
-            return actions;
+            /* But if peace has lasted too long, break out of consolidation */
+            const myWars = state.wars.filter(w => w.attacker === code || w.defender === code);
+            const lastWarT = myWars.length ? Math.max(...myWars.map(w => w.turn)) : 0;
+            if (state.turn - lastWarT <= 12) return actions;
+            /* Fall through to normal military logic after 12 turns of peace */
         }
 
         /* ── PRIORITY 0: Homeland reconquest ── */

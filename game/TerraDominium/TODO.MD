@@ -5,7 +5,7 @@ creare un CSS dedicato per ogni componente per senllire il css principale e mant
 
 --
 RAGIONA COME ESPERTO DI GIOCHI:
-i sam costano troppo poco rispetto al vantaggio che danno. analizza e trova un equilibrio nella logica del gioco. immagina una partita reale.
+..
 ...
 --
 RAGIONA COME ESPERTO DI GEOPOLITICA e programmatore senior:
@@ -13,6 +13,8 @@ RAGIONA COME ESPERTO DI GEOPOLITICA e programmatore senior:
 cosa fanno:
 T3 🌍 Terremoto in 🇹🇿 Tanzania!
 T1 🦠 Allarme pandemico globale! -5 cibo per tutti.
+🌍 Terremoto in 🇺🇸 Stati Uniti!
+🔬 Scoperta scientifica in 🇫🇷 Francia! +50 💰
 e come funzionano questi eventi, come compaiono tecnicamente?
 
 cosa significa? [RNG:122% ⚡-5% 🏠 🛡️+25%]

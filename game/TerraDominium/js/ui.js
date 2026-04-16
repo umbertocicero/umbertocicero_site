@@ -152,12 +152,14 @@ const UI = (() => {
      *      window._svgBlobCache
      */
     function _warmSvgBlobCache() {
-        /* Collect every unique emoji icon code currently in use */
+        /* Collect every unique emoji icon code currently in the DOM
+           that is NOT already in the blob cache. */
         const icons = new Set();
-        document.querySelectorAll('img.emoji, img.legend-flag-img, img.nation-flag-img, img.flag-img').forEach(img => {
+        document.querySelectorAll('img.emoji, img.legend-flag-img, img.nation-flag-img, img.flag-img, img.lang-flag').forEach(img => {
             const src = img.getAttribute('src') || '';
             if (src.startsWith(_emojiBase)) {
-                icons.add(src.slice(_emojiBase.length).replace(/\.svg$/i, ''));
+                const icon = src.slice(_emojiBase.length).replace(/\.svg$/i, '');
+                icons.add(icon);
             }
         });
         /* Also include garrison overlay <image> hrefs */
@@ -165,6 +167,10 @@ const UI = (() => {
             const href = img.getAttribute('href') || '';
             icons.add(href.slice(_emojiBase.length).replace(/\.svg$/i, ''));
         });
+        /* Remove icons already cached (blob URLs) — no need to re-fetch */
+        for (const icon of icons) {
+            if (_svgBlobCache.has(icon)) icons.delete(icon);
+        }
 
         /* Expose cache on window for MapRenderer */
         window._svgBlobCache = _svgBlobCache;
@@ -175,7 +181,7 @@ const UI = (() => {
             _blobCacheReady = true;
             /* Patch every existing <img> and <image> to use blob URLs,
                so the browser never re-fetches the file-path originals. */
-            document.querySelectorAll('img.emoji, img.legend-flag-img, img.nation-flag-img, img.flag-img').forEach(img => {
+            document.querySelectorAll('img.emoji, img.legend-flag-img, img.nation-flag-img, img.flag-img, img.lang-flag').forEach(img => {
                 const src = img.getAttribute('src') || '';
                 if (src.startsWith(_emojiBase)) {
                     const icon = src.slice(_emojiBase.length).replace(/\.svg$/i, '');
@@ -210,6 +216,14 @@ const UI = (() => {
         window._svgBlobCache = _svgBlobCache;
         Promise.allSettled(_allFlagCodes.map(_fetchEmojiBlob)).then(() => {
             _blobCacheReady = true;
+            /* Patch any <img> already in the HTML (e.g. lang buttons)
+               to use blob URLs so the browser never re-fetches them */
+            document.querySelectorAll('img[src^="assets/emoji/"]').forEach(img => {
+                const src = img.getAttribute('src') || '';
+                const icon = src.slice(_emojiBase.length).replace(/\.svg$/i, '');
+                const blob = _svgBlobCache.get(icon);
+                if (blob) img.src = blob;
+            });
         });
     }
 
