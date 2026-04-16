@@ -35,10 +35,6 @@ class GdBattleResult extends GdComponent {
                     margin: 0;
                     color: var(--accent);
                 }
-                .btl-territory {
-                    font-size: 0.8rem;
-                    color: var(--text-dim);
-                }
                 .btl-grid {
                     display: grid;
                     grid-template-columns: 1fr auto 1fr;
@@ -175,7 +171,7 @@ class GdBattleResult extends GdComponent {
         const tBase = typeof getNation !== 'undefined' ? getNation(result.territory) : {};
         const tName = tBase.flag ? `${tBase.flag} ${tBase.name}` : result.territory.toUpperCase();
 
-        let html = `<div class="btl-header"><h3>⚔️ BATTAGLIA</h3><div class="btl-territory">${tName}</div></div>`;
+        let html = `<div class="btl-header"><h3>⚔️ BATTAGLIA</h3></div>`;
         html += `<div class="btl-grid">`;
 
         /* Attacker */

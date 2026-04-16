@@ -279,7 +279,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 12px rgba(0,0,0,0.35);
     padding: 0 var(--sp-3);
-    z-index: 100;
+    position: relative;
+    z-index: 400;
     height: 46px;
     flex-shrink: 0;
     gap: 0;
@@ -500,6 +501,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     font-family: var(--font-mono); color: var(--gold); font-weight: 600;
     font-size: var(--fs-sm); min-width: 48px; text-align: right;
 }
+.panel-section .res-row.reachability {
+    margin-bottom: 0;
+;
+}
 .panel-actions {
     padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2);
     border-top: 1px solid var(--border);
@@ -622,7 +627,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     border-top: 1px solid var(--border);
     box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
     padding: var(--sp-1) var(--sp-4);
-    z-index: 100;
+    z-index: 400;
+    position: relative;
     height: 40px;
     flex-shrink: 0;
     display: flex; align-items: center;
@@ -772,12 +778,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
     font-size: 1rem;
     margin: 0 0 1px;
     letter-spacing: 3px;
-}
-.btl-territory {
-    text-align: center;
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    padding: 0 0 4px;
 }
 .btl-body { padding: 0 14px 8px; }
 .btl-grid {
@@ -1637,8 +1637,41 @@ body.spectator-active .side-panel {
 }
 .btn-reopen-events.hidden { display: none !important; }
 body.spectator-active .btn-reopen-events { top: 86px; }
+
+.btn-reopen-nations {
+    position: fixed;
+    left: 12px;
+    top: 58px;
+    z-index: 320;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    transition: all 0.25s ease;
+    animation: fadeInLeft 0.3s ease-out;
+}
+.btn-reopen-nations:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    transform: scale(1.08);
+}
+.btn-reopen-nations.hidden { display: none !important; }
+body.spectator-active .btn-reopen-nations { top: 86px; }
 @keyframes fadeInRight {
     from { transform: translateX(30px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes fadeInLeft {
+    from { transform: translateX(-30px); opacity: 0; }
     to   { transform: translateX(0); opacity: 1; }
 }
 
@@ -1810,81 +1843,6 @@ body.spectator-active .btn-reopen-events { top: 86px; }
 .map-tooltip .tt-badge.enemy { background: rgba(255,23,68,0.15); color: #ff1744; border: 1px solid rgba(255,23,68,0.2); }
 .map-tooltip .tt-badge.ally-badge { background: rgba(0,230,118,0.15); color: #00e676; border: 1px solid rgba(0,230,118,0.2); }
 
-/* ═══════════════ MAP LEGEND ═══════════════ */
-.map-legend {
-    position: absolute;
-    bottom: 10px; left: 10px;
-    background: rgba(10,14,23,0.93);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px var(--sp-3);
-    z-index: 50;
-    max-height: 50vh;
-    overflow-y: auto;
-    min-width: 165px;
-    backdrop-filter: blur(8px);
-    font-size: var(--fs-sm);
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-    touch-action: pan-y;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-}
-.map-legend::-webkit-scrollbar { width: 4px; }
-.map-legend::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-.legend-title {
-    font-family: var(--font-title);
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    letter-spacing: 1.5px;
-    margin-bottom: var(--sp-2);
-    text-transform: uppercase;
-    padding-bottom: var(--sp-1);
-    border-bottom: 1px solid var(--border-subtle);
-}
-.legend-item {
-    display: flex; align-items: center; gap: var(--sp-2);
-    padding: var(--sp-1) var(--sp-2); margin-bottom: 1px; border-radius: 5px;
-    cursor: pointer; transition: background 0.15s;
-}
-.legend-item:hover { background: rgba(255,255,255,0.08); }
-.legend-item.legend-player { background: rgba(0,229,255,0.1); }
-.legend-item.legend-player:hover { background: rgba(0,229,255,0.2); }
-.legend-item.legend-enemy { background: rgba(255,23,68,0.08); }
-.legend-item.legend-enemy:hover { background: rgba(255,23,68,0.15); }
-.legend-item.legend-ally { background: rgba(0,230,118,0.08); }
-.legend-item.legend-ally:hover { background: rgba(0,230,118,0.15); }
-.legend-item.legend-dead { opacity: 0.4; text-decoration: line-through; cursor: default; }
-.legend-swatch {
-    width: 12px; height: 12px; border-radius: 3px;
-    border: 1.5px solid rgba(255,255,255,0.15);
-    flex-shrink: 0;
-    box-shadow: 0 0 4px rgba(0,0,0,0.3);
-}
-.legend-flag-img {
-    width: 16px;
-    height: 12px;
-    object-fit: cover;
-    border-radius: 2px;
-    flex-shrink: 0;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.14);
-}
-.legend-name {
-    flex: 1;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 500;
-}
-.legend-count {
-    font-family: var(--font-mono);
-    color: var(--text-dim);
-    font-size: var(--fs-xs);
-    min-width: 16px; text-align: right;
-}
-
 /* ═══════════════ RESPONSIVE ═══════════════ */
 
 /* ── Tablet ── */
@@ -1969,18 +1927,20 @@ body.spectator-active .btn-reopen-events { top: 86px; }
 
     /* Side panels */
     .side-panel {
-        width: 100% !important; top: 38px; bottom: 36px;
-        border-radius: 0; max-height: 45vh;
+        top: 38px; bottom: 36px;
+        border-radius: 0; max-height: none;
     }
     #left-panel {
-        width: 55% !important; bottom: auto;
-        border-radius: 0 8px 8px 0; max-height: 50vh;
+        width: min(52%, 260px) !important;
+        top: 38px; bottom: 36px;
+        border-radius: 0 8px 8px 0;
+        max-height: none;
     }
-    /* When events are minimized to icon, let left panel extend to bottom */
-    body.evt-minimized #left-panel {
-        max-height: none; bottom: 36px;
+    #right-panel {
+        width: min(48%, 240px) !important;
+        top: 38px; bottom: 36px;
+        max-height: none; border-radius: 8px 0 0 0;
     }
-    #right-panel { bottom: auto; top: auto; bottom: 36px; max-height: 35vh; border-radius: 8px 0 0 0; }
 
     /* Bottom bar */
     #bottom-panel { height: 36px; padding: 4px 8px; }
@@ -1992,32 +1952,6 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     .map-tooltip { font-size: 0.7rem; padding: 8px 12px; max-width: min(220px, calc(100vw - 24px)); }
     .map-tooltip.tt-interactive { padding: 10px 14px; padding-top: 28px; }
     .map-tooltip .tt-hint { font-size: 0.6rem; }
-    .map-legend {
-        max-height: 34vh;
-        min-width: 190px;
-        max-width: min(42vw, 250px);
-        font-size: 0.78rem;
-        padding: 10px 12px;
-        bottom: 40px;
-        left: 12px;
-        border-radius: 12px;
-    }
-    .legend-title {
-        font-size: 0.72rem;
-        letter-spacing: 1.8px;
-        margin-bottom: 8px;
-    }
-    .legend-item {
-        gap: 8px;
-        padding: 7px 10px;
-        min-height: 38px;
-        border-radius: 8px;
-    }
-    .legend-swatch { width: 13px; height: 13px; }
-    .legend-flag-img { width: 22px; height: 16px; border-radius: 3px; }
-    .legend-name { font-size: 0.86rem; }
-    .legend-count { font-size: 0.8rem; min-width: 20px; }
-
     /* Popups */
     .popup-content { width: 95%; max-width: 95vw; padding: 14px 16px; max-height: 85vh; }
     .popup-content h3, .popup-content h2 { font-size: 1rem; margin-bottom: 10px; }
@@ -2026,7 +1960,7 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     .btl-nation { font-size: 0.7rem; }
     .btl-u { font-size: 0.65rem; }
     .btl-pow { font-size: 0.6rem; }
-    .btl-body { padding: 0 12px 14px; }
+    .btl-body { padding: 0 12px 0px; }
     .btl-header { padding: 14px 16px 8px; }
     .btl-header h3 { font-size: 1rem; }
     .battle-result { font-size: 0.85rem; padding: 8px 12px; }
@@ -2090,45 +2024,26 @@ body.spectator-active .btn-reopen-events { top: 86px; }
     .btn-hud { font-size: 0.5rem; padding: 3px 5px; }
     #bottom-panel { height: 32px; }
     .mil-unit { font-size: 0.55rem; padding: 2px 4px; }
-    .side-panel { max-height: 40vh; }
-    #left-panel { width: 60% !important; }
-    body.evt-minimized #left-panel { max-height: none; bottom: 32px; }
+    .side-panel { max-height: none; top: 36px; bottom: 32px; }
+    #left-panel { width: min(65%, 230px) !important; top: 36px; bottom: 32px; }
+    #right-panel { width: min(55%, 200px) !important; }
     .popup-content { padding: 10px 12px; }
     .army-summary-grid { grid-template-columns: 1fr; }
     .army-unit-stats { grid-template-columns: 1fr 1fr; }
 }
 
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
-    .map-legend {
-        min-width: 220px;
-        max-width: min(36vw, 290px);
-        max-height: 44vh;
-        padding: 12px 14px;
-        bottom: 42px;
-        left: 12px;
-        border-radius: 14px;
+    #left-panel {
+        width: min(28vw, 220px) !important;
+        top: 38px; bottom: 36px;
+        max-height: none;
     }
-    .legend-title {
-        font-size: 0.78rem;
-        letter-spacing: 2px;
-        margin-bottom: 10px;
-    }
-    .legend-item {
-        gap: 9px;
-        padding: 8px 10px;
-        min-height: 40px;
-    }
-    .legend-swatch { width: 14px; height: 14px; }
-    .legend-flag-img { width: 24px; height: 18px; }
-    .legend-name { font-size: 0.92rem; }
-    .legend-count { font-size: 0.84rem; min-width: 22px; }
-
     #right-panel {
         top: 38px;
         right: 0;
         bottom: 36px;
         left: auto;
-        width: min(34vw, 320px) !important;
+        width: min(28vw, 260px) !important;
         max-height: none;
         border-radius: 12px 0 0 12px;
         border-right: none;
@@ -2199,10 +2114,22 @@ body.spectator-active .btn-reopen-events { top: 86px; }
         top: 118px;
     }
 
-    body.evt-minimized #left-panel,
-    body.evt-minimized .map-legend {
-        max-width: none;
+    .btn-reopen-nations {
+        top: 92px;
+        left: 8px;
+        width: 38px;
+        height: 92px;
+        border-radius: 0 12px 12px 0;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        padding: 8px 0;
+        font-size: 1rem;
+        letter-spacing: 2px;
     }
+    body.spectator-active .btn-reopen-nations {
+        top: 118px;
+    }
+
 }
 
 /* ═══════════ BADGE SYSTEM (replaces scattered inline badge styles) ═══════════ */

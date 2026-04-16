@@ -354,15 +354,15 @@ const UI = (() => {
      */
     function buildAttackChainHtml(reach, compact) {
         const phaseInfo = {
-            land:          { icon: '🗺️', label: 'Terra' },
-            sea_transport: { icon: '⚓',  label: 'Mare' },
-            naval:         { icon: '⚓',  label: 'Mare' },
-            air:           { icon: '✈️', label: 'Aereo' },
-            missile:       { icon: '🚀', label: 'Missili' },
+            land:          { icon: '🗺️', label: t('nd_reach_land') },
+            sea_transport: { icon: '⚓',  label: t('nd_reach_sea') },
+            naval:         { icon: '⚓',  label: t('nd_reach_sea') },
+            air:           { icon: '✈️', label: t('nd_reach_air') },
+            missile:       { icon: '🚀', label: t('nd_reach_missiles') },
         };
         /* Build ordered phases: MAIN method first, then support */
         const phases = [];
-        const main = phaseInfo[reach.method] || { icon: '⚔️', label: 'Attacco' };
+        const main = phaseInfo[reach.method] || { icon: '⚔️', label: t('nd_reach_attack') };
         main._role = 'main';
         phases.push(main);
         if (reach.support && reach.support.length > 0) {
@@ -385,7 +385,7 @@ const UI = (() => {
             phases.forEach((p, i) => {
                 const isMain = i === 0;
                 const color = isMain ? '#00e676' : '#90caf9';
-                const role = isMain ? 'Principale' : 'Supporto';
+                const role = isMain ? t('nd_reach_role_main') : t('nd_reach_role_support');
                 html += `<div class="res-row" style="font-size:0.75rem;">`;
                 html += `<span style="color:${color};font-weight:700;">${p.icon} ${p.label}</span>`;
                 html += `<span class="val" style="color:var(--text-dim);font-size:0.6rem;">${role}</span>`;
@@ -804,8 +804,26 @@ const UI = (() => {
             const mapCont = els['map-container'];
             if (mapCont) mapCont.appendChild(legend);
 
+            const btnReopenNations = document.getElementById('btn-reopen-nations');
+            if (btnReopenNations && !btnReopenNations.dataset.bound) {
+                btnReopenNations.dataset.bound = '1';
+                btnReopenNations.addEventListener('click', () => {
+                    legend.classList.remove('hidden');
+                    btnReopenNations.classList.add('hidden');
+                    document.body.classList.remove('nations-minimized');
+                });
+            }
+
             /* Delegate click on legend items */
             legend.addEventListener('click', (e) => {
+                /* Toggle collapse */
+                const toggleBtn = e.target.closest('.legend-toggle');
+                if (toggleBtn) {
+                    legend.classList.add('hidden');
+                    if (btnReopenNations) btnReopenNations.classList.remove('hidden');
+                    document.body.classList.add('nations-minimized');
+                    return;
+                }
                 const item = e.target.closest('.legend-item[data-code]');
                 if (item && !item.classList.contains('legend-dead')) {
                     showNationDetail(item.dataset.code);
@@ -836,7 +854,7 @@ const UI = (() => {
             allNations.unshift(p);
         }
 
-        let html = `<div class="legend-title">${t('nl_title')}</div>`;
+        let html = `<div class="legend-header"><span class="legend-title">${t('nl_title')}</span><button class="legend-toggle" id="btn-legend-toggle">◀</button></div>`;
 
         allNations.forEach(({ code, count, alive }) => {
             const n = state.nations[code];
@@ -845,7 +863,7 @@ const UI = (() => {
             const atWar = GameEngine.isAtWar(state.player, code);
             const isAlly = GameEngine.isAlly(state.player, code);
             let cls = !alive ? 'legend-dead' : isPlayer ? 'legend-player' : atWar ? 'legend-enemy' : isAlly ? 'legend-ally' : '';
-            html += `<div class="legend-item ${cls}" data-code="${code}"><div class="legend-swatch" style="background:${n.color}"></div>${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">${count}</span></div>`;
+            html += `<div class="legend-item ${cls}" data-code="${code}">${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">${count}</span></div>`;
         });
 
         /* Skip DOM write + Twemoji parse if nothing changed */
@@ -1888,7 +1906,7 @@ const UI = (() => {
         const tName = tBase.flag ? `${tBase.flag} ${tBase.name}` : result.territory.toUpperCase();
 
         /* Build structured layout: header → body → result → loot */
-        let html = `<div class="btl-header"><h3>⚔️ BATTAGLIA</h3><div class="btl-territory">${tName}</div></div>`;
+        let html = `<div class="btl-header"><h3>⚔️ BATTAGLIA</h3></div>`;
         html += `<div class="btl-body">`;
         html += `<div class="btl-grid">`;
 

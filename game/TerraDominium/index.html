@@ -14,6 +14,7 @@
     <title>GeoDominion — Global Strategy Game</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="terra-dominium.css">
+    <link rel="stylesheet" href="components/gd-nation-legend.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <!-- Twemoji: cross-platform flag emoji rendering (local — zero CDN calls) -->
@@ -147,7 +148,7 @@
                 <h3 data-i18n="events_title">📋 EVENTI</h3>
                 <div style="display:flex;gap:4px;align-items:center;">
                     <button class="panel-btn" id="btn-fullscreen-events" data-i18n-title="events_fullscreen" title="Schermo intero">⛶</button>
-                    <button class="panel-close" id="btn-toggle-right">◀</button>
+                    <button class="panel-close" id="btn-toggle-right">▶</button>
                 </div>
             </div>
             <div style="position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden;">
@@ -158,6 +159,7 @@
 
         <!-- Floating button to reopen event log when collapsed -->
         <button id="btn-reopen-events" class="btn-reopen-events hidden" data-i18n-title="events_show" title="Mostra eventi">📋</button>
+        <button id="btn-reopen-nations" class="btn-reopen-nations hidden" title="Mostra nazioni">🗺️</button>
 
         <!-- BOTTOM PANEL: Military quick bar -->
         <div id="bottom-panel">

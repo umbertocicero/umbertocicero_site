@@ -114,7 +114,6 @@ class GdNationLegend extends GdComponent {
             let cls = !alive ? 'dead' : isPlayer ? 'player' : atWar ? 'enemy' : isAlly ? 'ally' : '';
 
             html += `<div class="item ${cls}" data-code="${code}">
-                <div class="swatch" style="background:${n.color}"></div>
                 <span class="name">${n.flag} ${n.name}</span>
                 <span class="count">${count}</span>
             </div>`;

@@ -160,6 +160,13 @@ const I18n = (() => {
             nd_no_garrison_desc:  'Malcontento +5/turno · Difesa −10%',
             nd_reachability:      '📡 RAGGIUNGIBILITÀ',
             nd_unreachable:       '🚫 Non raggiungibile',
+            nd_reach_land:        'Terra',
+            nd_reach_sea:         'Mare',
+            nd_reach_air:         'Aereo',
+            nd_reach_missiles:    'Missili',
+            nd_reach_attack:      'Attacco',
+            nd_reach_role_main:   'Principale',
+            nd_reach_role_support:'Supporto',
 
             /* ── Mid-turn revolt alert ── */
             revolt_mid_one:       'UN TERRITORIO SI È RIBELLATO!',
@@ -756,6 +763,13 @@ const I18n = (() => {
             nd_no_garrison_desc:  'Unrest +5/turn · Defence −10%',
             nd_reachability:      '📡 REACHABILITY',
             nd_unreachable:       '🚫 Unreachable',
+            nd_reach_land:        'Land',
+            nd_reach_sea:         'Sea',
+            nd_reach_air:         'Air',
+            nd_reach_missiles:    'Missiles',
+            nd_reach_attack:      'Attack',
+            nd_reach_role_main:   'Main',
+            nd_reach_role_support:'Support',
 
             /* ── Mid-turn revolt alert ── */
             revolt_mid_one:       'A TERRITORY HAS REVOLTED!',
