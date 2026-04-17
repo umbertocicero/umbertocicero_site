@@ -68,7 +68,7 @@ const I18n = (() => {
             tut_step5_title:      '5. Intelligenza Artificiale',
             tut_step5:            'Le nazioni IA hanno personalità diverse (superpotenza, difensiva, opportunista, instabile…). Si difendono, formano alleanze, ricercano tecnologie e contrattaccano. Puoi anche attivare l\'autoplay e lasciar giocare l\'IA al posto tuo.',
             tut_step6_title:      '6. Condizioni di Vittoria',
-            tut_step6:            '<strong>Vittoria Militare:</strong> conquista il 55% dei territori. <strong>Vittoria Economica:</strong> accumula 50.000 fondi controllando almeno il 30% della mappa. <strong>Vittoria Strategica:</strong> controlla tutti gli asset strategici globali. <strong>Vittoria Egemonica:</strong> dal turno 60 in poi, raggiungi almeno il 35% dei territori, con distacco di almeno 20 territori dal secondo e rapporto di almeno 2.5x. Attento all\'economia: senza risorse, crolla tutto.',
+            tut_step6:            '<strong>Vittoria Militare:</strong> conquista il 55% dei territori. <strong>Vittoria Economica:</strong> accumula 80.000 fondi controllando almeno il 35% della mappa. <strong>Vittoria Strategica:</strong> controlla tutti gli asset strategici globali. <strong>Vittoria Egemonica:</strong> dal turno 60 in poi, raggiungi almeno il 35% dei territori, con distacco di almeno 20 territori dal secondo e rapporto di almeno 2.5x. Attento all\'economia: senza risorse, crolla tutto.',
 
             /* ── HUD ── */
             hud_turn:             'Turno',
@@ -684,7 +684,7 @@ const I18n = (() => {
             tut_step5_title:      '5. Artificial Intelligence',
             tut_step5:            'AI nations have diverse personalities (superpower, defensive, opportunist, unstable…). They defend themselves, form alliances, research technologies and counter-attack. You can also enable autoplay and let the AI play for you.',
             tut_step6_title:      '6. Victory Conditions',
-            tut_step6:            '<strong>Military Victory:</strong> conquer 55% of territories. <strong>Economic Victory:</strong> accumulate 50,000 funds while controlling at least 30% of the map. <strong>Strategic Victory:</strong> control all global strategic assets. <strong>Hegemony Victory:</strong> from turn 60 onward, reach at least 35% of territories, with a lead of at least 20 territories over second place and a ratio of at least 2.5x. Watch your economy: without resources, everything collapses.',
+            tut_step6:            '<strong>Military Victory:</strong> conquer 55% of territories. <strong>Economic Victory:</strong> accumulate 80,000 funds while controlling at least 35% of the map. <strong>Strategic Victory:</strong> control all global strategic assets. <strong>Hegemony Victory:</strong> from turn 60 onward, reach at least 35% of territories, with a lead of at least 20 territories over second place and a ratio of at least 2.5x. Watch your economy: without resources, everything collapses.',
 
             /* ── HUD ── */
             hud_turn:             'Turn',

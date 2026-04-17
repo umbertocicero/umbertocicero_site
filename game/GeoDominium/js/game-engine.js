@@ -1165,8 +1165,8 @@ const GameEngine = (() => {
                 return code;
             }
 
-            /* Economic victory: 50K funds + 30% territories */
-            if (n.res.money >= 50000 && pct >= 0.30) {
+            /* Economic victory: 80K funds + 35% territories */
+            if (n.res.money >= 80000 && pct >= 0.35) {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'economic';
