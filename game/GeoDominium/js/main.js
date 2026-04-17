@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — Main Entry Point  (v2)
+   GeoDominium — Main Entry Point  (v2)
    Animated intro + init
    ═══════════════════════════════════════════════════════ */
 

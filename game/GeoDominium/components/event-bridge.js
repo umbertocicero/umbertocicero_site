@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — EventBridge
+   GeoDominium — EventBridge
    ──────────────────────────────────────────────────────
    Bridges GameEngine events → EventBus topics.
    Call EventBridge.init() after GameEngine.newGame().

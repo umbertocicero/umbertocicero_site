@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — EventBus  (singleton pub/sub)
+   GeoDominium — EventBus  (singleton pub/sub)
    ──────────────────────────────────────────────────────
    Lightweight reactive event system for component updates.
    Batches rapid-fire events via microtask coalescing so

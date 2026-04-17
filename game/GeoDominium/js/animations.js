@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — Animations  (Canvas overlay FX)
+   GeoDominium — Animations  (Canvas overlay FX)
    Trail traces store territory codes and recompute screen
    positions each frame → correct after zoom/pan.
    ═══════════════════════════════════════════════════════ */

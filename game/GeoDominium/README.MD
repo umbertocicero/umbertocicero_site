@@ -1,4 +1,4 @@
-# 🌍 TerraDominium — Global Strategic Warfare
+# 🌍 GeoDominium — Global Strategic Warfare
 
 > **Un gioco di strategia geopolitica a turni, interamente in JavaScript puro, con dati reali.**
 
@@ -570,7 +570,7 @@ Il gioco supporta **Italiano** 🇮🇹 e **Inglese** 🇬🇧.
 ## 🛠️ Struttura Tecnica
 
 ```
-TerraDominium/
+GeoDominium/
 ├── index.html              # Entry point HTML
 ├── terra-dominium.css      # Stili completi (dark theme, HUD militare)
 ├── README.MD               # Questo file

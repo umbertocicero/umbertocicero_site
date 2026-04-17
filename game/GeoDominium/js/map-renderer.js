@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — Map Renderer  (SVG Inline)
+   GeoDominium — Map Renderer  (SVG Inline)
    Fetches the real-world SVG, injects it, colours territories,
    handles zoom/pan, hover/click, centroid computation.
    ═══════════════════════════════════════════════════════ */

@@ -1,5 +1,5 @@
 ﻿/* ═══════════════════════════════════════════════════════
-   GeoDominion — UI Controller  (v2 — SVG)
+   GeoDominium — UI Controller  (v2 — SVG)
    All UI interactions, popups, HUD, event log
    ═══════════════════════════════════════════════════════ */
 

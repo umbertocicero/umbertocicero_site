@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — Game Engine  (v2 — SVG territories)
+   GeoDominium — Game Engine  (v2 — SVG territories)
    Turn system, resources, combat, production, victory
    ═══════════════════════════════════════════════════════ */
 

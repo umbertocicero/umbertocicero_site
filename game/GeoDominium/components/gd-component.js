@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — GdComponent  (base Web Component class)
+   GeoDominium — GdComponent  (base Web Component class)
    ──────────────────────────────────────────────────────
    Extend this to create reactive game UI components.
 

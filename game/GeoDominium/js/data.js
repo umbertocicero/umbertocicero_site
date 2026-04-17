@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — Game Data  (v2 — SVG Real Map)
+   GeoDominium — Game Data  (v2 — SVG Real Map)
    50 nazioni giocabili + ~180 stati minori
    ═══════════════════════════════════════════════════════ */
 

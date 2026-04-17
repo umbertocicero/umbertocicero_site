@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — i18n  (Internationalisation + Settings)
+   GeoDominium — i18n  (Internationalisation + Settings)
    ═══════════════════════════════════════════════════════
    • Two-language dictionary: IT (default) and EN
    • Detects browser language at first load
@@ -11,7 +11,7 @@
 const I18n = (() => {
     'use strict';
 
-    const STORAGE_KEY = 'geodominion_settings';
+    const STORAGE_KEY = 'geodominium_settings';
 
     /* ── Default settings ── */
     const DEFAULTS = {

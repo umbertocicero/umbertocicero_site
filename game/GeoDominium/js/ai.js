@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — Autonomous AI System  (v3 — Strategic)
+   GeoDominium — Autonomous AI System  (v3 — Strategic)
    ──────────────────────────────────────────────────────
    Design principles (game-design expert approach):
    1. GOAL-DRIVEN expansion — each nation pursues concrete

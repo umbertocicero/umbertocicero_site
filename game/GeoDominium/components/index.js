@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — Components Index
+   GeoDominium — Components Index
    ──────────────────────────────────────────────────────
    Barrel file: loads the component system in order.
    Include this single <script> after data.js but before ui.js:

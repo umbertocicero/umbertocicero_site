@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   GeoDominion — DevLog  (Console Diagnostics)
+   GeoDominium — DevLog  (Console Diagnostics)
    Structured logging for debugging AI behaviour,
    economy balance, stall detection, and game flow.
    
@@ -224,7 +224,7 @@ const DevLog = (() => {
         if (!state) { console.warn('Nessuna partita attiva'); return; }
         const ranking = getRanking();
 
-        console.group('%c🌍 GEODOMINION — STATO COMPLETO (Turno ' + state.turn + ')', STYLE_HEADER);
+        console.group('%c🌍 GeoDominium — STATO COMPLETO (Turno ' + state.turn + ')', STYLE_HEADER);
 
         /* Leaderboard */
         console.group('%c📊 CLASSIFICA COMPLETA', STYLE_SUB);
