@@ -308,6 +308,7 @@ const I18n = (() => {
             /* ── Game over ── */
             go_you_won:           '🏆 HAI VINTO!',
             go_you_lost:          '💀 HAI PERSO!',
+            go_spectator_end:     'PARTITA TERMINATA',
             go_won:               'HA VINTO!',
             go_dominates:         'domina il mondo!',
             go_conquered:         'ha conquistato il dominio globale.',
@@ -318,7 +319,7 @@ const I18n = (() => {
             go_funds:             'Fondi',
             go_victory_type:      'Tipo di Vittoria',
             vic_military:         'VITTORIA MILITARE',
-            vic_military_desc:    'Dominazione territoriale (≥55% territori)',
+            vic_military_desc:    'Dominazione territoriale (≥50% territori)',
             vic_economic:         'VITTORIA ECONOMICA',
             vic_economic_desc:    'Supremazia economica (≥50K fondi + ≥30% territori)',
             vic_strategic:        'VITTORIA STRATEGICA',
@@ -925,6 +926,7 @@ const I18n = (() => {
             /* ── Game over ── */
             go_you_won:           '🏆 YOU WON!',
             go_you_lost:          '💀 YOU LOST!',
+            go_spectator_end:     'GAME OVER',
             go_won:               'HAS WON!',
             go_dominates:         'dominates the world!',
             go_conquered:         'has achieved global domination.',
@@ -935,7 +937,7 @@ const I18n = (() => {
             go_funds:             'Funds',
             go_victory_type:      'Victory Type',
             vic_military:         'MILITARY VICTORY',
-            vic_military_desc:    'Territorial domination (≥55% territories)',
+            vic_military_desc:    'Territorial domination (≥50% territories)',
             vic_economic:         'ECONOMIC VICTORY',
             vic_economic_desc:    'Economic supremacy (≥50K funds + ≥30% territories)',
             vic_strategic:        'STRATEGIC VICTORY',

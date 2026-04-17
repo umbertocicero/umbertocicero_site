@@ -90,12 +90,12 @@ const TECHNOLOGIES = [
 
 /* AI personality archetypes */
 const AI_PROFILES = {
-    superpower:  {aggression:.65,expansion:.7,  diplomacy:.4, techFocus:.8, nukeTolerance:.3},
-    regional:    {aggression:.55,expansion:.6,  diplomacy:.5, techFocus:.5, nukeTolerance:.15},
-    defensive:   {aggression:.15,expansion:.15, diplomacy:.8, techFocus:.9, nukeTolerance:.05},
-    opportunist: {aggression:.45,expansion:.55, diplomacy:.4, techFocus:.3, nukeTolerance:.1},
-    neutral:     {aggression:.1, expansion:.1,  diplomacy:.9, techFocus:.6, nukeTolerance:.02},
-    unstable:    {aggression:.7, expansion:.4,  diplomacy:.15,techFocus:.15,nukeTolerance:.5},
+    superpower:  {aggression:.65,expansion:.7,  diplomacy:.4, techFocus:.8, nukeTolerance:.4},
+    regional:    {aggression:.55,expansion:.6,  diplomacy:.5, techFocus:.5, nukeTolerance:.25},
+    defensive:   {aggression:.15,expansion:.15, diplomacy:.8, techFocus:.9, nukeTolerance:.15},
+    opportunist: {aggression:.45,expansion:.55, diplomacy:.4, techFocus:.3, nukeTolerance:.2},
+    neutral:     {aggression:.1, expansion:.1,  diplomacy:.9, techFocus:.6, nukeTolerance:.1},
+    unstable:    {aggression:.7, expansion:.4,  diplomacy:.15,techFocus:.15,nukeTolerance:.55},
     minor:       {aggression:.2, expansion:.15, diplomacy:.5, techFocus:.2, nukeTolerance:.0}
 };
 

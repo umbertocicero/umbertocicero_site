@@ -4073,7 +4073,7 @@ const UI = (() => {
         }
 
         /* Subtitle with winner name */
-        els['gameover-text'].innerHTML = `${n.name} ${isPlayer ? t('go_dominates') : t('go_conquered')}`;
+        els['gameover-text'].innerHTML = `${n.flag} ${n.name} ${isPlayer ? t('go_dominates') : t('go_conquered')}`;
 
         const victorTerr = GameEngine.getTerritoryCount(victor);
         const totalTerr = SVG_IDS.length;

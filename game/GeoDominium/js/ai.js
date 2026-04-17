@@ -1038,27 +1038,67 @@ const AI = (() => {
 
         if (totalAttacksMade >= maxTotalAttacks) return actions;
 
-        /* ── Nuclear option ── */
+        /* ── Nuclear option (stalemate breaker) ── */
         if (profile.nukeTolerance > 0 && (n.army.nuke || 0) > 0) {
-            /* Offensive nuke: use in active wars, especially against strong enemies */
+            const gameTurn = state.turn || 0;
             const desperate = situation.myTerrCount < 8 || situation.threats.length > 1;
-            const atWarAndStrong = situation.enemies.length > 0 && (n.army.nuke || 0) > 0;
+            const atWarAndStrong = situation.enemies.length > 0;
             const enemyIsTough = situation.enemies.some(e => GameEngine.calcMilitary(e, 'def') > situation.myAtkPow * 0.5);
-            const lateGame = (state.turn || 0) > 40;
-            const useNuke = desperate || (atWarAndStrong && enemyIsTough) || (lateGame && atWarAndStrong);
-            const nukeProb = desperate ? 0.7 : lateGame ? 0.4 : 0.25;
-            if (useNuke && Math.random() < nukeProb * (profile.nukeTolerance + 0.3)) {
+            const lateGame = gameTurn > 40;
+            const veryLateGame = gameTurn > 80;
+            const stalemateTurn = gameTurn > 100;
+
+            /* Stalemate detection: if dominant nation isn't growing, escalate */
+            const dominantTerr = Math.max(...Object.keys(state.nations)
+                .filter(c => state.nations[c]?.alive)
+                .map(c => GameEngine.getTerritoryCount(c)));
+            const stalemate = veryLateGame && dominantTerr < SVG_IDS.length * 0.45;
+
+            /* Escalating probability: the longer the game, the more likely nukes fly */
+            const useNuke = desperate || (atWarAndStrong && enemyIsTough)
+                || (lateGame && atWarAndStrong) || stalemate;
+            let nukeProb;
+            if (stalemateTurn)    nukeProb = 0.90;   /* turn 100+: almost certain */
+            else if (stalemate)   nukeProb = 0.75;   /* turn 80+, no clear winner */
+            else if (desperate)   nukeProb = 0.70;
+            else if (veryLateGame) nukeProb = 0.60;
+            else if (lateGame)    nukeProb = 0.45;
+            else                  nukeProb = 0.25;
+
+            /* Late-game tolerance boost: even peaceful nations get desperate */
+            const toleranceBoost = veryLateGame ? 0.3 : lateGame ? 0.15 : 0;
+            const effectiveTolerance = Math.min(1.0, profile.nukeTolerance + toleranceBoost + 0.3);
+
+            if (useNuke && Math.random() < nukeProb * effectiveTolerance) {
                 /* Pick strongest enemy */
                 const sortedEnemies = situation.enemies
                     .filter(e => state.nations[e]?.alive)
                     .sort((a, b) => GameEngine.calcMilitary(b, 'def') - GameEngine.calcMilitary(a, 'def'));
+                let nukeUsed = false;
                 for (const enemy of sortedEnemies) {
                     const targets = findAttackTargets(code, enemy);
                     if (targets.length > 0) {
                         const result = GameEngine.nukeStrike(code, targets[0]);
                         if (result) {
                             actions.push({ type:'nuke', nation:code, target:targets[0], result });
+                            nukeUsed = true;
                             break;
+                        }
+                    }
+                }
+                /* Stalemate escalation: nuke the dominant rival even if not at war */
+                if (!nukeUsed && stalemate && (n.army.nuke || 0) > 0) {
+                    const rivals = Object.keys(state.nations)
+                        .filter(c => c !== code && state.nations[c]?.alive && !GameEngine.isAlly(code, c))
+                        .sort((a, b) => GameEngine.getTerritoryCount(b) - GameEngine.getTerritoryCount(a));
+                    for (const rival of rivals) {
+                        const targets = findAttackTargets(code, rival);
+                        if (targets.length > 0) {
+                            const result = GameEngine.nukeStrike(code, targets[0]);
+                            if (result) {
+                                actions.push({ type:'nuke', nation:code, target:targets[0], result });
+                                break;
+                            }
                         }
                     }
                 }
@@ -1139,7 +1179,14 @@ const AI = (() => {
             consolidate: ['green_energy','deep_mining','missile_defense','nuclear_program','bio_defense','cyberwarfare'],
             dominate:    ['nuclear_program','missile_defense','hypersonic','ai_warfare','stealth_tech','space_recon']
         };
-        const preferred = goalPriority[situation.goal] || goalPriority.expand;
+        let preferred = goalPriority[situation.goal] || goalPriority.expand;
+
+        /* Late-game escalation: after turn 40, prioritize nuclear program as tiebreaker */
+        const gameTurn = GameEngine.getState()?.turn || 0;
+        if (gameTurn > 40 && !state.nations[code]?.techs?.includes('nuclear_program')) {
+            /* Push nuclear prereq (missile_defense) and nuclear_program to the front */
+            preferred = ['missile_defense', 'nuclear_program', ...preferred.filter(t => t !== 'missile_defense' && t !== 'nuclear_program')];
+        }
 
         /* Try preferred techs first */
         for (const techId of preferred) {
