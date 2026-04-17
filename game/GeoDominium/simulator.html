@@ -44,7 +44,7 @@ h2{font-family:'Orbitron',sans-serif;color:#00e5ff;font-size:1.1rem;margin:24px 
 .sim-card .card-head .winner-name{font-family:'Orbitron',sans-serif;color:#fff;font-size:1rem}
 .sim-card .card-head .winner-code{color:#64748b;font-size:.8rem}
 
-.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;margin-right:4px}
+.tag{display:inline-block;margin-bottom:4px; padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;margin-right:4px}
 .tag-military{background:#ef444430;color:#ef4444}
 .tag-hegemony{background:#a855f730;color:#a855f7}
 .tag-economic{background:#22c55e30;color:#22c55e}
@@ -84,6 +84,16 @@ h2{font-family:'Orbitron',sans-serif;color:#00e5ff;font-size:1.1rem;margin:24px 
 
 <h1>🧪 GeoDominium AI Simulator</h1>
 <p class="subtitle">Headless AI battle simulation — test nation behaviour without playing</p>
+<details style="max-width:700px;margin:0 auto 16px;background:#111827;border:1px solid #1e293b;border-radius:10px;padding:12px;font-size:.8rem;color:#94a3b8">
+<summary style="cursor:pointer;color:#00e5ff;font-family:'Orbitron',sans-serif;font-size:.85rem">📋 Condizioni di Vittoria</summary>
+<ul style="margin:8px 0 0 16px;line-height:1.8">
+<li><span class="tag tag-military">MILITARY</span> Conquista <b>≥ 55%</b> dei territori</li>
+<li><span class="tag tag-hegemony">HEGEMONY</span> Turno ≥ 60, <b>≥ 35%</b> territori, vantaggio ≥ 20 sul secondo e rapporto ≥ 2.5×</li>
+<li><span class="tag tag-economic">ECONOMIC</span> Fondi <b>≥ 80.000</b> + <b>≥ 35%</b> territori</li>
+<li><span class="tag tag-strategic">STRATEGIC</span> Controlla tutti i territori con <b>asset strategici</b> (chokepoint/basi/rotte)</li>
+<li><span class="tag tag-timeout">TIMEOUT</span> Turno massimo raggiunto — vince chi ha più territori</li>
+</ul>
+</details>
 
 <div class="controls">
   <label>Simulazioni: <input type="number" id="simCount" value="10" min="1" max="100"></label>
