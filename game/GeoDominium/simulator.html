@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧪 GeoDominium AI Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e17;color:#c8d6e5;font-family:'Rajdhani',sans-serif;min-height:100vh;padding:20px}
+h1{font-family:'Orbitron',sans-serif;color:#00e5ff;text-align:center;font-size:1.8rem;margin-bottom:6px}
+h2{font-family:'Orbitron',sans-serif;color:#00e5ff;font-size:1.1rem;margin:24px 0 10px}
+.subtitle{text-align:center;color:#576574;font-size:.9rem;margin-bottom:20px}
+
+/* Controls */
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;
+  background:#111827;border:1px solid #1e293b;border-radius:10px;padding:16px;margin-bottom:20px}
+.controls label{font-weight:600;color:#94a3b8;font-size:.85rem}
+.controls input[type=number]{width:70px;background:#0f172a;border:1px solid #334155;border-radius:6px;
+  color:#00e5ff;padding:4px 8px;font-family:'Rajdhani',sans-serif;font-size:1rem;text-align:center}
+.controls input[type=checkbox]{accent-color:#00e5ff}
+.btn{font-family:'Orbitron',sans-serif;background:linear-gradient(135deg,#00e5ff,#0070ff);color:#0a0e17;
+  border:none;border-radius:8px;padding:8px 22px;font-size:.9rem;font-weight:700;cursor:pointer;
+  transition:all .15s}
+.btn:hover{filter:brightness(1.2);transform:scale(1.03)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#b91c1c)}
+.btn-sm{padding:5px 14px;font-size:.75rem}
+
+/* Progress */
+.progress-wrap{width:100%;background:#1e293b;border-radius:8px;height:22px;margin-bottom:16px;overflow:hidden;display:none}
+.progress-bar{height:100%;background:linear-gradient(90deg,#00e5ff,#6366f1);border-radius:8px;
+  transition:width .2s;display:flex;align-items:center;justify-content:center;font-size:.7rem;
+  font-weight:700;color:#0a0e17;min-width:30px}
+
+/* Results grid */
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:16px;margin-bottom:30px}
+
+/* Sim card */
+.sim-card{background:#111827;border-radius:10px;border:2px solid #1e293b;padding:14px;overflow:hidden}
+.sim-card .card-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sim-card .card-head .sim-num{font-family:'Orbitron',sans-serif;color:#64748b;font-size:.8rem}
+.sim-card .card-head .flag-big{width:28px;height:28px}
+.sim-card .card-head .winner-name{font-family:'Orbitron',sans-serif;color:#fff;font-size:1rem}
+.sim-card .card-head .winner-code{color:#64748b;font-size:.8rem}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;margin-right:4px}
+.tag-military{background:#ef444430;color:#ef4444}
+.tag-hegemony{background:#a855f730;color:#a855f7}
+.tag-economic{background:#22c55e30;color:#22c55e}
+.tag-strategic{background:#eab30830;color:#eab308}
+.tag-timeout{background:#64748b30;color:#94a3b8}
+
+.stats-row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.stat{background:#0f172a;border-radius:4px;padding:2px 8px;font-size:.75rem;color:#94a3b8}
+.stat b{color:#e2e8f0}
+
+.nuke-line{color:#f59e0b;font-size:.8rem;margin:4px 0}
+.nuke-line img{width:16px;height:16px;vertical-align:middle}
+
+/* Survivors table */
+.surv-table{width:100%;border-collapse:collapse;font-size:.75rem;margin:6px 0}
+.surv-table th{text-align:left;color:#64748b;border-bottom:1px solid #1e293b;padding:2px 4px;font-weight:600}
+.surv-table td{padding:2px 4px;border-bottom:1px solid #0f172a}
+.surv-table .highlight td{color:#00e5ff;font-weight:700}
+.surv-table img{width:16px;height:16px;vertical-align:middle;margin-right:3px}
+
+/* Territory grid */
+.terr-grid{display:flex;flex-wrap:wrap;gap:1px;margin-top:6px}
+.terr-cell{width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:2px}
+.terr-cell img{width:16px;height:16px}
+
+/* Aggregate stats */
+.agg-section{background:#111827;border:1px solid #1e293b;border-radius:10px;padding:16px;margin-bottom:16px}
+.agg-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.agg-table th{text-align:left;color:#64748b;border-bottom:1px solid #1e293b;padding:4px 8px}
+.agg-table td{padding:4px 8px;border-bottom:1px solid #0f172a}
+.agg-table img{width:18px;height:18px;vertical-align:middle;margin-right:3px}
+.agg-highlight{color:#00e5ff;font-weight:700}
+.breakdown{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+</style>
+</head>
+<body>
+
+<h1>🧪 GeoDominium AI Simulator</h1>
+<p class="subtitle">Headless AI battle simulation — test nation behaviour without playing</p>
+
+<div class="controls">
+  <label>Simulazioni: <input type="number" id="simCount" value="10" min="1" max="100"></label>
+  <label><input type="checkbox" id="useTurnLimit" checked> Turno max: </label>
+  <label><input type="number" id="maxTurns" value="200" min="20" max="1000" style="width:80px"></label>
+  <button class="btn" id="btnRun">▶ AVVIA SIMULAZIONI</button>
+  <button class="btn btn-danger btn-sm" id="btnClear">🗑️ PULISCI</button>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-bar" id="progressBar" style="width:0%">0%</div>
+</div>
+
+<div class="results" id="results"></div>
+<div id="aggregate"></div>
+
+<!-- Stubs BEFORE real scripts -->
+<script>
+// Stub globals that AI/GameEngine may reference but simulator doesn't need
+window.MapRenderer = { colorTerritory(){}, resetColors(){}, init(){}, getElement(){return null}, setGarrisonOverlay(){}, removeGarrisonOverlay(){}, removeAllGarrisonOverlays(){} };
+window.Animations  = { flash(){}, pulse(){}, explode(){}, nuke(){} };
+window.EventBus    = { emit(){}, on(){}, off(){} };
+window.UI          = { updateHUD(){}, updateMapLegend(){}, showBattleResult(){}, updateMilitaryBar(){} };
+window.DevLog      = { log(){}, warn(){}, error(){} };
+</script>
+
+<!-- Game scripts (order matters) -->
+<script src="js/twemoji.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/game-engine.js"></script>
+<script src="js/ai.js"></script>
+
+<script>
+(() => {
+    /* ── DOM refs ── */
+    const $simCount    = document.getElementById('simCount');
+    const $useTurnLimit= document.getElementById('useTurnLimit');
+    const $maxTurns    = document.getElementById('maxTurns');
+    const $btnRun      = document.getElementById('btnRun');
+    const $btnClear    = document.getElementById('btnClear');
+    const $progressWrap= document.getElementById('progressWrap');
+    const $progressBar = document.getElementById('progressBar');
+    const $results     = document.getElementById('results');
+    const $aggregate   = document.getElementById('aggregate');
+
+    /* ── Flag helper (same logic as ui.js _flagAssetForCode) ── */
+    function flagAsset(code) {
+        const cc = String(code || '').trim().toUpperCase();
+        if (!/^[A-Z]{2}$/.test(cc)) return '';
+        return Array.from(cc).map(ch => (0x1F1E6 + ch.charCodeAt(0) - 65).toString(16)).join('-');
+    }
+    function flagImg(code, size) {
+        const a = flagAsset(code);
+        if (!a) return '';
+        const s = size || 16;
+        return `<img src="assets/emoji/${a}.svg" width="${s}" height="${s}" alt="${code}" loading="lazy" decoding="async" style="vertical-align:middle">`;
+    }
+
+    /* ── Tag color for victory type ── */
+    function victoryTag(type) {
+        const t = (type || 'timeout').toLowerCase();
+        return `<span class="tag tag-${t}">${t.toUpperCase()}</span>`;
+    }
+
+    /* ── Aggregate data ── */
+    let allResults = [];
+
+    /* ── Run simulations ── */
+    $btnRun.addEventListener('click', () => startSimulations());
+    $btnClear.addEventListener('click', () => {
+        $results.innerHTML = '';
+        $aggregate.innerHTML = '';
+        allResults = [];
+    });
+
+    async function startSimulations() {
+        const count    = Math.max(1, Math.min(100, parseInt($simCount.value) || 10));
+        const useLimit = $useTurnLimit.checked;
+        const maxT     = parseInt($maxTurns.value) || 200;
+
+        $btnRun.disabled = true;
+        $progressWrap.style.display = 'block';
+        allResults = [];
+        $results.innerHTML = '';
+        $aggregate.innerHTML = '';
+
+        const nationCodes = Object.keys(NATIONS);
+
+        for (let i = 0; i < count; i++) {
+            /* Update progress */
+            const pct = Math.round(((i) / count) * 100);
+            $progressBar.style.width = pct + '%';
+            $progressBar.textContent = `${i}/${count}`;
+
+            /* Yield to UI */
+            await new Promise(r => setTimeout(r, 0));
+
+            /* Run one simulation */
+            const result = runOneSim(nationCodes, useLimit, maxT, i + 1);
+            allResults.push(result);
+            $results.appendChild(buildCard(result));
+        }
+
+        $progressBar.style.width = '100%';
+        $progressBar.textContent = `${count}/${count} ✓`;
+        $btnRun.disabled = false;
+
+        renderAggregate();
+    }
+
+    /* ── Single simulation ── */
+    function runOneSim(nationCodes, useLimit, maxTurns, simNum) {
+        const playerCode = nationCodes[Math.floor(Math.random() * nationCodes.length)];
+        GameEngine.newGame(playerCode);
+
+        let state = GameEngine.getState();
+        const limit = useLimit ? maxTurns : 9999;
+
+        while (!state.gameOver && state.turn <= limit) {
+            try {
+                GameEngine.startNewTurn(true);  // skip player collect (AI does it)
+                // processAllAI is async but in headless mode it's effectively sync
+                // (no animation delays). We call it synchronously-ish.
+                processAllAISync(state);
+                GameEngine.checkVictory();
+                state = GameEngine.getState();
+            } catch (e) {
+                console.warn(`Sim #${simNum} error at turn ${state.turn}:`, e);
+                break;
+            }
+        }
+
+        state = GameEngine.getState();
+
+        /* If timeout, find best nation */
+        let victor = state.victor;
+        let victoryType = state.victoryType || 'timeout';
+        if (!state.gameOver || !victor) {
+            victoryType = 'timeout';
+            let bestCode = null, bestCount = 0;
+            for (const c of Object.keys(state.nations)) {
+                if (!state.nations[c].alive) continue;
+                const tc = GameEngine.getTerritoryCount(c);
+                if (tc > bestCount) { bestCount = tc; bestCode = c; }
+            }
+            victor = bestCode;
+        }
+
+        /* Collect survivors */
+        const survivors = [];
+        for (const c of Object.keys(state.nations)) {
+            const n = state.nations[c];
+            if (!n.alive) continue;
+            const tc = GameEngine.getTerritoryCount(c);
+            survivors.push({
+                code: c, name: n.name, flag: n.flag, color: n.color,
+                territories: tc,
+                pct: ((tc / SVG_IDS.length) * 100).toFixed(1),
+                money: n.res?.money || 0,
+                atk: GameEngine.calcMilitary(c, 'atk'),
+                def: GameEngine.calcMilitary(c, 'def'),
+                units: Object.values(n.army || {}).reduce((a, b) => a + b, 0),
+                techs: (n.techs || []).length,
+                nukesUsed: n.nukesUsed || 0
+            });
+        }
+        survivors.sort((a, b) => b.territories - a.territories);
+
+        /* Territory map */
+        const terrMap = {};
+        for (const tCode of SVG_IDS) {
+            const owner = state.territories[tCode];
+            terrMap[tCode] = owner;
+        }
+
+        /* Nuke users */
+        const nukeUsers = survivors.filter(s => s.nukesUsed > 0);
+
+        const victorData = survivors.find(s => s.code === victor) || survivors[0] || {};
+
+        return {
+            simNum, turn: state.turn, victor, victoryType,
+            victorData, survivors, nukeUsers, terrMap,
+            nationColors: Object.fromEntries(
+                Object.entries(state.nations).map(([c, n]) => [c, n.color])
+            )
+        };
+    }
+
+    /* Synchronous AI processing (mirrors AI.processAllAI but without async/await) */
+    function processAllAISync(state) {
+        const aiNations = GameEngine.getAINations();
+        // Include player as AI
+        if (state.player && state.nations[state.player]?.alive) {
+            aiNations.push(state.player);
+        }
+        // Shuffle
+        for (let i = aiNations.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [aiNations[i], aiNations[j]] = [aiNations[j], aiNations[i]];
+        }
+        for (const code of aiNations) {
+            if (!state.nations[code]?.alive) continue;
+            try {
+                // Use AI's internal processNation if available, else full processAllAI
+                if (typeof AI.processAllAI === 'function') {
+                    // AI.processAllAI is async but internally it's sync when no callbacks
+                    // We just call it once for all nations — break after
+                }
+                GameEngine.collectResources(code);
+            } catch (e) { /* skip dead nation */ }
+        }
+        // Just call processAllAI synchronously — it returns a promise but
+        // since there are no real awaits (no animation delays), it completes in the microtask
+        try {
+            AI.processAllAI(null, true);
+        } catch(e) { console.warn('AI error:', e); }
+        GameEngine.rollRandomEvents();
+    }
+
+    /* ── Build result card ── */
+    function buildCard(r) {
+        const card = document.createElement('div');
+        card.className = 'sim-card';
+        const borderColor = r.victorData.color || '#00e5ff';
+        card.style.borderColor = borderColor;
+
+        const totalTerr = SVG_IDS.length;
+        const vd = r.victorData;
+
+        let html = `
+        <div class="card-head">
+            <span class="sim-num">#${r.simNum}</span>
+            ${flagImg(r.victor, 28)}
+            <span class="winner-name">${vd.name || r.victor}</span>
+            <span class="winner-code">${r.victor}</span>
+            ${victoryTag(r.victoryType)}
+        </div>
+        <div class="stats-row">
+            <span class="stat">🏁 Turno <b>${r.turn}</b></span>
+            <span class="stat">📅 Anno <b>${2025 + r.turn}</b></span>
+            <span class="stat">🗺️ <b>${vd.territories}</b> terr. (${vd.pct}%)</span>
+            <span class="stat">💰 <b>${vd.money}</b></span>
+            <span class="stat">⚔️ ATK <b>${vd.atk}</b></span>
+            <span class="stat">🛡️ DEF <b>${vd.def}</b></span>
+            <span class="stat">👥 <b>${vd.units}</b> unità</span>
+            <span class="stat">🔬 <b>${vd.techs}</b> tech</span>
+        </div>`;
+
+        /* Nuke report */
+        if (r.nukeUsers.length > 0) {
+            html += `<div class="nuke-line">☢️ <b>Nuke:</b> `;
+            html += r.nukeUsers.map(n =>
+                `${flagImg(n.code)} ${n.name}: <b>${n.nukesUsed}</b>`
+            ).join(' · ');
+            html += `</div>`;
+        }
+
+        /* Survivors table */
+        html += `<table class="surv-table"><tr><th></th><th>Nazione</th><th>Terr.</th><th>%</th><th>💰</th></tr>`;
+        for (const s of r.survivors.slice(0, 15)) {
+            const hl = s.code === r.victor ? ' class="highlight"' : '';
+            html += `<tr${hl}><td>${flagImg(s.code)}</td><td>${s.name}</td>
+                     <td>${s.territories}</td><td>${s.pct}%</td><td>${s.money}</td></tr>`;
+        }
+        if (r.survivors.length > 15) {
+            html += `<tr><td colspan="5" style="color:#64748b;font-style:italic">…e altre ${r.survivors.length - 15} nazioni</td></tr>`;
+        }
+        html += `</table>`;
+
+        /* Territory grid */
+        html += `<details><summary style="cursor:pointer;color:#64748b;font-size:.75rem;margin-top:6px">🗺️ Mappa territori (${totalTerr})</summary><div class="terr-grid">`;
+        for (const tCode of SVG_IDS) {
+            const owner = r.terrMap[tCode];
+            const bgColor = (r.nationColors[owner] || '#333') + '26'; // ~15% opacity
+            html += `<div class="terr-cell" style="background:${bgColor}" title="${tCode} → ${owner}">${flagImg(owner, 16)}</div>`;
+        }
+        html += `</div></details>`;
+
+        card.innerHTML = html;
+        return card;
+    }
+
+    /* ── Aggregate statistics ── */
+    function renderAggregate() {
+        if (allResults.length === 0) { $aggregate.innerHTML = ''; return; }
+
+        const total = allResults.length;
+        let html = '';
+
+        /* 🏆 Win leaderboard */
+        const wins = {};
+        allResults.forEach(r => {
+            if (!r.victor) return;
+            if (!wins[r.victor]) wins[r.victor] = { code: r.victor, name: r.victorData.name, count: 0, fastestTurn: Infinity, types: {} };
+            wins[r.victor].count++;
+            wins[r.victor].fastestTurn = Math.min(wins[r.victor].fastestTurn, r.turn);
+            const vt = r.victoryType || 'timeout';
+            wins[r.victor].types[vt] = (wins[r.victor].types[vt] || 0) + 1;
+        });
+        const ranked = Object.values(wins).sort((a, b) => b.count - a.count);
+
+        html += `<div class="agg-section"><h2>🏆 Classifica Vincitori</h2>
+        <table class="agg-table"><tr><th>#</th><th></th><th>Nazione</th><th>Vittorie</th><th>Win %</th><th>Più veloce</th><th>Tipo più comune</th></tr>`;
+        ranked.forEach((w, i) => {
+            const topType = Object.entries(w.types).sort((a, b) => b[1] - a[1])[0];
+            html += `<tr><td>${i + 1}</td><td>${flagImg(w.code, 18)}</td>
+                     <td>${w.name}</td><td class="agg-highlight">${w.count}</td>
+                     <td>${((w.count / total) * 100).toFixed(1)}%</td>
+                     <td>T${w.fastestTurn}</td><td>${victoryTag(topType[0])}</td></tr>`;
+        });
+        html += `</table></div>`;
+
+        /* ☢️ Nuke stats */
+        let nukeGames = 0;
+        const nukeTotals = {};
+        allResults.forEach(r => {
+            if (r.nukeUsers.length > 0) nukeGames++;
+            r.nukeUsers.forEach(n => {
+                if (!nukeTotals[n.code]) nukeTotals[n.code] = { code: n.code, name: n.name, total: 0 };
+                nukeTotals[n.code].total += n.nukesUsed;
+            });
+        });
+        const topNuker = Object.values(nukeTotals).sort((a, b) => b.total - a.total)[0];
+        html += `<div class="agg-section"><h2>☢️ Uso Nucleare</h2>
+            <p>Partite con nuke: <b class="agg-highlight">${nukeGames}</b> / ${total} (${((nukeGames / total) * 100).toFixed(1)}%)</p>`;
+        if (topNuker) {
+            html += `<p>Top nuke user: ${flagImg(topNuker.code)} <b>${topNuker.name}</b> — ${topNuker.total} testate totali</p>`;
+        }
+        html += `</div>`;
+
+        /* ⏱️ Duration */
+        const turns = allResults.map(r => r.turn);
+        const avg = (turns.reduce((a, b) => a + b, 0) / turns.length).toFixed(1);
+        const min = Math.min(...turns);
+        const max = Math.max(...turns);
+        html += `<div class="agg-section"><h2>⏱️ Durata Partite</h2>
+            <p>Media: <b class="agg-highlight">${avg}</b> turni · Min: <b>${min}</b> · Max: <b>${max}</b></p></div>`;
+
+        /* 📊 Victory types */
+        const vtCounts = {};
+        allResults.forEach(r => { const vt = r.victoryType || 'timeout'; vtCounts[vt] = (vtCounts[vt] || 0) + 1; });
+        html += `<div class="agg-section"><h2>📊 Tipi di Vittoria</h2><div class="breakdown">`;
+        for (const [vt, c] of Object.entries(vtCounts).sort((a, b) => b[1] - a[1])) {
+            html += `<div>${victoryTag(vt)} <b>${c}</b> (${((c / total) * 100).toFixed(1)}%)</div>`;
+        }
+        html += `</div></div>`;
+
+        $aggregate.innerHTML = html;
+    }
+})();
+</script>
+</body>
+</html>

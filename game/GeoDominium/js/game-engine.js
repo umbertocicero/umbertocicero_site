@@ -440,69 +440,85 @@ const GameEngine = (() => {
                 homelandSiege = handleHomelandSiege(defender, attackerCode);
 
                 if (homelandSiege.survived) {
-                    /* Reduced loot — only the homeland's share */
-                    const share = 1 / Math.max(1, defTerrCount);
-                    const lootMult = 0.7 + Math.random() * 0.2; // 70-90% of share
-                    Object.keys(def.res).forEach(r => {
-                        const amt = Math.floor(def.res[r] * share * lootMult);
-                        if (amt > 0) { loot[r] = (loot[r]||0) + amt; atk.res[r] = (atk.res[r]||0) + amt; def.res[r] -= amt; }
+                    /* Defender survived siege — minimal spoils.
+                     * The reward is the TERRITORY itself (future production).
+                     * Only seize what the territory locally produces (1 turn). */
+                    const tBase = getNation(defenderTerritoryCode);
+                    const tProd = tBase?.prod || {};
+                    Object.entries(tProd).forEach(([r, v]) => {
+                        if (v > 0) {
+                            const amt = Math.round(v * (0.5 + Math.random() * 0.5)); // 50-100% of 1 turn
+                            if (amt > 0) { loot[r] = (loot[r]||0) + amt; atk.res[r] = (atk.res[r]||0) + amt; }
+                        }
                     });
                 } else {
-                    /* Total collapse — seize ALL resources, destroy remaining army */
+                    /* Total collapse — nation destroyed. Seize national treasury.
+                     * This is the ONLY case where you get the full treasury:
+                     * the nation ceases to exist, its coffers are captured. */
                     Object.keys(def.res).forEach(r => {
                         const amt = def.res[r];
                         if (amt > 0) { loot[r] = (loot[r]||0) + amt; atk.res[r] = (atk.res[r]||0) + amt; def.res[r] = 0; }
                     });
-                    /* Enemy army destroyed in battle — no capture */
+                    /* Enemy army destroyed — no capture */
                     Object.keys(def.army).forEach(utype => { def.army[utype] = 0; });
                 }
             } else {
                 /* ════ NORMAL CONQUEST ════
-                 * Territory's proportional share of the nation's resources is seized.
-                 * If the defender only has 1 territory left → we take EVERYTHING.
+                 * DESIGN: The reward for conquest is the TERRITORY ITSELF
+                 * (its future production each turn). War spoils are intentionally
+                 * modest — only the territory's local resources (≈1 turn of
+                 * production). You do NOT raid the enemy's national treasury.
+                 *
+                 * This prevents the exploit of attacking just to loot:
+                 * attacking is expensive (escalating costs + casualties),
+                 * so it's only worthwhile if you HOLD the territory long-term.
+                 *
+                 * Exception: eliminating the LAST territory = full treasury seizure.
                  */
                 _setTerritoryOwner(defenderTerritoryCode, attackerCode);
                 delete state.unrest[defenderTerritoryCode];
                 conquered = true;
 
-                const share = 1 / Math.max(1, defTerrCount); // e.g. 1/3 if they had 3 territories
-                const lootMult = 0.8 + Math.random() * 0.2;  // 80-100% of the share
+                if (defTerrCount <= 1) {
+                    /* ── ELIMINATION: last territory → seize entire treasury ── */
+                    Object.keys(def.res).forEach(r => {
+                        const amt = def.res[r];
+                        if (amt > 0) {
+                            loot[r] = (loot[r] || 0) + amt;
+                            atk.res[r] = (atk.res[r] || 0) + amt;
+                            def.res[r] = 0;
+                        }
+                    });
+                    Object.keys(def.army).forEach(utype => { def.army[utype] = 0; });
+                } else {
+                    /* ── NORMAL: modest war spoils = territory's local production ── */
+                    const tBase = getNation(defenderTerritoryCode);
+                    const tProd = tBase?.prod || {};
+                    Object.entries(tProd).forEach(([r, v]) => {
+                        if (v > 0) {
+                            const amt = Math.round(v * (0.5 + Math.random() * 0.5)); // 50-100% of 1 turn
+                            if (amt > 0) {
+                                loot[r] = (loot[r] || 0) + amt;
+                                atk.res[r] = (atk.res[r] || 0) + amt;
+                            }
+                        }
+                    });
+                    /* Defender loses a small fraction of army (garrison destroyed) */
+                    const destroyRate = 0.03 + Math.random() * 0.07;  // 3-10%
+                    Object.keys(def.army).forEach(utype => {
+                        const lost = Math.floor(def.army[utype] * destroyRate);
+                        if (lost > 0) def.army[utype] -= lost;
+                    });
+                }
 
-                /* Seize proportional resources */
-                Object.keys(def.res).forEach(r => {
-                    const amt = Math.floor(def.res[r] * share * lootMult);
-                    if (amt > 0) {
-                        loot[r] = (loot[r] || 0) + amt;
-                        atk.res[r] = (atk.res[r] || 0) + amt;
-                        def.res[r] -= amt;
-                    }
-                });
-
-                /* Also add the territory's base production as a one-time bonus (war spoils) */
-                const tBase = getNation(defenderTerritoryCode);
-                const tProd = tBase?.prod || {};
-                Object.entries(tProd).forEach(([r, v]) => {
-                    if (v > 0) {
-                        const bonus = Math.round(v * (2 + Math.random()));  // 2-3 turns worth
-                        loot[r] = (loot[r] || 0) + bonus;
-                        atk.res[r] = (atk.res[r] || 0) + bonus;
-                    }
-                });
-
-                /* Enemy forces defending the territory are destroyed in battle */
-                const destroyRate = 0.05 + Math.random() * 0.10;  // 5-15% additional losses
-                Object.keys(def.army).forEach(utype => {
-                    const lost = Math.floor(def.army[utype] * destroyRate);
-                    if (lost > 0) def.army[utype] -= lost;
-                });
-
-                /* Log the loot */
+                /* Log war spoils (if any) */
                 const lootParts = [];
                 Object.entries(loot).forEach(([r, v]) => {
                     if (v > 0) lootParts.push(`${RESOURCES[r]?.icon||r}${v}`);
                 });
                 if (lootParts.length) {
-                    emit('battle', `🏴 ${atk.flag} ${atk.name} ${_t('ge_loots')} ${def.flag} ${def.name}: 📦 ${lootParts.join(' ')}`);
+                    const msgKey = defTerrCount <= 1 ? _t('ge_loots') : _t('ge_war_spoils');
+                    emit('battle', `🏴 ${atk.flag} ${atk.name} ${msgKey} ${def.flag} ${def.name}: 📦 ${lootParts.join(' ')}`);
                 }
             } /* end normal conquest vs homeland siege */
 
