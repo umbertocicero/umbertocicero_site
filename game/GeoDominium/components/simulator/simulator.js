@@ -252,14 +252,18 @@
         }
         html += `</table>`;
 
-        /* Territory grid */
-        html += `<details><summary style="cursor:pointer;color:#64748b;font-size:.75rem;margin-top:6px">🗺️ Mappa territori (${totalTerr})</summary><div class="terr-grid">`;
-        for (const tCode of SVG_IDS) {
-            const owner = r.terrMap[tCode];
-            const bgColor = (r.nationColors[owner] || '#333') + '26';
-            html += `<div class="terr-cell" style="background:${bgColor}" title="${tCode} → ${owner}">${flagImg(owner, 16)}</div>`;
+        /* Territory grid — only show territories owned by nations NOT in the top 15 table */
+        const shownCodes = new Set(r.survivors.slice(0, 15).map(s => s.code));
+        const hiddenTerritories = SVG_IDS.filter(tCode => !shownCodes.has(r.terrMap[tCode]));
+        if (hiddenTerritories.length > 0) {
+            html += `<details><summary style="cursor:pointer;color:#64748b;font-size:.75rem;margin-top:6px">🗺️ Territori altre nazioni (${hiddenTerritories.length})</summary><div class="terr-grid">`;
+            for (const tCode of hiddenTerritories) {
+                const owner = r.terrMap[tCode];
+                const bgColor = (r.nationColors[owner] || '#333') + '26';
+                html += `<div class="terr-cell" style="background:${bgColor}" title="${tCode} → ${owner}">${flagImg(owner, 16)}</div>`;
+            }
+            html += `</div></details>`;
         }
-        html += `</div></details>`;
 
         card.innerHTML = html;
         return card;

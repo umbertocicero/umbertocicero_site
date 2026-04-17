@@ -244,6 +244,8 @@ const I18n = (() => {
             nd_territories:       '🌍 TERRITORI ({n})',
             nd_no_territories:    'Nessun territorio',
             nl_title:             '🗺️ NAZIONI',
+            nl_minor:             'Nazioni minori ({n})',
+            nl_eliminated:        'Eliminate ({n})',
 
             /* ── Animation labels ── */
             anim_conquered:       'CONQUISTATO!',
@@ -859,6 +861,8 @@ const I18n = (() => {
             nd_territories:       '🌍 TERRITORIES ({n})',
             nd_no_territories:    'No territories',
             nl_title:             '🗺️ NATIONS',
+            nl_minor:             'Minor nations ({n})',
+            nl_eliminated:        'Eliminated ({n})',
 
             /* ── Animation labels ── */
             anim_conquered:       'CONQUERED!',

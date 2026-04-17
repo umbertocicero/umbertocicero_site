@@ -389,6 +389,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 /* Flag images in tooltips, legend, and nation detail */
 .tt-flag-img { width: 1.1em; height: 1.1em; vertical-align: -0.15em; object-fit: contain; }
 .legend-flag-img { width: 1em; height: 1em; vertical-align: -0.1em; object-fit: contain; }
+.legend-minor { opacity: 0.5; font-style: italic; border-top: 1px solid var(--border-subtle); padding-top: 4px; margin-top: 4px; }
 .nation-flag-img { width: 36px; height: 36px; object-fit: contain; }
 .map-tooltip .tt-res { margin-top: var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.6; }
 

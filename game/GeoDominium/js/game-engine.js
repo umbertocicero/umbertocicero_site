@@ -511,15 +511,6 @@ const GameEngine = (() => {
                     });
                 }
 
-                /* Log war spoils (if any) */
-                const lootParts = [];
-                Object.entries(loot).forEach(([r, v]) => {
-                    if (v > 0) lootParts.push(`${RESOURCES[r]?.icon||r}${v}`);
-                });
-                if (lootParts.length) {
-                    const msgKey = defTerrCount <= 1 ? _t('ge_loots') : _t('ge_war_spoils');
-                    emit('battle', `🏴 ${atk.flag} ${atk.name} ${msgKey} ${def.flag} ${def.name}: 📦 ${lootParts.join(' ')}`);
-                }
             } /* end normal conquest vs homeland siege */
 
             /* Declare war if not already */
@@ -593,6 +584,19 @@ const GameEngine = (() => {
                 `(☠️ ${atkDeadTotal} vs ${defDeadTotal})`;
         }
         emit('battle', battleMsg);
+
+        /* Log war spoils (if any) — after battle result */
+        if (success) {
+            const lootParts = [];
+            Object.entries(loot).forEach(([r, v]) => {
+                if (v > 0) lootParts.push(`${RESOURCES[r]?.icon||r}${v}`);
+            });
+            if (lootParts.length) {
+                const defTerrCount = Object.values(state.territories).filter(o => o === defender).length;
+                const msgKey = defTerrCount <= 0 ? _t('ge_loots') : _t('ge_war_spoils');
+                emit('battle', `🏴 ${atk.flag} ${atk.name} ${msgKey} ${def.flag} ${def.name}: 📦 ${lootParts.join(' ')}`);
+            }
+        }
 
         /* Check elimination */
         checkElimination(defender);

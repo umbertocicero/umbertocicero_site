@@ -126,6 +126,17 @@ const UI = (() => {
             .join('-');
     }
 
+    /** Resolve nation info (name/flag/color) with fallback to minor nations */
+    function _nationInfo(code) {
+        if (!code) return { code: '??', name: '???', flag: '🏳️', color: '#888' };
+        const state = GameEngine.getState();
+        const n = state?.nations[code];
+        if (n) return { code, name: n.name, flag: n.flag, color: n.color };
+        const minor = (typeof getMinorNation === 'function') ? getMinorNation(code) : null;
+        const mn = (typeof MINOR_NAMES !== 'undefined') ? MINOR_NAMES[code] : null;
+        return { code, name: minor?.name || mn?.name || code.toUpperCase(), flag: minor?.flag || mn?.flag || '🏳️', color: minor?.color || '#888' };
+    }
+
     function _flagImgHtml(code, alt, cls) {
         const asset = _flagAssetForCode(code);
         if (!asset) return `<span class="${cls || 'flag-img-fallback'}">${alt || code || ''}</span>`;
@@ -938,9 +949,22 @@ const UI = (() => {
             allNations.unshift(p);
         }
 
-        let html = `<div class="legend-header"><span class="legend-title">${t('nl_title')}</span><button class="legend-toggle" id="btn-legend-toggle">◀</button></div>`;
+        /* Split into alive and dead nations */
+        const aliveNations = allNations.filter(n => n.alive || n.count > 0);
+        const deadNations = allNations.filter(n => !n.alive && n.count === 0);
 
-        allNations.forEach(({ code, count, alive }) => {
+        /* Total territories for verification */
+        const totalTerritories = Object.keys(state.territories).length;
+        const aliveTotal = aliveNations.reduce((s, n) => s + n.count, 0);
+        const majorCodes = new Set(Object.keys(NATIONS));
+        const minorTotal = Object.values(nationCounts).reduce((s, v) => s + v, 0)
+            - allNations.reduce((s, n) => s + n.count, 0);
+        const minorNationCount = Object.keys(nationCounts).filter(c => !majorCodes.has(c)).length;
+
+        let html = `<div class="legend-header"><span class="legend-title">${t('nl_title')}</span><span class="legend-total" style="font-size:0.6rem;color:var(--text-dim);margin-left:auto;margin-right:8px;font-family:var(--font-mono);">${totalTerritories} 🌍</span><button class="legend-toggle" id="btn-legend-toggle">◀</button></div>`;
+
+        /* Alive nations (+ nations with territories even if "dead" state) */
+        aliveNations.forEach(({ code, count, alive }) => {
             const n = state.nations[code];
             if (!n) return;
             const isPlayer = code === state.player;
@@ -950,10 +974,40 @@ const UI = (() => {
             html += `<div class="legend-item ${cls}" data-code="${code}">${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">${count}</span></div>`;
         });
 
+        /* Minor nations summary */
+        if (minorTotal > 0) {
+            html += `<div class="legend-item legend-minor">🏳️ <span class="legend-name">${t('nl_minor', {n: minorNationCount})}</span><span class="legend-count">${minorTotal}</span></div>`;
+        }
+
+        /* Dead nations (0 territories) — collapsible */
+        if (deadNations.length > 0) {
+            html += `<div class="legend-dead-header" id="legend-dead-toggle" style="display:flex;align-items:center;gap:4px;padding:4px 8px;margin-top:4px;border-top:1px solid var(--border-subtle);cursor:pointer;font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;user-select:none;">💀 ${t('nl_eliminated', {n: deadNations.length})} <span style="margin-left:auto;font-size:0.55rem;">▼</span></div>`;
+            html += `<div class="legend-dead-list" id="legend-dead-list" style="display:none;">`;
+            deadNations.forEach(({ code }) => {
+                const n = state.nations[code];
+                if (!n) return;
+                html += `<div class="legend-item legend-dead" data-code="${code}">${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">0</span></div>`;
+            });
+            html += `</div>`;
+        }
+
         /* Skip DOM write + Twemoji parse if nothing changed */
         if (html === _lastLegendHtml) return;
         _lastLegendHtml = html;
         legend.innerHTML = html;
+
+        /* Toggle dead nations list */
+        const deadToggle = document.getElementById('legend-dead-toggle');
+        if (deadToggle) {
+            deadToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const list = document.getElementById('legend-dead-list');
+                if (!list) return;
+                const open = list.style.display !== 'none';
+                list.style.display = open ? 'none' : 'block';
+                deadToggle.querySelector('span:last-child').textContent = open ? '▼' : '▲';
+            });
+        }
     }
     function showNationDetail(code) {
         const state = GameEngine.getState();
@@ -1491,10 +1545,8 @@ const UI = (() => {
         if (owner === state.player) return;
 
         /* Capture nation info BEFORE attack (ownership may change on conquest) */
-        const atkNation = state.nations[state.player];
-        const defNation = state.nations[owner];
-        const atkInfo = { code: state.player, name: atkNation?.name, flag: atkNation?.flag, color: atkNation?.color };
-        const defInfo = { code: owner, name: defNation?.name, flag: defNation?.flag, color: defNation?.color };
+        const atkInfo = _nationInfo(state.player);
+        const defInfo = _nationInfo(owner);
 
         /* Ensure war */
         if (!GameEngine.isAtWar(state.player, owner)) {
@@ -2976,11 +3028,9 @@ const UI = (() => {
         if (!state || state.phase !== 'player') return;
 
         /* Capture nation info BEFORE the nuke (ownership may change) */
-        const atkN = state.nations[state.player];
         const defOwner = state.territories[targetTerritory];
-        const defN = state.nations[defOwner];
-        const atkInfo = { code: state.player, name: atkN?.name, flag: atkN?.flag, color: atkN?.color };
-        const defInfo = { code: defOwner, name: defN?.name, flag: defN?.flag, color: defN?.color };
+        const atkInfo = _nationInfo(state.player);
+        const defInfo = _nationInfo(defOwner);
 
         const result = GameEngine.nukeStrike(state.player, targetTerritory);
         if (!result) {
@@ -3349,10 +3399,8 @@ const UI = (() => {
             _emitBus('ai:action', { action: act, state });
 
             if (act.type === 'attack' && act.result) {
-                const _aN = state.nations[act.result.attacker];
-                const _dN = state.nations[act.result.defender];
-                const _aI = { code: act.result.attacker, name: _aN?.name, flag: _aN?.flag, color: _aN?.color };
-                const _dI = { code: act.result.defender, name: _dN?.name, flag: _dN?.flag, color: _dN?.color };
+                const _aI = _nationInfo(act.result.attacker);
+                const _dI = _nationInfo(act.result.defender);
                 const aiLaunchCode = act.result.launchFrom || act.nation;
                 Animations.spawnBattleFX(aiLaunchCode, act.target, act.result.success, _aI, _dI);
                 if (act.result.conquered) {
@@ -3378,10 +3426,8 @@ const UI = (() => {
                 }
                 await dly(500);
             } else if (act.type === 'nuke' && act.result) {
-                const _nkA = state.nations[act.result.attacker || act.nation];
-                const _nkD = state.nations[act.result.defender || act.target];
-                const _nkAI = { code: act.nation, name: _nkA?.name, flag: _nkA?.flag, color: _nkA?.color };
-                const _nkDI = { code: act.target, name: _nkD?.name, flag: _nkD?.flag, color: _nkD?.color };
+                const _nkAI = _nationInfo(act.result.attacker || act.nation);
+                const _nkDI = _nationInfo(act.result.defender || act.target);
                 if (autoPlayMode) {
                     MapRenderer.flashTerritory(act.target, '#ff00ff', 250);
                 } else {
