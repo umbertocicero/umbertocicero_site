@@ -105,7 +105,7 @@ const NATIONS = {
         res:{money:600,oil:80,gas:70,rareEarth:10,gold:15,silver:10,diamonds:0,uranium:20,steel:60,food:90},
         prod:{money:65,oil:12,gas:10,steel:8,food:12},
         army:{infantry:45,tank:22,fighter:18,bomber:8,drone:14,navy:16,submarine:10,sam:12,cruiseMissile:8,ballisticMissile:4},
-        assets:[],neighbors:['ca','mx','cu','gb','ru'],power:90},
+        assets:[],neighbors:['ca','mx','cu','gb','ru','jp','br'],power:85},
     ru:{name:'Russia',flag:'🇷🇺',color:'#b71c1c',profile:'superpower',
         res:{money:400,oil:90,gas:100,rareEarth:15,gold:25,silver:12,diamonds:20,uranium:25,steel:50,food:50},
         prod:{money:45,oil:15,gas:18,steel:10,food:8},
@@ -135,7 +135,7 @@ const NATIONS = {
         res:{money:350,oil:2,gas:5,rareEarth:1,gold:3,silver:2,diamonds:0,uranium:1,steel:40,food:40},
         prod:{money:40,steel:8,food:5},
         army:{infantry:16,tank:12,fighter:8,bomber:2,drone:5,navy:5,submarine:4,sam:8,cruiseMissile:2},
-        neighbors:['fr','pl','nl','be','at','ch','cz','dk'],power:62},
+        neighbors:['fr','pl','nl','be','at','ch','cz','dk'],power:68},
     jp:{name:'Giappone',flag:'🇯🇵',color:'#ec407a',profile:'defensive',
         res:{money:380,oil:1,gas:2,rareEarth:5,gold:3,silver:5,diamonds:0,uranium:1,steel:30,food:25},
         prod:{money:42,steel:5,food:3},
@@ -175,7 +175,7 @@ const NATIONS = {
         res:{money:300,oil:0,gas:1,rareEarth:5,gold:2,silver:3,diamonds:0,uranium:1,steel:30,food:22},
         prod:{money:35,steel:6,food:3},  /* #6 steel producer, #1 shipbuilding, semiconductor powerhouse */
         army:{infantry:22,tank:10,fighter:12,bomber:2,drone:10,navy:10,submarine:6,sam:12,cruiseMissile:5},
-        neighbors:['cn','kp'],power:55},  /* jp is island, connected via sea */
+        neighbors:['cn','kp','kr','tw','ph','us'],power:50},  /* jp is island, connected via sea */
     kp:{name:'Corea del Nord',flag:'🇰🇵',color:'#ad1457',profile:'unstable',
         res:{money:30,oil:0,gas:0,rareEarth:10,gold:5,silver:2,diamonds:0,uranium:8,steel:10,food:5},
         prod:{money:3,rareEarth:2,uranium:2},
@@ -190,7 +190,7 @@ const NATIONS = {
         res:{money:240,oil:3,gas:8,rareEarth:1,gold:3,silver:2,diamonds:0,uranium:1,steel:22,food:60},
         prod:{money:28,steel:4,food:9},  /* Po Valley breadbasket + Mediterranean agriculture */
         army:{infantry:16,tank:8,fighter:8,bomber:2,drone:4,navy:8,submarine:4,sam:6,cruiseMissile:2},
-        neighbors:['fr','de','at','ch','si'],power:48},
+        neighbors:['fr','de','at','ch','si'],power:55},
     es:{name:'Spagna',flag:'🇪🇸',color:'#ff7043',profile:'neutral',
         res:{money:180,oil:1,gas:2,rareEarth:2,gold:2,silver:3,diamonds:0,uranium:2,steel:15,food:30},
         prod:{money:20,steel:2,food:4},

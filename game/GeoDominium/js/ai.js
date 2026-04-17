@@ -441,6 +441,23 @@ const AI = (() => {
                 score += elimBonus;
             }
 
+            /* 9b. P1 FOCUS FIRE: concentrate attacks on the weakest current enemy.
+               If we're at war with multiple nations, strongly prefer the one closest to elimination.
+               This prevents spreading attacks across too many fronts. */
+            if (atWarWith.has(owner) && atWarWith.size > 1) {
+                let weakestEnemy = null, weakestTerr = Infinity;
+                for (const e of atWarWith) {
+                    if (!state.nations[e]?.alive) continue;
+                    const et = GameEngine.getTerritoryCount(e);
+                    if (et < weakestTerr) { weakestTerr = et; weakestEnemy = e; }
+                }
+                if (owner === weakestEnemy) {
+                    const focusBonus = Math.min(60, Math.round(30 + (10 - Math.min(10, weakestTerr)) * 4));
+                    breakdown.focusFire = focusBonus;
+                    score += focusBonus;
+                }
+            }
+
             /* 10. Penalize attacking dominant nation's homeland (dangerous!) */
             const defHomeland = ownerNation.homeland || owner;
             const homelandPowerThreshold = isEarlyGame ? 50 : 60;
@@ -951,7 +968,11 @@ const AI = (() => {
         }
 
         /* ── Late-game aggression: restless nations attack more ── */
-        const warChance = (profile.aggression + restless * 0.5) * 0.4;
+        /* P1: reduce new war chance if we already have a weak enemy to finish */
+        const hasWeakEnemy = situation.enemies.some(e => 
+            state.nations[e]?.alive && GameEngine.getTerritoryCount(e) <= 5);
+        const focusPenalty = hasWeakEnemy ? 0.3 : 1.0;
+        const warChance = (profile.aggression + restless * 0.5) * 0.4 * focusPenalty;
         if ((state.turn || 0) > 6 && (situation.enemies.length < 2 || unreachableWars) && Math.random() < warChance && !situation.overextended) {
             const potentialTargets = situation.scoredTargets.filter(t =>
                 !GameEngine.isAlly(code, t.owner) &&
