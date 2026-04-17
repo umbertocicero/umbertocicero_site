@@ -370,12 +370,13 @@ const GameEngine = (() => {
 
         /* ── Homeland defense bonus ──
          * Defending your own homeland is MUCH harder to crack.
-         * Scales with nation power rating:
-         *   power ≥80 (superpower)  → +100% defense (×2.0)
-         *   power ≥60 (major power) → +70% defense  (×1.7)
-         *   power ≥40 (regional)    → +45% defense  (×1.45)
-         *   power ≥20 (minor+)      → +20% defense  (×1.2)
-         * This makes it nearly impossible to one-shot a superpower.
+         * Scales with nation power + colony count:
+         *   power ≥80 (superpower)  → ×1.50 base
+         *   power ≥60 (major power) → ×1.35 base
+         *   power ≥40 (regional)    → ×1.20 base
+         *   power ≥20 (minor+)      → ×1.10 base
+         * Plus +2% per colony owned.
+         * If homeland falls and nation has colonies → TOTAL COLLAPSE.
          */
         const defHomelandCode = def.homeland || defender;
         const isDefendingHomeland = (defenderTerritoryCode === defHomelandCode);
@@ -1227,6 +1228,26 @@ const GameEngine = (() => {
                 return code;
             }
         }
+
+        /* Duopoly victory: if top 2 nations control >70% of the map together,
+         * the leader wins — the remaining fight is just attrition */
+        if (leader && second && leader.owned > 0 && second.owned > 0) {
+            const duoPct = (leader.owned + second.owned) / totalTerr;
+            if (duoPct >= 0.70 && leader.owned > second.owned) {
+                const ln = state.nations[leader.code];
+                if (ln && ln.alive) {
+                    const lPct = leader.owned / totalTerr;
+                    state.gameOver = true;
+                    state.victor = leader.code;
+                    state.victoryType = 'hegemony';
+                    emit('game',
+                        `🏆 ${ln.flag} ${ln.name} ${_t('ge_hegemony_victory')} ` +
+                        `(${leader.owned}-${second.owned}, ${Math.round(lPct * 100)}% ${_t('ge_territories')})`);
+                    return leader.code;
+                }
+            }
+        }
+
         /* Score victory: if turn >= 80, the leader wins automatically */
         if (state.turn >= 80 && leader && leader.owned > 0) {
             const ln = state.nations[leader.code];

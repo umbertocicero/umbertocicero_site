@@ -359,7 +359,7 @@ Le armi nucleari sono le più devastanti del gioco ma hanno **conseguenze catast
 | Sanzioni universali | 🚫 TUTTE le nazioni ti sanzionano |
 | Relazione con tutti | −50 |
 
-> Se colpisce la patria e il difensore ha colonie → scatta l'Assedio della Patria (vedi sotto), ma con demand altissima (quasi impossibile sopravvivere).
+> Se colpisce la patria e il difensore ha colonie → **COLLASSO TOTALE**: tutti i territori ceduti, tesoro saccheggiato, esercito distrutto. Se non ha colonie, conquista normale.
 
 ---
 
@@ -367,9 +367,12 @@ Le armi nucleari sono le più devastanti del gioco ma hanno **conseguenze catast
 
 | Tipo | Condizione | Difficoltà |
 |---|---|---|
-| 🗺️ **Vittoria Militare** | Controlla ≥ **85%** dei territori mondiali | ⭐⭐⭐⭐⭐ |
-| 💰 **Vittoria Economica** | Accumula ≥ **60.000 💰** E controlla ≥ 30% territori | ⭐⭐⭐⭐ |
+| 🗺️ **Vittoria Militare** | Controlla ≥ **40%** dei territori mondiali | ⭐⭐⭐⭐ |
+| 💰 **Vittoria Economica** | Accumula ≥ **45.000 💰** E controlla ≥ 22% territori | ⭐⭐⭐⭐ |
 | ⚓ **Vittoria Strategica** | Controlla **TUTTI** i 16 asset strategici | ⭐⭐⭐⭐⭐ |
+| 👑 **Vittoria Egemonica** | Dal turno 35: ≥28% territori + distacco ≥15 dal 2° | ⭐⭐⭐ |
+| 🤝 **Duopolio** | Le prime 2 nazioni controllano >70% della mappa → chi è in testa vince | ⭐⭐⭐ |
+| ⏰ **Punteggio (T80)** | Al turno 80 chi ha più territori vince automaticamente | ⭐⭐ |
 
 ---
 
