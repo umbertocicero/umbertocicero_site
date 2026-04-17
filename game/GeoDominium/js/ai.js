@@ -432,10 +432,13 @@ const AI = (() => {
 
             /* 9. Weak owner bonus: owner with few territories = about to be eliminated */
             const ownerTerr = GameEngine.getTerritoryCount(owner);
-            if (ownerTerr <= 3) {
-                const elimBonus = ownerTerr === 1 ? 50 : ownerTerr === 2 ? 35 : 25;
+            const gameTurn = state.turn || 0;
+            const lateElim = gameTurn >= 60 ? 1.8 : gameTurn >= 40 ? 1.4 : 1.0;
+            if (ownerTerr <= 5) {
+                const baseElim = ownerTerr === 1 ? 80 : ownerTerr === 2 ? 65 : ownerTerr === 3 ? 45 : ownerTerr === 4 ? 30 : 20;
+                const elimBonus = Math.round(baseElim * lateElim);
                 breakdown.elimination = elimBonus;
-                score += elimBonus;  // finishing off a nation is very valuable
+                score += elimBonus;
             }
 
             /* 10. Penalize attacking dominant nation's homeland (dangerous!) */
@@ -1016,6 +1019,8 @@ const AI = (() => {
                 }
             });
         }
+
+
 
         return actions;
     }
