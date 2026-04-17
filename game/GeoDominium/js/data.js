@@ -102,10 +102,10 @@ const AI_PROFILES = {
 /* ═══  50 playable nations  ═══ */
 const NATIONS = {
     us:{name:'Stati Uniti',flag:'🇺🇸',color:'#1e88e5',profile:'superpower',
-        res:{money:600,oil:80,gas:70,rareEarth:10,gold:15,silver:10,diamonds:0,uranium:20,steel:60,food:90},
-        prod:{money:65,oil:12,gas:10,steel:8,food:12},
-        army:{infantry:45,tank:22,fighter:18,bomber:8,drone:14,navy:16,submarine:10,sam:12,cruiseMissile:8,ballisticMissile:4},
-        assets:[],neighbors:['ca','mx','cu','gb','ru','jp','br'],power:85},
+        res:{money:450,oil:60,gas:55,rareEarth:8,gold:12,silver:8,diamonds:0,uranium:16,steel:45,food:70},
+        prod:{money:50,oil:10,gas:8,steel:6,food:10},
+        army:{infantry:40,tank:18,fighter:15,bomber:6,drone:12,navy:14,submarine:8,sam:10,cruiseMissile:6,ballisticMissile:3},
+        assets:[],neighbors:['ca','mx','cu','gb','ru','jp','br'],power:80},
     ru:{name:'Russia',flag:'🇷🇺',color:'#b71c1c',profile:'superpower',
         res:{money:400,oil:90,gas:100,rareEarth:15,gold:25,silver:12,diamonds:20,uranium:25,steel:50,food:50},
         prod:{money:45,oil:15,gas:18,steel:10,food:8},
@@ -165,7 +165,7 @@ const NATIONS = {
         res:{money:200,oil:5,gas:5,rareEarth:20,gold:12,silver:6,diamonds:0,uranium:3,steel:28,food:38},
         prod:{money:25,rareEarth:4,steel:5,food:6},  /* 694M t rare earth deposit (Eskişehir), #1 European gold, #8 steel */
         army:{infantry:25,tank:12,fighter:10,bomber:2,drone:16,navy:8,submarine:6,sam:8,cruiseMissile:5},
-        assets:['bosphorus'],neighbors:['ru','ge','ir','iq','sy','gr','bg'],power:60},
+        assets:['bosphorus'],neighbors:['ru','ge','ir','iq','sy','gr','bg'],power:55},
     eg:{name:'Egitto',flag:'🇪🇬',color:'#d4a259',profile:'opportunist',
         res:{money:130,oil:18,gas:30,rareEarth:2,gold:10,silver:1,diamonds:0,uranium:2,steel:12,food:35},
         prod:{money:16,oil:3,gas:5,gold:2,food:6},  /* Zohr gas field, Sukari gold mine, Nile agriculture */

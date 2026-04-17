@@ -358,6 +358,16 @@ const GameEngine = (() => {
         /* Terrain bonus +20% defender */
         let defTotal = defPow * 1.2;
 
+        /* ── Superpower resilience bonus ──
+         * High-power nations have better trained armies and fortifications.
+         * This makes them harder to conquer overall, not just on homeland. */
+        const defNationPower = def.power || 5;
+        const resilienceBonus = defNationPower >= 80 ? 1.30
+                              : defNationPower >= 60 ? 1.08
+                              : defNationPower >= 40 ? 1.04
+                              : 1.0;
+        defTotal *= resilienceBonus;
+
         /* ── Homeland defense bonus ──
          * Defending your own homeland is MUCH harder to crack.
          * Scales with nation power rating:
@@ -400,9 +410,9 @@ const GameEngine = (() => {
         if (state.turn <= 3) {
             const defTerrCount = getTerritoryCount(defender);
             if (defTerrCount <= 1) {
-                const earlyBonus = state.turn === 1 ? 1.80
-                                 : state.turn === 2 ? 1.50
-                                 : 1.25;
+                const earlyBonus = state.turn === 1 ? 1.60
+                                 : state.turn === 2 ? 1.30
+                                 : 1.15;
                 defTotal *= earlyBonus;
             }
         }
@@ -414,7 +424,10 @@ const GameEngine = (() => {
         const prevHits = state._defenseHitsThisTurn[defender] || 0;
         state._defenseHitsThisTurn[defender] = prevHits + 1;
         if (prevHits > 0) {
-            const defFatigue = Math.pow(0.92, prevHits); // 0.92^1=0.92, 0.92^2=0.85, etc.
+            /* Superpowers handle sustained attacks better */
+            const defPwr = def.power || 5;
+            const fatigueRate = defPwr >= 80 ? 0.96 : defPwr >= 60 ? 0.94 : 0.92;
+            const defFatigue = Math.pow(fatigueRate, prevHits);
             defTotal *= defFatigue;
         }
 
@@ -1181,8 +1194,8 @@ const GameEngine = (() => {
             const leadGap = isLeader ? (leader.owned - second.owned) : 0;
             if (
                 isLeader &&
-                state.turn >= 40 &&
-                pct >= 0.30 &&
+                state.turn >= 35 &&
+                pct >= 0.28 &&
                 leadGap >= 15
             ) {
                 state.gameOver = true;
@@ -1194,8 +1207,8 @@ const GameEngine = (() => {
                 return code;
             }
 
-            /* Economic victory: 40K funds + 20% territories */
-            if (n.res.money >= 40000 && pct >= 0.20) {
+            /* Economic victory: 45K funds + 22% territories */
+            if (n.res.money >= 45000 && pct >= 0.22) {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'economic';
@@ -1214,8 +1227,8 @@ const GameEngine = (() => {
                 return code;
             }
         }
-        /* Score victory: if turn >= 100, the leader wins automatically */
-        if (state.turn >= 100 && leader && leader.owned > 0) {
+        /* Score victory: if turn >= 80, the leader wins automatically */
+        if (state.turn >= 80 && leader && leader.owned > 0) {
             const ln = state.nations[leader.code];
             if (ln && ln.alive) {
                 const lPct = leader.owned / totalTerr;
@@ -1278,7 +1291,7 @@ const GameEngine = (() => {
         /* ── Rivalry: two major powers (both >10% territories) cannot be allied ── */
         const totalTerr = SVG_IDS.length;
         const majorPowers = Object.keys(state.nations)
-            .filter(c => state.nations[c]?.alive && getTerritoryCount(c) / totalTerr > 0.10);
+            .filter(c => state.nations[c]?.alive && getTerritoryCount(c) / totalTerr > 0.15);
         for (let i = 0; i < majorPowers.length; i++) {
             for (let j = i + 1; j < majorPowers.length; j++) {
                 const a = majorPowers[i], b = majorPowers[j];

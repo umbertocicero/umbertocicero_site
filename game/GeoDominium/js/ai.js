@@ -209,7 +209,7 @@ const AI = (() => {
             const t = GameEngine.getTerritoryCount(c);
             if (t > maxTerr) { maxTerr = t; dominant = c; }
         });
-        const dominantThreat = maxTerr > SVG_IDS.length * 0.20;
+        const dominantThreat = maxTerr > SVG_IDS.length * 0.25;
 
         /* Late-game restlessness */
         const restlessness = Math.min(1.0, Math.max(0, (state.turn - 50) / 150));
@@ -269,10 +269,15 @@ const AI = (() => {
         /* Absolute floor: need a real army to start wars */
         const unitFloor = (state.turn || 0) > 50 ? 8 : 15;
         if (myUnits < unitFloor) return false;
-        /* Don't attack nations with 4x+ your units */
-        if (tUnits > myUnits * 4) return false;
-        /* Power-ratio gate (relaxed in late game) */
-        const powerRatio = (state.turn || 0) > 50 ? 0.40 : 0.55;
+        /* Coalition bonus: if target is already at war with others, be braver */
+        const warsOnTarget = state.wars.filter(w => w.attacker === targetCode || w.defender === targetCode).length;
+        const coalitionBravery = Math.min(0.25, warsOnTarget * 0.08); // up to 25% more brave
+        /* Don't attack nations with 4x+ your units (relaxed in coalitions) */
+        const unitMultCap = 4 + warsOnTarget;
+        if (tUnits > myUnits * unitMultCap) return false;
+        /* Power-ratio gate (relaxed in late game and coalitions) */
+        const basePowerRatio = (state.turn || 0) > 50 ? 0.40 : 0.55;
+        const powerRatio = Math.max(0.20, basePowerRatio - coalitionBravery);
         if (myPow < tDef * powerRatio) return false;
         /* Early game: only fight if reasonable parity */
         if ((state.turn || 0) <= 10 && myPow < tDef * 0.75) return false;
@@ -633,7 +638,7 @@ const AI = (() => {
             const totalTerr = (typeof SVG_IDS !== 'undefined') ? SVG_IDS.length : 231;
             const aPct = GameEngine.getTerritoryCount(a) / totalTerr;
             const bPct = GameEngine.getTerritoryCount(b) / totalTerr;
-            if (aPct > 0.10 && bPct > 0.10) return false;
+            if (aPct > 0.15 && bPct > 0.15) return false;
             /* Also check partner's alliance count */
             const partnerAllies = state.alliances.filter(al => al.a === b || al.b === b).length;
             if (partnerAllies >= ALLIANCE_CAP) return false;
@@ -661,22 +666,36 @@ const AI = (() => {
         /* ── Coalition against dominant nation ── */
         if (situation.dominantThreat && situation.dominant !== code) {
             const dom = situation.dominant;
-            if (!GameEngine.isAtWar(code, dom) && profile.aggression > 0.2
-                && _canRealisticallyFight(code, dom, state)) {
-                const coalitionChance = 0.3 + situation.restlessness * 0.3;
+            const domTerr = GameEngine.getTerritoryCount(dom);
+            const totalTerr = (typeof SVG_IDS !== 'undefined') ? SVG_IDS.length : 231;
+            const domPct = domTerr / totalTerr;
+            /* The stronger the dominant, the higher the coalition urgency */
+            const urgency = Math.min(1.0, domPct * 4); // 12%→0.48, 25%→1.0
+
+            if (!GameEngine.isAtWar(code, dom)) {
+                /* Coalition war: weaker against superpowers */
+                const domPower = state.nations[dom]?.power || 0;
+                const superpowerPenalty = domPower >= 80 ? 0.5 : domPower >= 60 ? 0.7 : 1.0;
+                const coalitionChance = (0.15 + urgency * 0.35) * superpowerPenalty;
                 if (Math.random() < coalitionChance) {
                     GameEngine.ensureWar(code, dom);
                     actions.push({ type:'war_declare', nation:code, target:dom });
                 }
             }
-            /* Seek alliances against the dominant */
-            (situation.reachableOwners || situation.neighborOwners).forEach(nc => {
-                if (nc !== dom && !GameEngine.isAlly(code, nc) && !GameEngine.isAtWar(code, nc) && state.nations[nc]?.alive) {
-                    const ncRel = GameEngine.getRelation(nc, dom);
-                    if (ncRel < -10 && Math.random() < profile.diplomacy * 0.4) {
-                        if (tryAlliance(code, nc)) {
-                            actions.push({ type:'alliance', nation:code, target:nc });
-                        }
+            /* Aggressively seek alliances against the dominant — ignore normal cap */
+            const allAlive = Object.keys(state.nations).filter(c => c !== code && c !== dom && state.nations[c]?.alive);
+            allAlive.forEach(nc => {
+                if (GameEngine.isAlly(code, nc) || GameEngine.isAtWar(code, nc)) return;
+                /* Anyone not allied with the dominant is a potential coalition partner */
+                if (GameEngine.isAlly(nc, dom)) return;
+                const ncDomRel = GameEngine.getRelation(nc, dom);
+                const allianceChance = 0.08 + urgency * 0.25 + (ncDomRel < -20 ? 0.15 : 0);
+                if (Math.random() < allianceChance) {
+                    /* Bypass normal alliance cap for anti-dominant coalitions */
+                    if (!GameEngine.isAlly(code, nc)) {
+                        GameEngine.makeAlliance(code, nc);
+                        alliancesFormedThisTurn++;
+                        actions.push({ type:'coalition_alliance', nation:code, target:nc });
                     }
                 }
             });
