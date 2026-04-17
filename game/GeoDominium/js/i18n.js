@@ -306,8 +306,8 @@ const I18n = (() => {
             btl_no_garrison:      'Senza guarnig.',
 
             /* ── Game over ── */
-            go_you_won:           '🏆 HAI VINTO!',
-            go_you_lost:          '💀 HAI PERSO!',
+            go_you_won:           'HAI VINTO!',
+            go_you_lost:          'HAI PERSO!',
             go_spectator_end:     'PARTITA TERMINATA',
             go_won:               'HA VINTO!',
             go_dominates:         'domina il mondo!',

@@ -971,12 +971,14 @@ const UI = (() => {
             const atWar = GameEngine.isAtWar(state.player, code);
             const isAlly = GameEngine.isAlly(state.player, code);
             let cls = !alive ? 'legend-dead' : isPlayer ? 'legend-player' : atWar ? 'legend-enemy' : isAlly ? 'legend-ally' : '';
-            html += `<div class="legend-item ${cls}" data-code="${code}">${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">${count}</span></div>`;
+            const pct = totalTerritories > 0 ? ((count / totalTerritories) * 100).toFixed(1) : '0.0';
+            html += `<div class="legend-item ${cls}" data-code="${code}">${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">${count}</span><span class="legend-pct">${pct}%</span></div>`;
         });
 
         /* Minor nations summary */
         if (minorTotal > 0) {
-            html += `<div class="legend-item legend-minor">🏳️ <span class="legend-name">${t('nl_minor', {n: minorNationCount})}</span><span class="legend-count">${minorTotal}</span></div>`;
+            const minorPct = totalTerritories > 0 ? ((minorTotal / totalTerritories) * 100).toFixed(1) : '0.0';
+            html += `<div class="legend-item legend-minor">🏳️ <span class="legend-name">${t('nl_minor', {n: minorNationCount})}</span><span class="legend-count">${minorTotal}</span><span class="legend-pct">${minorPct}%</span></div>`;
         }
 
         /* Dead nations (0 territories) — collapsible */

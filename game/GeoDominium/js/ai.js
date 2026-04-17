@@ -1044,30 +1044,44 @@ const AI = (() => {
             const desperate = situation.myTerrCount < 8 || situation.threats.length > 1;
             const atWarAndStrong = situation.enemies.length > 0;
             const enemyIsTough = situation.enemies.some(e => GameEngine.calcMilitary(e, 'def') > situation.myAtkPow * 0.5);
-            const lateGame = gameTurn > 40;
-            const veryLateGame = gameTurn > 80;
-            const stalemateTurn = gameTurn > 100;
+            const lateGame = gameTurn > 30;
+            const veryLateGame = gameTurn > 60;
+            const stalemateTurn = gameTurn > 80;
 
-            /* Stalemate detection: if dominant nation isn't growing, escalate */
+            /* Stalemate detection: if dominant nation isn't growing, escalate.
+               Trigger EARLIER (turn 60+) and with lower threshold (35%). */
             const dominantTerr = Math.max(...Object.keys(state.nations)
                 .filter(c => state.nations[c]?.alive)
                 .map(c => GameEngine.getTerritoryCount(c)));
-            const stalemate = veryLateGame && dominantTerr < SVG_IDS.length * 0.45;
+            const stalemate = veryLateGame && dominantTerr < SVG_IDS.length * 0.35;
+            const deepStalemate = stalemateTurn && dominantTerr < SVG_IDS.length * 0.45;
 
-            /* Escalating probability: the longer the game, the more likely nukes fly */
-            const useNuke = desperate || (atWarAndStrong && enemyIsTough)
-                || (lateGame && atWarAndStrong) || stalemate;
+            /* Count alive nations — many survivors late = stalemate */
+            const aliveCount = Object.values(state.nations).filter(nn => nn.alive).length;
+            const crowdedLate = gameTurn > 50 && aliveCount > 6;
+
+            /* Use nuke: much more permissive triggers */
+            const useNuke = desperate
+                || (atWarAndStrong && enemyIsTough)
+                || (lateGame && atWarAndStrong)
+                || stalemate || deepStalemate || crowdedLate
+                || (gameTurn > 40 && situation.enemies.length === 0 && situation.myTerrCount < SVG_IDS.length * 0.3);
+
+            /* Escalating probability: ramps faster */
             let nukeProb;
-            if (stalemateTurn)    nukeProb = 0.90;   /* turn 100+: almost certain */
-            else if (stalemate)   nukeProb = 0.75;   /* turn 80+, no clear winner */
+            if (deepStalemate)    nukeProb = 0.95;   /* turn 80+: near certain */
+            else if (stalemateTurn) nukeProb = 0.90;
+            else if (stalemate)   nukeProb = 0.80;   /* turn 60+, no clear winner */
+            else if (crowdedLate) nukeProb = 0.70;   /* too many survivors */
             else if (desperate)   nukeProb = 0.70;
-            else if (veryLateGame) nukeProb = 0.60;
-            else if (lateGame)    nukeProb = 0.45;
-            else                  nukeProb = 0.25;
+            else if (veryLateGame) nukeProb = 0.65;
+            else if (lateGame)    nukeProb = 0.50;
+            else                  nukeProb = 0.30;
 
-            /* Late-game tolerance boost: even peaceful nations get desperate */
-            const toleranceBoost = veryLateGame ? 0.3 : lateGame ? 0.15 : 0;
-            const effectiveTolerance = Math.min(1.0, profile.nukeTolerance + toleranceBoost + 0.3);
+            /* Late-game tolerance boost: even peaceful nations get desperate.
+               Much stronger boost so ALL nations will eventually nuke. */
+            const toleranceBoost = deepStalemate ? 0.6 : veryLateGame ? 0.45 : lateGame ? 0.25 : 0;
+            const effectiveTolerance = Math.min(1.0, profile.nukeTolerance + toleranceBoost + 0.35);
 
             if (useNuke && Math.random() < nukeProb * effectiveTolerance) {
                 /* Pick strongest enemy */
@@ -1086,17 +1100,27 @@ const AI = (() => {
                         }
                     }
                 }
-                /* Stalemate escalation: nuke the dominant rival even if not at war */
-                if (!nukeUsed && stalemate && (n.army.nuke || 0) > 0) {
+                /* Proactive nuke: target dominant rival even if NOT at war.
+                   Triggers earlier and more aggressively. */
+                if (!nukeUsed && (stalemate || crowdedLate || gameTurn > 50) && (n.army.nuke || 0) > 0) {
                     const rivals = Object.keys(state.nations)
                         .filter(c => c !== code && state.nations[c]?.alive && !GameEngine.isAlly(code, c))
                         .sort((a, b) => GameEngine.getTerritoryCount(b) - GameEngine.getTerritoryCount(a));
                     for (const rival of rivals) {
                         const targets = findAttackTargets(code, rival);
                         if (targets.length > 0) {
+                            /* Nuke + declare war in one move */
                             const result = GameEngine.nukeStrike(code, targets[0]);
                             if (result) {
                                 actions.push({ type:'nuke', nation:code, target:targets[0], result });
+                                /* Follow up with a conventional attack on the weakened territory */
+                                if ((n.army.nuke || 0) > 0) {
+                                    const followUp = findAttackTargets(code, rival);
+                                    if (followUp.length > 0) {
+                                        const atkResult = GameEngine.attack(code, followUp[0]);
+                                        if (atkResult) actions.push({ type:'attack', nation:code, target:followUp[0], result:atkResult });
+                                    }
+                                }
                                 break;
                             }
                         }
