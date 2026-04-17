@@ -87,18 +87,18 @@ h2{font-family:'Orbitron',sans-serif;color:#00e5ff;font-size:1.1rem;margin:24px 
 <details style="max-width:700px;margin:0 auto 16px;background:#111827;border:1px solid #1e293b;border-radius:10px;padding:12px;font-size:.8rem;color:#94a3b8">
 <summary style="cursor:pointer;color:#00e5ff;font-family:'Orbitron',sans-serif;font-size:.85rem">📋 Condizioni di Vittoria</summary>
 <ul style="margin:8px 0 0 16px;line-height:1.8">
-<li><span class="tag tag-military">MILITARY</span> Conquista <b>≥ 55%</b> dei territori</li>
-<li><span class="tag tag-hegemony">HEGEMONY</span> Turno ≥ 60, <b>≥ 35%</b> territori, vantaggio ≥ 20 sul secondo e rapporto ≥ 2.5×</li>
-<li><span class="tag tag-economic">ECONOMIC</span> Fondi <b>≥ 80.000</b> + <b>≥ 35%</b> territori</li>
+<li><span class="tag tag-military">MILITARY</span> Conquista <b>≥ 50%</b> dei territori</li>
+<li><span class="tag tag-hegemony">HEGEMONY</span> Turno ≥ 50, <b>≥ 35%</b> territori, vantaggio <b>≥ 20</b> sul secondo</li>
+<li><span class="tag tag-economic">ECONOMIC</span> Fondi <b>≥ 60.000</b> + <b>≥ 30%</b> territori</li>
 <li><span class="tag tag-strategic">STRATEGIC</span> Controlla tutti i territori con <b>asset strategici</b> (chokepoint/basi/rotte)</li>
 <li><span class="tag tag-timeout">TIMEOUT</span> Turno massimo raggiunto — vince chi ha più territori</li>
 </ul>
 </details>
 
 <div class="controls">
-  <label>Simulazioni: <input type="number" id="simCount" value="10" min="1" max="100"></label>
+  <label>Simulazioni: <input type="number" id="simCount" value="20" min="1" max="100"></label>
   <label><input type="checkbox" id="useTurnLimit" checked> Turno max: </label>
-  <label><input type="number" id="maxTurns" value="200" min="20" max="1000" style="width:80px"></label>
+  <label><input type="number" id="maxTurns" value="150" min="20" max="1000" style="width:80px"></label>
   <button class="btn" id="btnRun">▶ AVVIA SIMULAZIONI</button>
   <button class="btn btn-danger btn-sm" id="btnClear">🗑️ PULISCI</button>
 </div>

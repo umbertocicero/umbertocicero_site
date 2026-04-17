@@ -22,3 +22,4 @@ T4 🛢️ Crisi petrolifera globale! -15% scorte petrolio per tutti.
 e come funzionano questi eventi, come compaiono tecnicamente?
 
 cosa significa? [RNG:122% ⚡-5% 🏠 🛡️+25%]
+

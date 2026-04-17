@@ -142,7 +142,7 @@ const AI = (() => {
         }
 
         /* Overextended? Too many colonies with too few troops = danger */
-        const overextended = colonyCount > 0 && (totalUnits / Math.max(1, colonyCount)) < 3;
+        const overextended = colonyCount > 0 && (totalUnits / Math.max(1, colonyCount)) < 1.5;
 
         /* Find neighbors: land adjacency + sea/air/missile reachable nations */
         const neighborOwners = GameEngine.getNeighborOwners(code);
@@ -257,15 +257,15 @@ const AI = (() => {
         const myUnits = Object.values(n.army).reduce((a,b) => a+b, 0);
         const tUnits  = Object.values(t.army).reduce((a,b) => a+b, 0);
         /* Absolute floor: need a real army to start wars */
-        const unitFloor = (state.turn || 0) > 50 ? 15 : 25;
+        const unitFloor = (state.turn || 0) > 50 ? 8 : 15;
         if (myUnits < unitFloor) return false;
-        /* Don't attack nations with 3x+ your units */
-        if (tUnits > myUnits * 3) return false;
+        /* Don't attack nations with 4x+ your units */
+        if (tUnits > myUnits * 4) return false;
         /* Power-ratio gate (relaxed in late game) */
-        const powerRatio = (state.turn || 0) > 50 ? 0.55 : 0.70;
+        const powerRatio = (state.turn || 0) > 50 ? 0.40 : 0.55;
         if (myPow < tDef * powerRatio) return false;
-        /* Early game: only fight if near-parity */
-        if ((state.turn || 0) <= 10 && myPow < tDef * 0.90) return false;
+        /* Early game: only fight if reasonable parity */
+        if ((state.turn || 0) <= 10 && myPow < tDef * 0.75) return false;
         return true;
     }
 
@@ -409,9 +409,9 @@ const AI = (() => {
                 const warsOnOwner = state.wars.reduce((count, w) => {
                     return count + ((w.attacker === owner || w.defender === owner) ? 1 : 0);
                 }, 0);
-                if (warsOnOwner >= 1) {
-                    const perWarPenalty = isEarlyGame ? 45 : 12;
-                    const dogpilePenalty = Math.min(180, warsOnOwner * perWarPenalty);
+                if (warsOnOwner >= 2) {
+                    const perWarPenalty = isEarlyGame ? 25 : 6;
+                    const dogpilePenalty = Math.min(80, (warsOnOwner - 1) * perWarPenalty);
                     breakdown.antiDogpile = -dogpilePenalty;
                     score -= dogpilePenalty;
                 }
@@ -432,9 +432,10 @@ const AI = (() => {
 
             /* 9. Weak owner bonus: owner with few territories = about to be eliminated */
             const ownerTerr = GameEngine.getTerritoryCount(owner);
-            if (ownerTerr <= 2) {
-                breakdown.elimination = 25;
-                score += 25;  // finishing off a nation is very valuable
+            if (ownerTerr <= 3) {
+                const elimBonus = ownerTerr === 1 ? 50 : ownerTerr === 2 ? 35 : 25;
+                breakdown.elimination = elimBonus;
+                score += elimBonus;  // finishing off a nation is very valuable
             }
 
             /* 10. Penalize attacking dominant nation's homeland (dangerous!) */
@@ -489,22 +490,22 @@ const AI = (() => {
         switch (situation.goal) {
             case 'reconquest':
                 /* All-in offense to retake homeland */
-                buildPriority = ['tank','infantry','fighter','infantry','drone','bomber','infantry','cruiseMissile'];
+                buildPriority = ['tank','infantry','fighter','infantry','drone','bomber','infantry','cruiseMissile','nuke'];
                 break;
             case 'consolidate':
                 /* Mostly defensive + some infantry for garrison */
-                buildPriority = ['infantry','sam','infantry','infantry','tank','infantry'];
+                buildPriority = ['infantry','sam','infantry','infantry','tank','infantry','nuke'];
                 break;
             case 'defend':
-                buildPriority = ['infantry','sam','tank','infantry','fighter','drone','infantry'];
+                buildPriority = ['infantry','sam','tank','infantry','fighter','drone','infantry','nuke'];
                 break;
             case 'warfight':
                 /* Active war: balanced offense */
-                buildPriority = ['infantry','tank','fighter','infantry','drone','infantry','bomber','cruiseMissile'];
+                buildPriority = ['tank','fighter','infantry','drone','bomber','cruiseMissile','infantry','nuke','tank','fighter'];
                 break;
             case 'dominate':
                 /* Late-game domination: heavy firepower */
-                buildPriority = ['tank','fighter','bomber','drone','infantry','cruiseMissile','navy','submarine'];
+                buildPriority = ['tank','fighter','bomber','drone','nuke','cruiseMissile','navy','submarine','nuke','tank','bomber'];
                 break;
             default: /* expand */
                 /* Need projection: mix of mobile + cheap */
@@ -513,18 +514,21 @@ const AI = (() => {
                     const topTarget = situation.scoredTargets[0];
                     const needsSea = topTarget && !situation.neighborOwners.includes(topTarget.owner);
                     if (needsSea && (n.army.navy || 0) < 3) {
-                        buildPriority = ['navy','infantry','fighter','infantry','drone','infantry','submarine'];
+                        buildPriority = ['navy','infantry','fighter','infantry','drone','infantry','submarine','nuke'];
                     } else {
-                        buildPriority = ['infantry','tank','fighter','infantry','drone','infantry','infantry','bomber'];
+                        buildPriority = ['infantry','tank','fighter','infantry','drone','infantry','infantry','bomber','nuke'];
                     }
                 } else {
-                    buildPriority = ['infantry','infantry','tank','drone','infantry','fighter','sam','navy'];
+                    buildPriority = ['infantry','infantry','tank','drone','infantry','fighter','sam','navy','nuke'];
                 }
                 break;
         }
 
-        /* Build scaling: more units for richer nations */
-        const maxBuilds = Math.min(10, 3 + Math.floor(money / 200));
+        /* Build scaling: more units for richer nations, but save for economic victory */
+        const savingForEcon = (money > 40000 && situation.myTerrCount >= SVG_IDS.length * 0.25);
+        const maxBuilds = savingForEcon 
+            ? Math.min(8, 3 + Math.floor(money / 300))
+            : Math.min(25, 4 + Math.floor(money / 80));
         let built = 0;
 
         /* Emergency: if army is tiny, spam infantry */
@@ -542,6 +546,18 @@ const AI = (() => {
                 GameEngine.buildUnit(code, utype);
                 actions.push({ type:'build', nation:code, unit:utype });
                 built++;
+            }
+        }
+
+        /* Repeat build priority if still rich — spend the money! */
+        if (money > 2000 && built < maxBuilds) {
+            for (const utype of buildPriority) {
+                if (built >= maxBuilds) break;
+                if (GameEngine.canBuild(code, utype)) {
+                    GameEngine.buildUnit(code, utype);
+                    actions.push({ type:'build', nation:code, unit:utype });
+                    built++;
+                }
             }
         }
 
@@ -732,11 +748,11 @@ const AI = (() => {
             const myWars = state.wars.filter(w => w.attacker === code || w.defender === code);
             const lastWarTurn = myWars.length ? Math.max(...myWars.map(w => w.turn)) : 0;
             const peaceTurns = state.turn - lastWarTurn;
-            /* Probability ramps up with peace duration: guaranteed after 15 turns */
-            const stallProb = peaceTurns <= 8 ? 0
-                            : peaceTurns <= 12 ? 0.20 + situation.restlessness * 0.3
-                            : peaceTurns <= 15 ? 0.50 + situation.restlessness * 0.3
-                            : 1.0;  /* 15+ turns = MUST attack */
+            /* Probability ramps up with peace duration: guaranteed after 10 turns */
+            const stallProb = peaceTurns <= 5 ? 0
+                            : peaceTurns <= 8 ? 0.30 + situation.restlessness * 0.3
+                            : peaceTurns <= 10 ? 0.60 + situation.restlessness * 0.3
+                            : 1.0;  /* 10+ turns = MUST attack */
             if (Math.random() < stallProb) {
                 /* First try: non-ally targets from scored list */
                 let target = situation.scoredTargets.find(t =>
@@ -865,7 +881,7 @@ const AI = (() => {
         /* ── Active war: use scored targets to pick the best territory to attack ── */
         let hasReachableWarTargets = false;
         if (situation.enemies.length > 0 && situation.myAtkPow > 5) {
-            const maxAttacks = 1 + Math.floor(restless * 2); // 1 early, up to 3 late
+            const maxAttacks = 3 + Math.floor(restless * 4); // 3 early, up to 7 late
             let attacksMade = 0;
 
             /* Filter scored targets to only those owned by current enemies */
@@ -915,7 +931,7 @@ const AI = (() => {
             }
 
             const isEarlyWarWindow = (state.turn || 0) <= 8;
-            const minExpansionScore = isEarlyWarWindow ? 28 : 15;
+            const minExpansionScore = isEarlyWarWindow ? 20 : 8;
             if (expansionTarget && expansionTarget.score > minExpansionScore
                 && _canRealisticallyFight(code, expansionTarget.owner, state)) {
                 const victim = expansionTarget.owner;
@@ -932,7 +948,7 @@ const AI = (() => {
         }
 
         /* ── Late-game aggression: restless nations attack more ── */
-        const warChance = (profile.aggression + restless * 0.35) * 0.25;
+        const warChance = (profile.aggression + restless * 0.5) * 0.4;
         if ((state.turn || 0) > 6 && (situation.enemies.length < 2 || unreachableWars) && Math.random() < warChance && !situation.overextended) {
             const potentialTargets = situation.scoredTargets.filter(t =>
                 !GameEngine.isAlly(code, t.owner) &&
@@ -954,15 +970,25 @@ const AI = (() => {
 
         /* ── Nuclear option ── */
         if (profile.nukeTolerance > 0 && (n.army.nuke || 0) > 0) {
-            const desperate = situation.myTerrCount < 3 || situation.threats.length > 3;
-            if (desperate && Math.random() < profile.nukeTolerance * 0.2) {
-                if (situation.enemies.length > 0) {
-                    const enemy = situation.enemies[0];
+            /* Offensive nuke: use in active wars, especially against strong enemies */
+            const desperate = situation.myTerrCount < 8 || situation.threats.length > 1;
+            const atWarAndStrong = situation.enemies.length > 0 && (n.army.nuke || 0) > 0;
+            const enemyIsTough = situation.enemies.some(e => GameEngine.calcMilitary(e, 'def') > situation.myAtkPow * 0.5);
+            const lateGame = (state.turn || 0) > 40;
+            const useNuke = desperate || (atWarAndStrong && enemyIsTough) || (lateGame && atWarAndStrong);
+            const nukeProb = desperate ? 0.7 : lateGame ? 0.4 : 0.25;
+            if (useNuke && Math.random() < nukeProb * (profile.nukeTolerance + 0.3)) {
+                /* Pick strongest enemy */
+                const sortedEnemies = situation.enemies
+                    .filter(e => state.nations[e]?.alive)
+                    .sort((a, b) => GameEngine.calcMilitary(b, 'def') - GameEngine.calcMilitary(a, 'def'));
+                for (const enemy of sortedEnemies) {
                     const targets = findAttackTargets(code, enemy);
                     if (targets.length > 0) {
                         const result = GameEngine.nukeStrike(code, targets[0]);
                         if (result) {
                             actions.push({ type:'nuke', nation:code, target:targets[0], result });
+                            break;
                         }
                     }
                 }
@@ -970,14 +996,16 @@ const AI = (() => {
         }
 
         /* ── Opportunistic: finish off defenseless nations ── */
-        /* Only opportunistic attacks if we have meaningful military */
-        if (situation.myAtkPow > 20 && situation.totalUnits > 15) {
+        /* Aggressively eliminate weak nations — key to reducing survivor count */
+        if (situation.myAtkPow > 5) {
             (situation.reachableOwners || situation.neighborOwners).forEach(nc => {
                 if (GameEngine.isAlly(code, nc) || nc === code) return;
                 const nn = state.nations[nc];
                 if (!nn || !nn.alive) return;
                 const nDefPow = GameEngine.calcMilitary(nc, 'def');
-                if (nDefPow < 5 && _canRealisticallyFight(code, nc, state)) {
+                const nTerrCount = GameEngine.getTerritoryCount(nc);
+                const isWeak = nDefPow < situation.myAtkPow * 0.4 || nTerrCount <= 2;  
+                if (isWeak) {
                     const targets = findAttackTargets(code, nc);
                     if (targets.length > 0) {
                         const result = GameEngine.attack(code, targets[0]);
@@ -1020,19 +1048,19 @@ const AI = (() => {
     /* ════════════════ RESEARCH (GOAL-AWARE) ════════════════ */
     function doResearch(code, situation, profile) {
         const actions = [];
-        if (Math.random() > profile.techFocus * 0.5) return actions;
+        if (Math.random() > profile.techFocus * 0.8 + 0.2) return actions;
 
         const available = TECHNOLOGIES.filter(t => GameEngine.canResearch(code, t.id));
         if (available.length === 0) return actions;
 
         /* ── Prioritize techs based on goal ── */
         const goalPriority = {
-            reconquest:  ['ai_warfare','hypersonic','stealth_tech','carrier_fleet','advanced_drones'],
-            warfight:    ['ai_warfare','stealth_tech','advanced_drones','missile_defense','hypersonic'],
-            defend:      ['missile_defense','bio_defense','sam','cyberwarfare'],
-            expand:      ['carrier_fleet','advanced_drones','green_energy','deep_mining'],
-            consolidate: ['green_energy','deep_mining','bio_defense','cyberwarfare'],
-            dominate:    ['nuclear_program','hypersonic','ai_warfare','stealth_tech','space_recon']
+            reconquest:  ['ai_warfare','hypersonic','stealth_tech','carrier_fleet','advanced_drones','nuclear_program'],
+            warfight:    ['ai_warfare','stealth_tech','advanced_drones','missile_defense','nuclear_program','hypersonic'],
+            defend:      ['missile_defense','bio_defense','nuclear_program','cyberwarfare'],
+            expand:      ['carrier_fleet','advanced_drones','missile_defense','nuclear_program','green_energy','deep_mining'],
+            consolidate: ['green_energy','deep_mining','missile_defense','nuclear_program','bio_defense','cyberwarfare'],
+            dominate:    ['nuclear_program','missile_defense','hypersonic','ai_warfare','stealth_tech','space_recon']
         };
         const preferred = goalPriority[situation.goal] || goalPriority.expand;
 

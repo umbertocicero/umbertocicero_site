@@ -276,22 +276,22 @@ const GameEngine = (() => {
     function getAttackCost(nationCode) {
         const n = getAttacksThisTurn(nationCode);
         const money    = n === 0 ? 0
-                       : n === 1 ? 5
-                       : n === 2 ? 15
-                       : n === 3 ? 30
-                       : n === 4 ? 50
-                       : 50 + (n - 4) * 25;     // 75, 100, 125...
+                       : n === 1 ? 3
+                       : n === 2 ? 8
+                       : n === 3 ? 15
+                       : n === 4 ? 25
+                       : 25 + (n - 4) * 15;     // 40, 55, 70...
         const infantry = n <= 1 ? 0
                        : n === 2 ? 1
                        : n === 3 ? 2
                        : Math.min(6, n - 1);     // 3, 4, 5, 6 cap
         /* Fatigue: power penalty that grows with each attack */
         const fatigue  = n === 0 ? 0
-                       : n === 1 ? 0.05
-                       : n === 2 ? 0.12
-                       : n === 3 ? 0.20
-                       : n === 4 ? 0.30
-                       : Math.min(0.60, 0.30 + (n - 4) * 0.12); // up to 60%
+                       : n === 1 ? 0.03
+                       : n === 2 ? 0.06
+                       : n === 3 ? 0.10
+                       : n === 4 ? 0.15
+                       : Math.min(0.35, 0.15 + (n - 4) * 0.06); // up to 35%
         return { money, infantry, fatigue, attackNum: n + 1 };
     }
 
@@ -371,10 +371,10 @@ const GameEngine = (() => {
         const isDefendingHomeland = (defenderTerritoryCode === defHomelandCode);
         if (isDefendingHomeland) {
             const defPower = def.power || 5;
-            const homelandBonus = defPower >= 80 ? 2.00
-                                : defPower >= 60 ? 1.70
-                                : defPower >= 40 ? 1.45
-                                : defPower >= 20 ? 1.20
+            const homelandBonus = defPower >= 80 ? 1.50
+                                : defPower >= 60 ? 1.35
+                                : defPower >= 40 ? 1.20
+                                : defPower >= 20 ? 1.10
                                 : 1.0;
             defTotal *= homelandBonus;
         }
@@ -1137,7 +1137,7 @@ const GameEngine = (() => {
             const pct = owned / totalTerr;
 
             /* Military victory: 55% territories */
-            if (pct >= 0.55) {
+            if (pct >= 0.50) {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'military';
@@ -1148,13 +1148,11 @@ const GameEngine = (() => {
             /* Hegemony victory: late-game dominant lead over #2 */
             const isLeader = leader && leader.code === code;
             const leadGap = isLeader ? (leader.owned - second.owned) : 0;
-            const leadRatio = isLeader ? (leader.owned / Math.max(1, second.owned)) : 0;
             if (
                 isLeader &&
-                state.turn >= 60 &&
+                state.turn >= 50 &&
                 pct >= 0.35 &&
-                leadGap >= 20 &&
-                leadRatio >= 2.5
+                leadGap >= 20
             ) {
                 state.gameOver = true;
                 state.victor = code;
@@ -1165,8 +1163,8 @@ const GameEngine = (() => {
                 return code;
             }
 
-            /* Economic victory: 80K funds + 35% territories */
-            if (n.res.money >= 80000 && pct >= 0.35) {
+            /* Economic victory: 60K funds + 30% territories */
+            if (n.res.money >= 60000 && pct >= 0.30) {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'economic';

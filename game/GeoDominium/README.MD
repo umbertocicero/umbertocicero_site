@@ -368,7 +368,7 @@ Le armi nucleari sono le più devastanti del gioco ma hanno **conseguenze catast
 | Tipo | Condizione | Difficoltà |
 |---|---|---|
 | 🗺️ **Vittoria Militare** | Controlla ≥ **85%** dei territori mondiali | ⭐⭐⭐⭐⭐ |
-| 💰 **Vittoria Economica** | Accumula ≥ **80.000 💰** E controlla ≥ 35% territori | ⭐⭐⭐⭐ |
+| 💰 **Vittoria Economica** | Accumula ≥ **60.000 💰** E controlla ≥ 30% territori | ⭐⭐⭐⭐ |
 | ⚓ **Vittoria Strategica** | Controlla **TUTTI** i 16 asset strategici | ⭐⭐⭐⭐⭐ |
 
 ---
