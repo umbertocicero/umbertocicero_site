@@ -1118,8 +1118,6 @@ const UI = (() => {
                     actHtml += `<div style="font-size:0.55rem;color:var(--text-muted);text-align:center;margin:-4px 0 4px;">✅ ${t('pact_already_friendly') || 'Relazioni già buone'} (${_ndNapRel})</div>`;
                 } else if (!_ndNapCanAfford) {
                     actHtml += `<div style="font-size:0.55rem;color:#ffa726;text-align:center;margin:-4px 0 4px;">💰 ${t('insufficient_res') || 'Risorse insufficienti'}</div>`;
-                } else {
-                    actHtml += `<div style="font-size:0.52rem;color:var(--text-dim);text-align:center;margin:-4px 0 4px;opacity:0.7;">📊 ${_ndNapRel} → ${Math.min(100, _ndNapRel + 15)} (+15)</div>`;
                 }
                 actHtml += `<button class="btn-action btn-attack" onclick="UI.doDeclareWar('${code}');">${t('diplo_declare_war')}</button>`;
                 actHtml += `<button class="btn-action btn-attack"${_ndAtkDis} onclick="UI.doAttack('${code}');">${t('btn_attack')}${_ndCostLbl}${_ndFatLbl}</button>`;
@@ -1443,9 +1441,6 @@ const UI = (() => {
                     actHtml += `<div style="font-size:0.58rem;color:var(--text-muted);text-align:center;margin:-4px 0 4px;">✅ ${t('pact_already_friendly') || 'Relazioni già buone'} (${_napRel})</div>`;
                 } else if (!_napCanAfford) {
                     actHtml += `<div style="font-size:0.58rem;color:#ffa726;text-align:center;margin:-4px 0 4px;">💰 ${t('insufficient_res') || 'Risorse insufficienti'}</div>`;
-                } else {
-                    /* Show what NAP does as a hint for clarity */
-                    actHtml += `<div style="font-size:0.55rem;color:var(--text-dim);text-align:center;margin:-4px 0 4px;opacity:0.7;">📊 ${t('nap_hint') || 'Relazione attuale'}: ${_napRel} → ${Math.min(100, _napRel + 15)} (+15)</div>`;
                 }
             }
             if (isAlly) {
@@ -2462,7 +2457,7 @@ const UI = (() => {
         pn.res.gold -= goldCost;
         pn.res.money -= moneyCost;
         GameEngine.makeAlliance(state.player, code);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`🤝 ${t('evt_ally')} ${fmtNation(state.nations[code])} (🥇${goldCost} + 💰${moneyCost})` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', ownerClass:'evt-mine', msg:`🤝 ${t('evt_ally')} ${fmtNation(state.nations[code])} (🥇${goldCost} + 💰${moneyCost})` });
         hide('diplomacy-popup');
         updateHUD();
 
@@ -2590,51 +2585,6 @@ const UI = (() => {
         _tributeUsedMap[state.turn + ':' + targetCode] = true;
     }
 
-    /** Check if the event panel is collapsed/hidden */
-    function _isEvtCollapsed() {
-        const panel = els['right-panel'];
-        return panel && panel.classList.contains('hidden');
-    }
-
-    /** Show an informative overlay about the NAP result (especially when events are collapsed) */
-    function _showNapInfoOverlay(nationName, nationFlag, relBefore, relAfter, silverCost, moneyCost) {
-        /* Remove any existing overlay */
-        const existing = document.getElementById('nap-info-overlay');
-        if (existing) existing.remove();
-
-        const overlay = document.createElement('div');
-        overlay.id = 'nap-info-overlay';
-        overlay.className = 'nap-info-overlay';
-        overlay.innerHTML = `
-            <div class="nap-info-card">
-                <div class="nap-info-icon">📝</div>
-                <div class="nap-info-title">${t('toast_pact')}</div>
-                <div class="nap-info-nation">${nationFlag} ${nationName}</div>
-                <div class="nap-info-detail">
-                    <div class="nap-info-row">
-                        <span>${t('nap_info_relation') || 'Relazione'}</span>
-                        <span><span style="color:#ff9100">${relBefore}</span> → <span style="color:#00e676">${relAfter}</span> <span style="color:#69f0ae">(+15)</span></span>
-                    </div>
-                    <div class="nap-info-row">
-                        <span>${t('nap_info_cost') || 'Costo'}</span>
-                        <span>🥈${silverCost} + 💰${moneyCost}</span>
-                    </div>
-                </div>
-                <div class="nap-info-hint">${t('nap_info_hint') || 'Un patto di non aggressione migliora le relazioni diplomatiche, rendendo più facile formare alleanze in futuro e riducendo il rischio di guerra.'}</div>
-                <button class="nap-info-close" onclick="this.closest('.nap-info-overlay').remove()">OK</button>
-            </div>
-        `;
-        document.body.appendChild(overlay);
-
-        /* Auto-dismiss after 6 seconds */
-        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 6000);
-
-        /* Click outside to close */
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
-    }
-
     function doNonAggression(targetCode) {
         const state = GameEngine.getState();
         if (!state) return;
@@ -2676,18 +2626,14 @@ const UI = (() => {
         _markNapUsed(targetCode);
 
         const _nn = state.nations[targetCode];
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`📝 <span class="evt-action">${t('evt_pact')}</span> ${fmtNation(_nn)} <span class="evt-action">(🥈${silverCost} + 💰${moneyCost})</span> — ${t('nap_info_relation') || 'Relazione'}: ${relBefore} → ${relAfter}` });
+        addEventToLog({ turn: state.turn, type:'diplomacy', ownerClass:'evt-mine', msg:`📝 <span class="evt-action">${t('evt_pact')}</span> ${fmtNation(_nn)} <span class="evt-action">(🥈${silverCost} + 💰${moneyCost})</span> — ${t('nap_info_relation') || 'Relazione'}: ${relBefore} → ${relAfter}` });
         hide('diplomacy-popup');
 
         /* Visual feedback: always show toast */
         _showActionToast('📝', t('toast_pact'),
             `${_nn.flag} ${_nn.name} — ${relBefore} → ${relAfter} (+15) · 🥈${silverCost} 💰${moneyCost}`, 'info', 3500);
 
-        /* If event log is collapsed, show the informative overlay so the player
-           clearly sees what happened (game-expert UX: never let actions go unnoticed) */
-        if (_isEvtCollapsed()) {
-            _showNapInfoOverlay(_nn.name, _nn.flag, relBefore, relAfter, silverCost, moneyCost);
-        }
+        /* Keep feedback in toast/event log (no modal). */
 
         /* Refresh toolbar and sidebar after pact */
         updateHUD();
@@ -3940,6 +3886,8 @@ const UI = (() => {
     /* Cached colony/ally names — refreshed once per turn */
     let _evtCacheTurn = -1;
     let _evtPlayerName = '';
+    let _evtPlayerFlag = '';
+    let _evtPlayerCode = '';
     let _evtColonyNames = [];
     let _evtAllyNames = [];
 
@@ -3950,6 +3898,8 @@ const UI = (() => {
         _evtCacheTurn = state.turn;
         const pn = state.nations[state.player];
         _evtPlayerName = pn?.name || '';
+        _evtPlayerFlag = pn?.flag || '';
+        _evtPlayerCode = String(state.player || '').toUpperCase();
         _evtColonyNames = Object.entries(state.territories)
             .filter(([tCode, o]) => o === state.player && tCode !== state.player)
             .map(([tCode]) => getNation(tCode)?.name)
@@ -3981,14 +3931,20 @@ const UI = (() => {
 
         /* Classify using cached names (fast) */
         _refreshEvtCache();
-        let ownerClass = '';
+        let ownerClass = entry.ownerClass || '';
         const msg = entry.msg || '';
-        if (_evtPlayerName && msg.includes(_evtPlayerName)) {
-            ownerClass = 'evt-mine';
-        } else if (_evtColonyNames.some(n => msg.includes(n))) {
-            ownerClass = 'evt-mine';
-        } else if (_evtAllyNames.some(n => msg.includes(n))) {
-            ownerClass = 'evt-ally';
+        if (!ownerClass) {
+            const codeRe = _evtPlayerCode
+                ? new RegExp(`(^|[^A-Z0-9])${_evtPlayerCode}([^A-Z0-9]|$)`, 'i')
+                : null;
+            if ((_evtPlayerFlag && msg.includes(_evtPlayerFlag))
+                || (_evtPlayerName && msg.includes(_evtPlayerName))
+                || (codeRe && codeRe.test(msg))
+                || _evtColonyNames.some(n => msg.includes(n))) {
+                ownerClass = 'evt-mine';
+            } else if (_evtAllyNames.some(n => msg.includes(n))) {
+                ownerClass = 'evt-ally';
+            }
         }
 
         const div = document.createElement('div');

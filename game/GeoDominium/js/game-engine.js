@@ -1120,8 +1120,8 @@ const GameEngine = (() => {
             const owned = getTerritoryCount(code);
             const pct = owned / totalTerr;
 
-            /* Military victory: 85% territories */
-            if (pct >= 0.85) {
+            /* Military victory: 55% territories */
+            if (pct >= 0.55) {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'military';
