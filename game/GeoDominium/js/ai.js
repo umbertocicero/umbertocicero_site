@@ -53,6 +53,9 @@ const AI = (() => {
                     onActionCallback(act);
                 }
             }
+
+            /* Mid-turn victory check: stop immediately if someone won */
+            if (GameEngine.checkVictory()) break;
         }
 
         /* Random events at end of AI phase */
@@ -157,7 +160,10 @@ const AI = (() => {
             const hasMissiles = (atkArmy.cruiseMissile || 0) > 0 || (atkArmy.ballisticMissile || 0) > 0;
             const hasLongRange = hasNavy || hasAir || hasMissiles;
 
-            if (hasLongRange) {
+            /* Only scan global targets if nation has meaningful military.
+               Prevents minor nations with 1 drone from attacking the whole world. */
+            const minLongRangePower = 100;
+            if (hasLongRange && myAtkPow > minLongRangePower) {
                 Object.keys(state.nations).forEach(nc => {
                     if (nc === code || reachableOwners.has(nc)) return;
                     const nn = state.nations[nc];
@@ -862,6 +868,21 @@ const AI = (() => {
         const n = state.nations[code];
         const restless = situation.restlessness;
 
+        /* ── GLOBAL ATTACK BUDGET: max attacks this nation can do this turn ── */
+        const gameTurn = state.turn || 0;
+        const isSuper = (profile.aggression >= 0.6);
+        const isMajor = (profile.aggression >= 0.4);
+        /* Early game: fewer attacks. Late game: ramp up slightly. */
+        let maxTotalAttacks;
+        if (isSuper) {
+            maxTotalAttacks = gameTurn <= 3 ? 3 : gameTurn <= 10 ? 4 : Math.min(6, 3 + Math.floor(restless * 2));
+        } else if (isMajor) {
+            maxTotalAttacks = gameTurn <= 3 ? 2 : gameTurn <= 10 ? 3 : Math.min(4, 2 + Math.floor(restless * 1.5));
+        } else {
+            maxTotalAttacks = gameTurn <= 5 ? 1 : Math.min(3, 1 + Math.floor(restless * 1));
+        }
+        let totalAttacksMade = 0;
+
         /* ── Skip expansion if consolidating ── */
         if (situation.goal === 'consolidate') {
             /* Only attack if already at war (defensive actions) */
@@ -877,6 +898,21 @@ const AI = (() => {
             const lastWarT = myWars.length ? Math.max(...myWars.map(w => w.turn)) : 0;
             if (state.turn - lastWarT <= 12) return actions;
             /* Fall through to normal military logic after 12 turns of peace */
+        }
+
+        /* ── Skip military action if army is too small (< 10 units) ── */
+        const totalArmyUnits = Object.values(n.army).reduce((a, b) => a + b, 0);
+        if (totalArmyUnits < 10 && !situation.homelandLost) {
+            return actions; /* Too weak to attack — save units for defense */
+        }
+
+        /* ── MINOR NATIONS: passive unless provoked ── */
+        /* Minor/neutral/defensive nations don't attack unprovoked in early game.
+           They only fight if already at war or homeland is lost. */
+        const isPassiveProfile = (profile.aggression <= 0.2);
+        const earlyGamePeace = gameTurn <= 3 && !isSuper && !isMajor;
+        if ((isPassiveProfile || earlyGamePeace) && situation.enemies.length === 0 && !situation.homelandLost) {
+            return actions; /* Stay peaceful — build up economy and army */
         }
 
         /* ── PRIORITY 0: Homeland reconquest ── */
@@ -901,7 +937,7 @@ const AI = (() => {
         /* ── Active war: use scored targets to pick the best territory to attack ── */
         let hasReachableWarTargets = false;
         if (situation.enemies.length > 0 && situation.myAtkPow > 5) {
-            const maxAttacks = 3 + Math.floor(restless * 4); // 3 early, up to 7 late
+            const maxAttacks = Math.min(maxTotalAttacks - totalAttacksMade, 3 + Math.floor(restless * 3));
             let attacksMade = 0;
 
             /* Filter scored targets to only those owned by current enemies */
@@ -914,13 +950,17 @@ const AI = (() => {
                 if (result) {
                     actions.push({ type:'attack', nation:code, target:tgt.territory, result });
                     attacksMade++;
+                    totalAttacksMade++;
+                    /* If we lost, stop attacking immediately */
+                    if (!result.success) break;
                     /* If we lost badly, stop attacking */
-                    if (result.blocked || !result.success) break;
+                    if (result.blocked) break;
                 }
             }
         }
 
         /* ── Strategic expansion: declare war on highest-value target ── */
+        if (totalAttacksMade >= maxTotalAttacks) return actions;
         /* Also expand if we have enemies but can't reach any of their territories */
         const unreachableWars = situation.enemies.length > 0 && !hasReachableWarTargets;
         const expansionChance = unreachableWars ? 1.0 : (profile.expansion + restless * 0.4);
@@ -962,10 +1002,13 @@ const AI = (() => {
                     const result = GameEngine.attack(code, expansionTarget.territory);
                     if (result) {
                         actions.push({ type:'attack', nation:code, target:expansionTarget.territory, result });
+                        totalAttacksMade++;
                     }
                 }
             }
         }
+
+        if (totalAttacksMade >= maxTotalAttacks) return actions;
 
         /* ── Late-game aggression: restless nations attack more ── */
         /* P1: reduce new war chance if we already have a weak enemy to finish */
@@ -987,10 +1030,13 @@ const AI = (() => {
                 const result = GameEngine.attack(code, best.territory);
                 if (result) {
                     actions.push({ type:'attack', nation:code, target:best.territory, result });
+                    totalAttacksMade++;
                 }
                 }
             }
         }
+
+        if (totalAttacksMade >= maxTotalAttacks) return actions;
 
         /* ── Nuclear option ── */
         if (profile.nukeTolerance > 0 && (n.army.nuke || 0) > 0) {
@@ -1029,12 +1075,13 @@ const AI = (() => {
                 const nDefPow = GameEngine.calcMilitary(nc, 'def');
                 const nTerrCount = GameEngine.getTerritoryCount(nc);
                 const isWeak = nDefPow < situation.myAtkPow * 0.4 || nTerrCount <= 2;  
-                if (isWeak) {
+                if (isWeak && totalAttacksMade < maxTotalAttacks) {
                     const targets = findAttackTargets(code, nc);
                     if (targets.length > 0) {
                         const result = GameEngine.attack(code, targets[0]);
                         if (result) {
                             actions.push({ type:'attack', nation:code, target:targets[0], result });
+                            totalAttacksMade++;
                         }
                     }
                 }
@@ -1060,9 +1107,13 @@ const AI = (() => {
             .filter(([, o]) => o === enemyCode).map(([c]) => c);
 
         if (typeof canReachTerritory === 'function') {
+            const myAtkPow = GameEngine.calcMilitary(attackerCode, 'atk');
             return enemyTerritories.filter(et => {
                 const reach = canReachTerritory(attackerCode, et, atkArmy);
-                return reach.reachable;
+                if (!reach.reachable) return false;
+                /* Block weak nations from long-range attacks (air/missile only) */
+                if ((reach.method === 'air' || reach.method === 'missile') && myAtkPow < 100) return false;
+                return true;
             });
         }
         return enemyTerritories.filter(et => {

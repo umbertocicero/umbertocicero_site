@@ -4014,32 +4014,39 @@ const UI = (() => {
         const vt = VICTORY_LABELS[state.victoryType] || VICTORY_LABELS.military;
         const winnerFlagHtml = _flagImgHtml(victor, n.flag, 'flag-img');
 
+        /* Title */
         if (isPlayer) {
-            els['gameover-title'].textContent = t('go_you_won');
+            els['gameover-title'].innerHTML = `🏆 ${t('go_you_won')}`;
             els['gameover-title'].style.color = 'var(--gold)';
-            els['gameover-text'].innerHTML = `${winnerFlagHtml} ${n.name} ${t('go_dominates')}`;
         } else if (playerDead) {
-            els['gameover-title'].innerHTML = `🏆 ${winnerFlagHtml} ${n.name} ${t('go_won')}`;
+            els['gameover-title'].innerHTML = `🏆 ${t('go_spectator_end')}`;
             els['gameover-title'].style.color = 'var(--accent)';
-            els['gameover-text'].innerHTML = `${winnerFlagHtml} ${n.name} ${t('go_conquered_turn')} ${state.turn}.`;
         } else {
-            els['gameover-title'].textContent = t('go_you_lost');
+            els['gameover-title'].innerHTML = `💀 ${t('go_you_lost')}`;
             els['gameover-title'].style.color = 'var(--red)';
-            els['gameover-text'].innerHTML = `${winnerFlagHtml} ${n.name} ${t('go_conquered')}`;
         }
+
+        /* Subtitle with winner name */
+        els['gameover-text'].innerHTML = `${n.name} ${isPlayer ? t('go_dominates') : t('go_conquered')}`;
 
         const victorTerr = GameEngine.getTerritoryCount(victor);
         const totalTerr = SVG_IDS.length;
+        const pctStr = Math.round(victorTerr / totalTerr * 100);
+
+        /* Winner flag as hero + victory type badge + stat grid */
         els['gameover-stats'].innerHTML = `
-            <div class="go-stat" style="grid-column:1/-1;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:8px;">
-                <div class="label">${vt.icon} ${t('go_victory_type')}</div>
-                <div class="val" style="font-size:1rem;color:var(--gold);">${vt.label}</div>
-                <div style="font-size:0.65rem;color:#90a4ae;margin-top:2px;">${vt.desc}</div>
+            <div class="go-hero-flag">${_flagImgHtml(victor, n.name, 'go-flag-img')}</div>
+            <div class="go-victory-badge">
+                <span class="go-vb-icon">${vt.icon}</span>
+                <span class="go-vb-label">${vt.label}</span>
+                <span class="go-vb-desc">${vt.desc}</span>
             </div>
-            <div class="go-stat"><div class="label">${t('go_winner')}</div><div class="val">${winnerFlagHtml} ${n.name}</div></div>
-            <div class="go-stat"><div class="label">${t('go_turns')}</div><div class="val">${state.turn}</div></div>
-            <div class="go-stat"><div class="label">${t('go_territories')}</div><div class="val">${victorTerr}/${totalTerr}</div></div>
-            <div class="go-stat"><div class="label">${t('go_funds')}</div><div class="val">💰${n.res.money}</div></div>
+            <div class="go-stats-grid">
+                <div class="go-stat"><div class="label">${t('go_winner')}</div><div class="val">${_flagImgHtml(victor, n.name, 'go-stat-flag')} ${n.name}</div></div>
+                <div class="go-stat"><div class="label">${t('go_turns')}</div><div class="val">${state.turn}</div></div>
+                <div class="go-stat"><div class="label">${t('go_territories')}</div><div class="val">${victorTerr}/${totalTerr} (${pctStr}%)</div></div>
+                <div class="go-stat"><div class="label">${t('go_funds')}</div><div class="val">💰${Math.round(n.res.money).toLocaleString()}</div></div>
+            </div>
         `;
         parseEmoji(els['gameover-popup']);
 
