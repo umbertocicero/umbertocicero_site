@@ -161,9 +161,13 @@ const AI = (() => {
             const hasLongRange = hasNavy || hasAir || hasMissiles;
 
             /* Only scan global targets if nation has meaningful military.
-               Prevents minor nations with 1 drone from attacking the whole world. */
+               Prevents minor nations with 1 drone from attacking the whole world.
+               Also: in the first 5 turns, restrict to land neighbors only —
+               no intercontinental attacks at game start. */
             const minLongRangePower = 100;
-            if (hasLongRange && myAtkPow > minLongRangePower) {
+            const earlyTurnCutoff = 5;
+            const currentTurn = state.turn || 0;
+            if (hasLongRange && myAtkPow > minLongRangePower && currentTurn > earlyTurnCutoff) {
                 Object.keys(state.nations).forEach(nc => {
                     if (nc === code || reachableOwners.has(nc)) return;
                     const nn = state.nations[nc];
@@ -341,12 +345,17 @@ const AI = (() => {
 
             /* Reachability check */
             let reachable = false;
-            if (typeof canReachTerritory === 'function') {
+            const _nb = typeof getNeighborsOf === 'function' ? getNeighborsOf(tCode) : [];
+            const isLandAdjacent = _nb.some(nb => myTerritories.has(nb));
+            const _turn = state.turn || 0;
+            if (_turn <= 5) {
+                /* Early game: only land-adjacent attacks */
+                reachable = isLandAdjacent;
+            } else if (typeof canReachTerritory === 'function') {
                 const reach = canReachTerritory(code, tCode, atkArmy);
                 reachable = reach.reachable;
             } else {
-                const neighbors = getNeighborsOf(tCode);
-                reachable = neighbors.some(nb => myTerritories.has(nb));
+                reachable = isLandAdjacent;
             }
             if (!reachable) continue;
 
@@ -620,6 +629,11 @@ const AI = (() => {
         const tryAlliance = (a, b) => {
             if (!canAlly() || alliancesFormedThisTurn >= MAX_NEW_ALLIANCES_PER_TURN) return false;
             if (GameEngine.isAlly(a, b) || GameEngine.isAtWar(a, b)) return false;
+            /* Rivalry: two major powers (both >10% territories) can NEVER ally */
+            const totalTerr = (typeof SVG_IDS !== 'undefined') ? SVG_IDS.length : 231;
+            const aPct = GameEngine.getTerritoryCount(a) / totalTerr;
+            const bPct = GameEngine.getTerritoryCount(b) / totalTerr;
+            if (aPct > 0.10 && bPct > 0.10) return false;
             /* Also check partner's alliance count */
             const partnerAllies = state.alliances.filter(al => al.a === b || al.b === b).length;
             if (partnerAllies >= ALLIANCE_CAP) return false;

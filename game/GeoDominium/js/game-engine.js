@@ -371,12 +371,15 @@ const GameEngine = (() => {
         const isDefendingHomeland = (defenderTerritoryCode === defHomelandCode);
         if (isDefendingHomeland) {
             const defPower = def.power || 5;
-            const homelandBonus = defPower >= 80 ? 1.50
-                                : defPower >= 60 ? 1.35
-                                : defPower >= 40 ? 1.20
-                                : defPower >= 20 ? 1.10
-                                : 1.0;
-            defTotal *= homelandBonus;
+            const baseHomelandBonus = defPower >= 80 ? 1.50
+                                    : defPower >= 60 ? 1.35
+                                    : defPower >= 40 ? 1.20
+                                    : defPower >= 20 ? 1.10
+                                    : 1.0;
+            /* +2% defense per colony owned (excluding homeland itself) */
+            const colonyCount = Object.values(state.territories).filter(o => o === defender).length - 1;
+            const colonyBonus = Math.max(0, colonyCount) * 0.02;
+            defTotal *= (baseHomelandBonus + colonyBonus);
         }
 
         /* Local garrison bonus: heavy garrison on the specific territory gives extra defense */
@@ -387,6 +390,32 @@ const GameEngine = (() => {
                                : localGarrison.strength === 'light' ? 1.05
                                : 0.90; /* No garrison: defender is 10% weaker */
             defTotal *= garrisonMult;
+        }
+
+        /* ── Early game protection ──
+         * In the first 3 turns, nations that still own only their homeland
+         * get a massive defense boost. This prevents T1 eliminations of
+         * major nations (e.g. China eliminating India immediately).
+         * The bonus fades: T1 = +80%, T2 = +50%, T3 = +25% */
+        if (state.turn <= 3) {
+            const defTerrCount = getTerritoryCount(defender);
+            if (defTerrCount <= 1) {
+                const earlyBonus = state.turn === 1 ? 1.80
+                                 : state.turn === 2 ? 1.50
+                                 : 1.25;
+                defTotal *= earlyBonus;
+            }
+        }
+
+        /* ── Defense fatigue: repeated attacks on the same nation weaken its defense ──
+         * Each attack suffered this turn reduces defense by 8%.
+         * A nation attacked 5 times in one turn has ~66% of its base defense. */
+        if (!state._defenseHitsThisTurn) state._defenseHitsThisTurn = {};
+        const prevHits = state._defenseHitsThisTurn[defender] || 0;
+        state._defenseHitsThisTurn[defender] = prevHits + 1;
+        if (prevHits > 0) {
+            const defFatigue = Math.pow(0.92, prevHits); // 0.92^1=0.92, 0.92^2=0.85, etc.
+            defTotal *= defFatigue;
         }
 
         /* Random factor ±30%, reduced by fatigue */
@@ -432,36 +461,34 @@ const GameEngine = (() => {
             const hasColonies = defTerritories.filter(t => t !== defenderTerritoryCode).length > 0;
 
             if (isHomelandAttack && hasColonies) {
-                /* ════ HOMELAND SIEGE ════ */
+                /* ════ HOMELAND CONQUERED — TOTAL COLLAPSE ════
+                 * Winning on the homeland when the nation has colonies
+                 * means the entire empire falls. All colonies are seized,
+                 * treasury captured, army destroyed. */
                 _setTerritoryOwner(defenderTerritoryCode, attackerCode);
                 delete state.unrest[defenderTerritoryCode];
                 conquered = true;
 
-                homelandSiege = handleHomelandSiege(defender, attackerCode);
+                /* Seize ALL remaining territories (colonies) */
+                const allRemaining = Object.entries(state.territories)
+                    .filter(([, owner]) => owner === defender)
+                    .map(([tCode]) => tCode);
+                allRemaining.forEach(tCode => {
+                    _setTerritoryOwner(tCode, attackerCode);
+                    delete state.unrest[tCode];
+                });
 
-                if (homelandSiege.survived) {
-                    /* Defender survived siege — minimal spoils.
-                     * The reward is the TERRITORY itself (future production).
-                     * Only seize what the territory locally produces (1 turn). */
-                    const tBase = getNation(defenderTerritoryCode);
-                    const tProd = tBase?.prod || {};
-                    Object.entries(tProd).forEach(([r, v]) => {
-                        if (v > 0) {
-                            const amt = Math.round(v * (0.5 + Math.random() * 0.5)); // 50-100% of 1 turn
-                            if (amt > 0) { loot[r] = (loot[r]||0) + amt; atk.res[r] = (atk.res[r]||0) + amt; }
-                        }
-                    });
-                } else {
-                    /* Total collapse — nation destroyed. Seize national treasury.
-                     * This is the ONLY case where you get the full treasury:
-                     * the nation ceases to exist, its coffers are captured. */
-                    Object.keys(def.res).forEach(r => {
-                        const amt = def.res[r];
-                        if (amt > 0) { loot[r] = (loot[r]||0) + amt; atk.res[r] = (atk.res[r]||0) + amt; def.res[r] = 0; }
-                    });
-                    /* Enemy army destroyed — no capture */
-                    Object.keys(def.army).forEach(utype => { def.army[utype] = 0; });
-                }
+                emit('battle',
+                    `💀 ${def.flag} ${def.name}: ${_t('ge_total_collapse')} ` +
+                    `${atk.flag} ${atk.name} ${_t('ge_conquers_all')} (${allRemaining.length + 1} ${_t('ge_territories')})`);
+
+                /* Seize national treasury */
+                Object.keys(def.res).forEach(r => {
+                    const amt = def.res[r];
+                    if (amt > 0) { loot[r] = (loot[r]||0) + amt; atk.res[r] = (atk.res[r]||0) + amt; def.res[r] = 0; }
+                });
+                /* Enemy army destroyed */
+                Object.keys(def.army).forEach(utype => { def.army[utype] = 0; });
             } else {
                 /* ════ NORMAL CONQUEST ════
                  * DESIGN: The reward for conquest is the TERRITORY ITSELF
@@ -1140,8 +1167,8 @@ const GameEngine = (() => {
             const owned = getTerritoryCount(code);
             const pct = owned / totalTerr;
 
-            /* Military victory: 55% territories */
-            if (pct >= 0.50) {
+            /* Military victory: 40% territories */
+            if (pct >= 0.40) {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'military';
@@ -1154,9 +1181,9 @@ const GameEngine = (() => {
             const leadGap = isLeader ? (leader.owned - second.owned) : 0;
             if (
                 isLeader &&
-                state.turn >= 50 &&
-                pct >= 0.35 &&
-                leadGap >= 20
+                state.turn >= 40 &&
+                pct >= 0.30 &&
+                leadGap >= 15
             ) {
                 state.gameOver = true;
                 state.victor = code;
@@ -1167,8 +1194,8 @@ const GameEngine = (() => {
                 return code;
             }
 
-            /* Economic victory: 60K funds + 30% territories */
-            if (n.res.money >= 60000 && pct >= 0.30) {
+            /* Economic victory: 40K funds + 20% territories */
+            if (n.res.money >= 40000 && pct >= 0.20) {
                 state.gameOver = true;
                 state.victor = code;
                 state.victoryType = 'economic';
@@ -1187,6 +1214,21 @@ const GameEngine = (() => {
                 return code;
             }
         }
+        /* Score victory: if turn >= 100, the leader wins automatically */
+        if (state.turn >= 100 && leader && leader.owned > 0) {
+            const ln = state.nations[leader.code];
+            if (ln && ln.alive) {
+                const lPct = leader.owned / totalTerr;
+                state.gameOver = true;
+                state.victor = leader.code;
+                state.victoryType = 'hegemony';
+                emit('game',
+                    `🏆 ${ln.flag} ${ln.name} ${_t('ge_hegemony_victory')} ` +
+                    `(${leader.owned}-${second.owned}, ${Math.round(lPct * 100)}% ${_t('ge_territories')})`);
+                return leader.code;
+            }
+        }
+
         return null;
     }
 
@@ -1200,6 +1242,7 @@ const GameEngine = (() => {
         state.phase = 'player';
         /* Reset per-turn attack counters */
         state._attacksThisTurn = {};
+        state._defenseHitsThisTurn = {};
         /* Collect resources for player (skip if AI already handled it in autoplay) */
         if (!skipPlayerCollect) collectResources(state.player);
 
@@ -1230,6 +1273,26 @@ const GameEngine = (() => {
                     }
                 });
             });
+        }
+
+        /* ── Rivalry: two major powers (both >10% territories) cannot be allied ── */
+        const totalTerr = SVG_IDS.length;
+        const majorPowers = Object.keys(state.nations)
+            .filter(c => state.nations[c]?.alive && getTerritoryCount(c) / totalTerr > 0.10);
+        for (let i = 0; i < majorPowers.length; i++) {
+            for (let j = i + 1; j < majorPowers.length; j++) {
+                const a = majorPowers[i], b = majorPowers[j];
+                if (isAlly(a, b)) {
+                    breakAlliance(a, b);
+                    const nA = state.nations[a], nB = state.nations[b];
+                    emit('diplomacy', `⚔️ ${nA.flag} ${nA.name} & ${nB.flag} ${nB.name}: ${_t('ge_rivalry_break') || 'alleanza rotta — rivalità tra superpotenze!'}`);
+                }
+                if (!isAtWar(a, b)) {
+                    ensureWar(a, b);
+                    const nA = state.nations[a], nB = state.nations[b];
+                    emit('diplomacy', `🔥 ${nA.flag} ${nA.name} ⚔️ ${nB.flag} ${nB.name}: ${_t('ge_rivalry_war') || 'guerra inevitabile tra potenze dominanti!'}`);
+                }
+            }
         }
 
         emit('game', `📅 ${_t('hud_turn')} ${state.turn}`);
