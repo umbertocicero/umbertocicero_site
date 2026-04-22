@@ -566,9 +566,13 @@ const AI = (() => {
 
         /* Build scaling: more units for richer nations, but save for economic victory */
         const savingForEcon = (money > 40000 && situation.myTerrCount >= SVG_IDS.length * 0.25);
+        /* Minor nations cap builds — they shouldn't mass-produce armies like superpowers */
+        const isMinorProfile = (profile.aggression <= 0.2);
         const maxBuilds = savingForEcon 
             ? Math.min(8, 3 + Math.floor(money / 300))
-            : Math.min(25, 4 + Math.floor(money / 80));
+            : isMinorProfile
+                ? Math.min(6, 2 + Math.floor(money / 200))
+                : Math.min(25, 4 + Math.floor(money / 80));
         let built = 0;
 
         /* Emergency: if army is tiny, spam infantry */
@@ -773,6 +777,7 @@ const AI = (() => {
         const reachableEnemies = new Set(
             situation.scoredTargets.filter(t => situation.enemies.includes(t.owner)).map(t => t.owner)
         );
+        const isMinorForPeace = (profile.aggression <= 0.2);
         situation.enemies.forEach(enemy => {
             if (situation.homelandLost && enemy === situation.homelandEnemy) return;
             const war = state.wars.find(w =>
@@ -786,6 +791,15 @@ const AI = (() => {
                     actions.push({ type:'peace', nation:code, target:enemy });
                     return;
                 }
+
+                /* War fatigue: minor nations eagerly seek peace after long wars */
+                const warDuration = state.turn - war.turn;
+                if (isMinorForPeace && warDuration >= 5) {
+                    GameEngine.makePeace(code, enemy);
+                    actions.push({ type:'peace', nation:code, target:enemy });
+                    return;
+                }
+
                 /* Only seek peace if we're weaker or overstretched */
                 const enemyPow = GameEngine.calcMilitary(enemy, 'atk');
                 const losing = enemyPow > situation.myAtkPow * 1.1;
@@ -946,6 +960,21 @@ const AI = (() => {
         const earlyGamePeace = gameTurn <= 3 && !isSuper && !isMajor;
         if ((isPassiveProfile || earlyGamePeace) && situation.enemies.length === 0 && !situation.homelandLost) {
             return actions; /* Stay peaceful — build up economy and army */
+        }
+
+        /* ── WAR FATIGUE for minor/passive nations ── */
+        /* If a minor nation has been at war but keeps losing (more defeats
+           than victories in recent history), skip attacks and try to seek
+           peace instead.  This prevents tiny nations with big empires from
+           endlessly throwing infantry at stronger enemies. */
+        if (isPassiveProfile && !situation.homelandLost && situation.enemies.length > 0) {
+            const myWars = state.wars.filter(w => w.attacker === code || w.defender === code);
+            const oldestWarTurn = myWars.length ? Math.min(...myWars.map(w => w.turn)) : gameTurn;
+            const warDuration = gameTurn - oldestWarTurn;
+            /* After 5+ turns of war, minor nations lose willingness to attack */
+            if (warDuration >= 5 && !isMajor && !isSuper) {
+                return actions; /* War fatigue — stop attacking, diplomacy will seek peace */
+            }
         }
 
         /* ── PRIORITY 0: Homeland reconquest ── */
