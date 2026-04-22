@@ -701,6 +701,7 @@ const GameEngine = (() => {
         if (!atk || (atk.army.nuke || 0) <= 0) return null;
 
         const defender = state.territories[defenderTerritoryCode];
+        if (defender === attackerCode) return null;   // never nuke own territory
         const def = state.nations[defender];
         if (!def) return null;
 

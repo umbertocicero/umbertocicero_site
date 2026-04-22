@@ -234,7 +234,9 @@
             html += `<div class="nuke-box-title">☢️ Attacchi Nucleari (${r.nukeEvents.length})</div>`;
             for (const ne of r.nukeEvents) {
                 html += `<div class="nuke-box-entry">`;
-                html += `T${ne.turn}: ${flagImg(ne.attacker)} <b>${ne.attackerName}</b> → 💥 ${flagImg(ne.targetOwner)} <b>${ne.targetOwnerName}</b> <span style="color:#64748b">(${ne.target})</span>`;
+                const tName = (typeof getNation === 'function' && getNation(ne.target)?.name) || ne.target.toUpperCase();
+                const ownerPart = ne.targetOwner !== ne.target ? ` <span style="color:#64748b">(di ${flagImg(ne.targetOwner)} ${ne.targetOwnerName})</span>` : '';
+                html += `T${ne.turn}: ${flagImg(ne.attacker)} <b>${ne.attackerName}</b> → ${flagImg(ne.target)} <b>${tName}</b>${ownerPart}`;
                 html += `</div>`;
             }
             html += `</div>`;

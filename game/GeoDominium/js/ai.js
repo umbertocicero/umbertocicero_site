@@ -1151,11 +1151,27 @@ const AI = (() => {
                     .sort((a, b) => GameEngine.calcMilitary(b, 'def') - GameEngine.calcMilitary(a, 'def'));
                 let nukeUsed = false;
                 for (const enemy of sortedEnemies) {
-                    const targets = findAttackTargets(code, enemy);
-                    if (targets.length > 0) {
-                        const result = GameEngine.nukeStrike(code, targets[0]);
+                    /* Nukes are global range — always try homeland first,
+                       don't rely on findAttackTargets (conventional reach) */
+                    const enemyHomeland = state.nations[enemy]?.homeland || enemy;
+                    const homelandOwner = state.territories[enemyHomeland];
+                    let nukeTarget = null;
+
+                    /* 1st choice: enemy homeland (if still owned by enemy) */
+                    if (homelandOwner === enemy) {
+                        nukeTarget = enemyHomeland;
+                    } else {
+                        /* 2nd choice: any territory owned by the enemy (prefer largest cluster) */
+                        const enemyTerr = Object.entries(state.territories)
+                            .filter(([, o]) => o === enemy).map(([c]) => c);
+                        if (enemyTerr.length > 0) nukeTarget = enemyTerr[0];
+                    }
+
+                    /* Final guard: verify target is still enemy-owned */
+                    if (nukeTarget && state.territories[nukeTarget] !== code) {
+                        const result = GameEngine.nukeStrike(code, nukeTarget);
                         if (result) {
-                            actions.push({ type:'nuke', nation:code, target:targets[0], result });
+                            actions.push({ type:'nuke', nation:code, target:nukeTarget, result });
                             nukeUsed = true;
                             break;
                         }
@@ -1168,12 +1184,22 @@ const AI = (() => {
                         .filter(c => c !== code && state.nations[c]?.alive && !GameEngine.isAlly(code, c))
                         .sort((a, b) => GameEngine.getTerritoryCount(b) - GameEngine.getTerritoryCount(a));
                     for (const rival of rivals) {
-                        const targets = findAttackTargets(code, rival);
-                        if (targets.length > 0) {
+                        /* Nukes are global — always try homeland first */
+                        const rivalHomeland = state.nations[rival]?.homeland || rival;
+                        const homelandOwner = state.territories[rivalHomeland];
+                        let nukeTarget = null;
+                        if (homelandOwner === rival) {
+                            nukeTarget = rivalHomeland;
+                        } else {
+                            const rivalTerr = Object.entries(state.territories)
+                                .filter(([, o]) => o === rival).map(([c]) => c);
+                            if (rivalTerr.length > 0) nukeTarget = rivalTerr[0];
+                        }
+                        if (nukeTarget && state.territories[nukeTarget] !== code) {
                             /* Nuke + declare war in one move */
-                            const result = GameEngine.nukeStrike(code, targets[0]);
+                            const result = GameEngine.nukeStrike(code, nukeTarget);
                             if (result) {
-                                actions.push({ type:'nuke', nation:code, target:targets[0], result });
+                                actions.push({ type:'nuke', nation:code, target:nukeTarget, result });
                                 /* Follow up with a conventional attack on the weakened territory */
                                 if ((n.army.nuke || 0) > 0) {
                                     const followUp = findAttackTargets(code, rival);
