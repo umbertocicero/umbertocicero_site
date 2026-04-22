@@ -2541,7 +2541,6 @@ const UI = (() => {
         pn.res.gold -= goldCost;
         pn.res.money -= moneyCost;
         GameEngine.makeAlliance(state.player, code);
-        addEventToLog({ turn: state.turn, type:'diplomacy', ownerClass:'evt-mine', msg:`🤝 ${t('evt_ally')} ${fmtNation(state.nations[code])} (🥇${goldCost} + 💰${moneyCost})` });
         hide('diplomacy-popup');
         updateHUD();
 
@@ -2591,7 +2590,6 @@ const UI = (() => {
         if (!state) return;
         const _bn = state.nations[targetCode];
         GameEngine.breakAlliance(state.player, targetCode);
-        addEventToLog({ turn: state.turn, type:'diplomacy', msg:`💔 <span class="evt-action">${t('evt_break_ally')}</span> ${fmtNation(_bn)}` });
         hide('diplomacy-popup');
 
         /* Visual feedback */
@@ -3726,7 +3724,9 @@ const UI = (() => {
             const ow = state.territories[code];
             const own = state.nations[ow];
             if (own) return fmtNation(own);
-            return `<span class="evt-flag" style="background:#607d8b"></span><span class="evt-nation">${code.toUpperCase()}</span>`;
+            /* Resolve minor nation name + color */
+            const info = _nationInfo(code);
+            return `<span class="evt-flag" style="background:${info.color||'#607d8b'}"></span><span class="evt-nation">${info.name}</span>`;
         }
 
         const me = fmtNation(n);
@@ -3745,7 +3745,8 @@ const UI = (() => {
                 type = 'diplomacy';
                 break;
             }
-            case 'alliance': {
+            case 'alliance':
+            case 'coalition_alliance': {
                 msg = `🤝 ${me} <span class="evt-action">${t('evt_ai_alliance')}</span> ${tgt(action.target)}`;
                 type = 'diplomacy';
                 break;
@@ -3781,9 +3782,8 @@ const UI = (() => {
                 break;
             }
             case 'betray': {
-                msg = `💔 ${me} <span class="evt-action">${t('evt_ai_betray')}</span> ${tgt(action.target)}`;
-                type = 'diplomacy';
-                break;
+                /* Engine's breakAlliance() already emits a diplomacy event — skip duplicate */
+                return;
             }
             case 'revolt': {
                 const fromN = state.nations[action.from];

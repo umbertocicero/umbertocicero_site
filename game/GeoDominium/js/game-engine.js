@@ -761,6 +761,10 @@ const GameEngine = (() => {
     }
 
     function ensureWar(codeA, codeB) {
+        /* Break alliance if exists — can't be allied and at war */
+        if (isAlly(codeA, codeB)) {
+            breakAlliance(codeA, codeB);
+        }
         const exists = state.wars.some(w =>
             (w.attacker === codeA && w.defender === codeB) ||
             (w.attacker === codeB && w.defender === codeA));
@@ -1009,7 +1013,10 @@ const GameEngine = (() => {
             const nA = state.nations[codeA], nB = state.nations[codeB];
             if (nA) nA.sanctions = nA.sanctions.filter(s => s !== codeB);
             if (nB) nB.sanctions = nB.sanctions.filter(s => s !== codeA);
-            emit('diplomacy', `🤝 ${state.nations[codeA]?.flag} ${codeA.toUpperCase()} ${_t('ge_and')} ${state.nations[codeB]?.flag} ${codeB.toUpperCase()} ${_t('ge_form_alliance')}`);
+            const _nA = state.nations[codeA], _nB = state.nations[codeB];
+            const _nmA = _nA ? `${_nA.flag} ${_nA.name}` : codeA.toUpperCase();
+            const _nmB = _nB ? `${_nB.flag} ${_nB.name}` : codeB.toUpperCase();
+            emit('diplomacy', `🤝 ${_nmA} ${_t('ge_and')} ${_nmB} ${_t('ge_form_alliance')}`);
         }
     }
 
@@ -1023,7 +1030,11 @@ const GameEngine = (() => {
             !((a.a === codeA && a.b === codeB) || (a.a === codeB && a.b === codeA)));
         adjustRelation(codeA, codeB, -25);
         adjustRelation(codeB, codeA, -25);
-        emit('diplomacy', `💔 ${_t('ge_alliance_broken')} ${codeA.toUpperCase()} ${_t('ge_and')} ${codeB.toUpperCase()}`);
+        const _nA = state.nations[codeA];
+        const _nB = state.nations[codeB];
+        const _nameA = _nA ? `${_nA.flag} ${_nA.name}` : codeA.toUpperCase();
+        const _nameB = _nB ? `${_nB.flag} ${_nB.name}` : codeB.toUpperCase();
+        emit('diplomacy', `💔 ${_t('ge_alliance_broken')} ${_nameA} ${_t('ge_and')} ${_nameB}`);
     }
 
     /* ════════════════ ELIMINATION / VICTORY ════════════════ */
