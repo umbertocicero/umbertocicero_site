@@ -886,7 +886,7 @@ const AI = (() => {
                     }
                     if (canFight) {
                         const result = GameEngine.attack(code, target.territory);
-                        if (result) actions.push({ type:'attack', nation:code, target:target.territory, result });
+                        if (result && !result.blocked) actions.push({ type:'attack', nation:code, target:target.territory, result });
                     }
                 }
             }
@@ -937,7 +937,7 @@ const AI = (() => {
                 const targets = situation.scoredTargets.filter(t => situation.enemies.includes(t.owner));
                 if (targets.length > 0 && situation.myAtkPow > 5) {
                     const result = GameEngine.attack(code, targets[0].territory);
-                    if (result) actions.push({ type:'attack', nation:code, target:targets[0].territory, result });
+                    if (result && !result.blocked) actions.push({ type:'attack', nation:code, target:targets[0].territory, result });
                 }
             }
             /* But if peace has lasted too long, break out of consolidation */
@@ -985,13 +985,13 @@ const AI = (() => {
             const homelandTarget = situation.scoredTargets.find(t => t.territory === situation.homeland);
             if (homelandTarget) {
                 const result = GameEngine.attack(code, situation.homeland);
-                if (result) actions.push({ type:'attack', nation:code, target:situation.homeland, result });
+                if (result && !result.blocked) actions.push({ type:'attack', nation:code, target:situation.homeland, result });
             } else {
                 /* Can't reach homeland directly — attack any territory of occupier */
                 const pathTargets = situation.scoredTargets.filter(t => t.owner === enemy);
                 if (pathTargets.length > 0) {
                     const result = GameEngine.attack(code, pathTargets[0].territory);
-                    if (result) actions.push({ type:'attack', nation:code, target:pathTargets[0].territory, result });
+                    if (result && !result.blocked) actions.push({ type:'attack', nation:code, target:pathTargets[0].territory, result });
                 }
             }
         }
@@ -1010,13 +1010,12 @@ const AI = (() => {
                 if (attacksMade >= maxAttacks) break;
                 const result = GameEngine.attack(code, tgt.territory);
                 if (result) {
+                    if (result.blocked) break; /* Can't afford / can't reach — stop */
                     actions.push({ type:'attack', nation:code, target:tgt.territory, result });
                     attacksMade++;
                     totalAttacksMade++;
                     /* If we lost, stop attacking immediately */
                     if (!result.success) break;
-                    /* If we lost badly, stop attacking */
-                    if (result.blocked) break;
                 }
             }
         }
@@ -1062,7 +1061,7 @@ const AI = (() => {
                 if (situation.myAtkPow > victimDefPow * requiredAdvantage) {
                     /* attack() calls ensureWar() internally — no redundant declaration */
                     const result = GameEngine.attack(code, expansionTarget.territory);
-                    if (result) {
+                    if (result && !result.blocked) {
                         actions.push({ type:'attack', nation:code, target:expansionTarget.territory, result });
                         totalAttacksMade++;
                     }
@@ -1090,7 +1089,7 @@ const AI = (() => {
                 else {
                 /* attack() calls ensureWar() internally — no redundant declaration */
                 const result = GameEngine.attack(code, best.territory);
-                if (result) {
+                if (result && !result.blocked) {
                     actions.push({ type:'attack', nation:code, target:best.territory, result });
                     totalAttacksMade++;
                 }
@@ -1180,7 +1179,7 @@ const AI = (() => {
                                     const followUp = findAttackTargets(code, rival);
                                     if (followUp.length > 0) {
                                         const atkResult = GameEngine.attack(code, followUp[0]);
-                                        if (atkResult) actions.push({ type:'attack', nation:code, target:followUp[0], result:atkResult });
+                                        if (atkResult && !atkResult.blocked) actions.push({ type:'attack', nation:code, target:followUp[0], result:atkResult });
                                     }
                                 }
                                 break;
@@ -1205,7 +1204,7 @@ const AI = (() => {
                     const targets = findAttackTargets(code, nc);
                     if (targets.length > 0) {
                         const result = GameEngine.attack(code, targets[0]);
-                        if (result) {
+                        if (result && !result.blocked) {
                             actions.push({ type:'attack', nation:code, target:targets[0], result });
                             totalAttacksMade++;
                         }

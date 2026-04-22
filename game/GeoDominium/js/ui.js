@@ -3430,7 +3430,7 @@ const UI = (() => {
             logAIAction(act, state);
             _emitBus('ai:action', { action: act, state });
 
-            if (act.type === 'attack' && act.result) {
+            if (act.type === 'attack' && act.result && !act.result.blocked) {
                 const _aI = _nationInfo(act.result.attacker);
                 const _dI = _nationInfo(act.result.defender);
                 const aiLaunchCode = act.result.launchFrom || act.nation;
