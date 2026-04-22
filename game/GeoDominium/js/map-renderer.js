@@ -369,23 +369,54 @@ const MapRenderer = (() => {
         } catch { return null; }
     }
 
-    /** Convert SVG coordinate to screen pixel (for FX canvas).
-     *  Uses a cached CTM to avoid forced-layout from repeated getScreenCTM(). */
+    /** Convert SVG coordinate to container-relative pixel (for FX canvas).
+     *  Uses a manual computation based on the SVG viewBox, container size,
+     *  and current pan/scale — bypasses getScreenCTM() which is unreliable
+     *  on mobile browsers (WebKit) when CSS transforms are on ancestors. */
     function svgToScreen(svgX, svgY) {
-        if (!svgEl) return null;
+        if (!svgEl || !container) return null;
         try {
             if (!_ctmCache) {
-                _ctmCache = svgEl.getScreenCTM();
-                _crCache  = container.getBoundingClientRect();
+                /* Build our own mapping from SVG user-space → container pixels.
+                   The SVG has preserveAspectRatio="xMidYMid meet", width/height 100%
+                   of the wrapper, which has layout size = container size. */
+                const vb = svgEl.viewBox.baseVal;
+                if (!vb || vb.width === 0 || vb.height === 0) {
+                    /* Fallback to getScreenCTM if viewBox is missing */
+                    const ctm = svgEl.getScreenCTM();
+                    const cr  = container.getBoundingClientRect();
+                    if (!ctm) return null;
+                    _ctmCache = { mode: 'ctm', ctm, crLeft: cr.left, crTop: cr.top };
+                } else {
+                    const cw = container.clientWidth;
+                    const ch = container.clientHeight;
+                    /* xMidYMid meet: uniform scale to fit, centred */
+                    const sx = cw / vb.width;
+                    const sy = ch / vb.height;
+                    const ratio = Math.min(sx, sy);
+                    const offX = (cw - vb.width * ratio) / 2;
+                    const offY = (ch - vb.height * ratio) / 2;
+                    _ctmCache = { mode: 'manual', vbX: vb.x, vbY: vb.y, ratio, offX, offY };
+                }
             }
-            const ctm = _ctmCache;
-            if (!ctm) return null;
-            /* Manual matrix transform — avoids createSVGPoint overhead */
-            const sx = ctm.a * svgX + ctm.c * svgY + ctm.e;
-            const sy = ctm.b * svgX + ctm.d * svgY + ctm.f;
-            const result = { x: sx - _crCache.left, y: sy - _crCache.top };
-            if (isNaN(result.x) || isNaN(result.y)) return null;
-            return result;
+            const c = _ctmCache;
+            if (c.mode === 'manual') {
+                /* SVG coords → wrapper-local → container (via CSS transform) */
+                const lx = (svgX - c.vbX) * c.ratio + c.offX;
+                const ly = (svgY - c.vbY) * c.ratio + c.offY;
+                const x = lx * scale + panX;
+                const y = ly * scale + panY;
+                if (isNaN(x) || isNaN(y)) return null;
+                return { x, y };
+            } else {
+                /* Legacy CTM fallback */
+                const ctm = c.ctm;
+                const sx = ctm.a * svgX + ctm.c * svgY + ctm.e;
+                const sy = ctm.b * svgX + ctm.d * svgY + ctm.f;
+                const result = { x: sx - c.crLeft, y: sy - c.crTop };
+                if (isNaN(result.x) || isNaN(result.y)) return null;
+                return result;
+            }
         } catch (e) {
             return null;
         }

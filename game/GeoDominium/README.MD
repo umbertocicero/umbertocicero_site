@@ -575,7 +575,7 @@ Il gioco supporta **Italiano** 🇮🇹 e **Inglese** 🇬🇧.
 ```
 GeoDominium/
 ├── index.html              # Entry point HTML
-├── terra-dominium.css      # Stili completi (dark theme, HUD militare)
+├── geo-dominium.css      # Stili completi (dark theme, HUD militare)
 ├── README.MD               # Questo file
 ├── TODO.MD                 # Roadmap e task list
 │

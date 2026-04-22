@@ -62,6 +62,11 @@
 .legend-item.legend-ally { background: rgba(0,230,118,0.08); }
 .legend-item.legend-ally:hover { background: rgba(0,230,118,0.15); }
 .legend-item.legend-dead { opacity: 0.4; text-decoration: line-through; cursor: default; }
+.legend-item.legend-minor { border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); margin-top: 2px; }
+.legend-item.legend-minor:hover { background: rgba(255,255,255,0.06); }
+.legend-minor-arrow { transition: transform 0.2s; }
+.legend-item-minor { padding-left: var(--sp-4, 16px); font-size: 0.72rem; opacity: 0.85; }
+.legend-item-minor:hover { background: rgba(255,255,255,0.08); opacity: 1; }
 .legend-flag-img {
     width: 16px;
     height: 12px;

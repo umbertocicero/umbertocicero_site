@@ -1438,16 +1438,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-d
 
 /* Hero flag */
 .go-hero-flag {
-    display: flex; justify-content: center; align-items: center;
-    margin: 12px auto 14px;
-    width: 140px; height: 96px;
+    display: flex; justify-content: center; margin: 12px 0 14px;
 }
 .go-flag-img {
-    width: 120px; height: 80px;
-    max-width: 120px; max-height: 80px;
-    object-fit: contain;
-    border-radius: 12px; border: 2px solid rgba(255,255,255,0.12);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 40px rgba(0,229,255,0.08);
+    width: 120px; height: 80px; object-fit: contain;
+    border-radius: 8px; border: 2px solid rgba(255,255,255,0.12);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
 /* Victory type badge */
@@ -2046,8 +2042,7 @@ body.spectator-active .btn-reopen-nations { top: 86px; }
     .diplo-card-actions { gap: 4px; }
     .diplo-btn { font-size: 0.6rem; padding: 4px 7px; }
     .go-stats-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
-    .go-flag-img { width: 80px; height: 54px; max-width: 80px; max-height: 54px; }
-    .go-hero-flag { width: 100px; height: 66px; }
+    .go-flag-img { width: 80px; height: 54px; }
     .gameover-content { max-width: 95vw; }
     .gameover-content h2 { font-size: 1.1rem; margin-bottom: 2px; }
     .gameover-content p { font-size: 0.75rem; margin-bottom: 4px; }
@@ -2114,8 +2109,7 @@ body.spectator-active .btn-reopen-nations { top: 86px; }
     .gameover-content h2 { font-size: 1rem; margin-bottom: 0; }
     .gameover-content p { font-size: 0.7rem; margin-bottom: 2px; }
     .go-hero-flag { margin: 4px 0 6px; }
-    .go-flag-img { width: 60px; height: 40px; max-width: 60px; max-height: 40px; border-radius: 6px; }
-    .go-hero-flag { width: 76px; height: 52px; }
+    .go-flag-img { width: 60px; height: 40px; border-radius: 6px; }
     .go-victory-badge { padding: 3px 10px; margin-bottom: 6px; flex-direction: row; gap: 6px; }
     .go-vb-icon { font-size: 0.85rem; }
     .go-vb-label { font-size: 0.72rem; }

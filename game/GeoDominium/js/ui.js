@@ -920,8 +920,12 @@ const UI = (() => {
                     return;
                 }
                 const item = e.target.closest('.legend-item[data-code]');
-                if (item && !item.classList.contains('legend-dead')) {
-                    showNationDetail(item.dataset.code);
+                if (item) {
+                    if (item.classList.contains('legend-item-minor')) {
+                        showTerritoryPanel(item.dataset.code);
+                    } else if (!item.classList.contains('legend-dead')) {
+                        showNationDetail(item.dataset.code);
+                    }
                 }
             });
 
@@ -975,10 +979,22 @@ const UI = (() => {
             html += `<div class="legend-item ${cls}" data-code="${code}">${_flagImgHtml(code, n.name, 'legend-flag-img')}<span class="legend-name">${n.name}</span><span class="legend-count">${count}</span><span class="legend-pct">${pct}%</span></div>`;
         });
 
-        /* Minor nations summary */
+        /* Minor nations summary — collapsible */
         if (minorTotal > 0) {
             const minorPct = totalTerritories > 0 ? ((minorTotal / totalTerritories) * 100).toFixed(1) : '0.0';
-            html += `<div class="legend-item legend-minor">🏳️ <span class="legend-name">${t('nl_minor', {n: minorNationCount})}</span><span class="legend-count">${minorTotal}</span><span class="legend-pct">${minorPct}%</span></div>`;
+            html += `<div class="legend-item legend-minor" id="legend-minor-toggle" style="cursor:pointer;user-select:none;">🏳️ <span class="legend-name">${t('nl_minor', {n: minorNationCount})}</span><span class="legend-count">${minorTotal}</span><span class="legend-pct">${minorPct}%</span><span class="legend-minor-arrow" style="margin-left:4px;font-size:0.55rem;">▼</span></div>`;
+            /* Build individual minor nation rows */
+            const minorEntries = Object.keys(nationCounts)
+                .filter(c => !majorCodes.has(c))
+                .map(c => ({ code: c, count: nationCounts[c] }))
+                .sort((a, b) => b.count - a.count);
+            html += `<div class="legend-minor-list" id="legend-minor-list" style="display:none;">`;
+            minorEntries.forEach(({ code, count }) => {
+                const info = _nationInfo(code);
+                const pct = totalTerritories > 0 ? ((count / totalTerritories) * 100).toFixed(1) : '0.0';
+                html += `<div class="legend-item legend-item-minor" data-code="${code}">${_flagImgHtml(code, info.name, 'legend-flag-img')}<span class="legend-name">${info.name}</span><span class="legend-count">${count}</span><span class="legend-pct">${pct}%</span></div>`;
+            });
+            html += `</div>`;
         }
 
         /* Dead nations (0 territories) — collapsible */
@@ -1008,6 +1024,20 @@ const UI = (() => {
                 const open = list.style.display !== 'none';
                 list.style.display = open ? 'none' : 'block';
                 deadToggle.querySelector('span:last-child').textContent = open ? '▼' : '▲';
+            });
+        }
+
+        /* Toggle minor nations list */
+        const minorToggle = document.getElementById('legend-minor-toggle');
+        if (minorToggle) {
+            minorToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const list = document.getElementById('legend-minor-list');
+                if (!list) return;
+                const open = list.style.display !== 'none';
+                list.style.display = open ? 'none' : 'block';
+                const arrow = minorToggle.querySelector('.legend-minor-arrow');
+                if (arrow) arrow.textContent = open ? '▼' : '▲';
             });
         }
     }
