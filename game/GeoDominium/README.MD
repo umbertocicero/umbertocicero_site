@@ -1,34 +1,36 @@
 # 🌍 GeoDominium — Global Strategic Warfare
 
+<!-- markdownlint-disable MD060 -->
+
 > **Un gioco di strategia geopolitica a turni, interamente in JavaScript puro, con dati reali.**
 
 Controlla una delle 50 nazioni giocabili su una mappa mondiale SVG interattiva.
 Gestisci 10 risorse reali, comanda 12 tipi di unità militari, ricerca 12 tecnologie, intessi alleanze e sanzioni, conquista territori e combatti un'IA strategica che si adatta al tuo stile di gioco.
 
-<p align="center"><strong>🎮 Apri <code>index.html</code> — nessuna installazione, nessun build step.</strong></p>
+**🎮 Apri `index.html` — nessuna installazione, nessun build step.**
 
 ---
 
 ## 📖 Sommario
 
-- [Come Giocare](#-come-giocare)
-- [Il Mondo di Gioco](#-il-mondo-di-gioco)
-- [Sistema Economico](#-sistema-economico)
-- [Sistema Militare e Combattimento](#️-sistema-militare-e-combattimento)
-- [Sistema di Guarnigione](#-sistema-di-guarnigione)
-- [Sistema di Malcontento (Unrest)](#-sistema-di-malcontento-unrest)
-- [Diplomazia](#-diplomazia)
-- [Spionaggio](#-spionaggio)
-- [Escalation Nucleare](#️-escalation-nucleare)
-- [Condizioni di Vittoria](#-condizioni-di-vittoria)
-- [Intelligenza Artificiale](#-intelligenza-artificiale)
-- [Eventi Casuali](#-eventi-casuali)
-- [Sistema di Raggiungibilità](#-sistema-di-raggiungibilità)
-- [Assedio della Patria (Homeland Siege)](#️-assedio-della-patria-homeland-siege)
-- [Negoziazione di Pace](#️-negoziazione-di-pace)
-- [Internazionalizzazione (i18n)](#-internazionalizzazione-i18n)
-- [Struttura Tecnica](#️-struttura-tecnica)
-- [Feature Completa](#-feature-completa)
+- Come Giocare
+- Il Mondo di Gioco
+- Sistema Economico
+- Sistema Militare e Combattimento
+- Sistema di Guarnigione
+- Sistema di Malcontento (Unrest)
+- Diplomazia
+- Spionaggio
+- Escalation Nucleare
+- Condizioni di Vittoria
+- Intelligenza Artificiale
+- Eventi Casuali
+- Sistema di Raggiungibilità
+- Assedio della Patria (Homeland Siege)
+- Negoziazione di Pace
+- Internazionalizzazione (i18n)
+- Struttura Tecnica
+- Feature Completa
 
 ---
 
@@ -160,7 +162,7 @@ Un valore 0-100% che rappresenta lo stato del mondo:
 
 ### Formula di Combattimento
 
-```
+```text
 Potenza_ATK = Σ (base_atk + tech_bonus) × quantità  per ogni tipo di unità
 Potenza_DEF = Σ (base_def + tech_bonus) × quantità  per ogni tipo di unità
 
@@ -317,7 +319,7 @@ Dopo **ogni conquista**, il sistema ricalcola le guarnigioni in tempo reale. Se 
 
 ### Tributo — Formula di Successo
 
-```
+```text
 powerRatio = tua_forza_atk / max(1, loro_forza_def)
 successChance = min(0.80, powerRatio × 0.30 + (relazione < -30 ? 0.20 : 0))
 ```
@@ -441,6 +443,7 @@ Il gioco include una modalità **Auto-Play** che permette di osservare la partit
 | 💀 **Player eliminato** | Automatica | Il gioco continua senza il player, modalità spettatore |
 
 **Come funziona:**
+
 - Quando l'auto-play è attivo, la nazione del giocatore viene **aggiunta alla lista IA** e processata con lo stesso algoritmo delle altre nazioni
 - L'IA usa il **profilo di personalità** della nazione scelta (es. USA = `superpower`, Italia = `defensive`)
 - Il player raccoglie risorse, costruisce unità, fa diplomazia, attacca, ricerca e seda rivolte — tutto automaticamente
@@ -528,7 +531,7 @@ Quando chiedi la pace, il nemico calcola le **condizioni** basandosi su 7 fattor
 
 12 tecnologie ricercabili con prerequisiti a catena:
 
-```
+```text
                     ┌─ 🤖 Droni Avanzati ─── 👻 Stealth ─── ⚡ Ipersonici
                     │        └──────────── 🛰️ Ricognizione Spaziale
 💻 Cyberwarfare ────┤
@@ -572,7 +575,7 @@ Il gioco supporta **Italiano** 🇮🇹 e **Inglese** 🇬🇧.
 
 ## 🛠️ Struttura Tecnica
 
-```
+```text
 GeoDominium/
 ├── index.html              # Entry point HTML
 ├── geo-dominium.css      # Stili completi (dark theme, HUD militare)
