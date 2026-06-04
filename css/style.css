@@ -1307,6 +1307,125 @@ section.resume-section .resume-item .resume-date {
 }
 
 /* ==============================
+   Warp Button — Minimal, Elegant Back Link
+   Clean design with subtle magnetic hover
+   ============================== */
+.warp-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.75rem 1.6rem;
+  background: transparent;
+  border: none;
+  border-radius: 50px;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.warp-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50px;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    var(--primary-color, #6366f1) 0%,
+    #8b5cf6 50%,
+    #ec4899 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.warp-btn:hover::before {
+  opacity: 1;
+}
+
+.warp-btn:hover {
+  text-decoration: none;
+  transform: translateX(-3px);
+}
+
+/* ── Icon ── */
+.warp-btn__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--primary-color, #6366f1);
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1), color 0.35s ease;
+}
+
+.warp-btn__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.warp-btn:hover .warp-btn__icon {
+  transform: translateX(-6px);
+  color: #ec4899;
+}
+
+/* ── Text ── */
+.warp-btn__text {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-color, #1a1a2e);
+  transition: color 0.35s ease, letter-spacing 0.4s ease;
+}
+
+.warp-btn:hover .warp-btn__text {
+  color: var(--primary-color, #6366f1);
+  letter-spacing: 0.16em;
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] .warp-btn__text {
+  color: #f0f0f5;
+}
+
+[data-theme="dark"] .warp-btn:hover .warp-btn__text {
+  color: #a5b4fc;
+}
+
+/* ── Mobile ── */
+@media (max-width: 480px) {
+  .warp-btn {
+    padding: 0.6rem 1.2rem;
+    gap: 0.6rem;
+  }
+  
+  .warp-btn__text {
+    font-size: 0.7rem;
+  }
+  
+  .warp-btn__icon {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .warp-btn,
+  .warp-btn__icon {
+    transition: none;
+  }
+}
+
+/* ==============================
    App Badge — small status tag
    ============================== */
 .app-badge {
